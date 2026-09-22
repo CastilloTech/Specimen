@@ -9,7 +9,7 @@
     "meltdownStrain": 3,
     "lateDrawFromRound": 5,
     "lateDraw": 1,
-    "catchUpHpGap": 8,
+    "catchUpHpGap": 6,
     "catchUpDraw": 1,
     "secondMoverDraw": 0,
     "secondMoverEnergy": 0,
@@ -62,8 +62,8 @@
     "quietStrain": 1,
     "ambush": {
       "predator": { "attack": 5, "armor": 0, "heal": 0, "oppStrain": 0, "draw": 0 },
-      "parasite": { "attack": 2, "armor": 0, "heal": 0, "oppStrain": 1, "draw": 0 },
-      "bastion": { "attack": 1, "armor": 4, "heal": 1, "oppStrain": 0, "draw": 0 }
+      "parasite": { "attack": 1, "armor": 0, "heal": 0, "oppStrain": 1, "draw": 0 },
+      "bastion": { "attack": 1, "armor": 3, "heal": 1, "oppStrain": 0, "draw": 0 }
     }
   },
   "cycle": { "perRound": 1, "ventAmount": 1, "drawAmount": 1 },

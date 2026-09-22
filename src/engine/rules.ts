@@ -611,10 +611,12 @@ export function rejectGraft(s: GameState, p: PlayerId): boolean {
   pl.grafts = pl.grafts.filter((x) => x !== g);
   pl.discard.push({ uid: g.uid, cardId: g.cardId });
   markRevealed(s, g.uid); // an ejected graft is shown to everyone
-  pl.strain = Math.max(0, pl.strain - g.strain);
+  let ventTotal = g.strain;
+  if (hardened) ventTotal += nodeParam(pl, 'hardened', 'ventBonus'); // makes up for ejecting the low-Strain graft it kept for
+  pl.strain = Math.max(0, pl.strain - ventTotal);
   pl.stats.rejectionsSuffered++;
   pl.rejectedThisRound = true;
-  logMsg(s, 'reject', p, `REJECTION: ${pl.name} ejects ${card.name} from ${SLOT_LABEL[g.slot]} (-${g.strain} Strain).`, g.strain);
+  logMsg(s, 'reject', p, `REJECTION: ${pl.name} ejects ${card.name} from ${SLOT_LABEL[g.slot]} (-${ventTotal} Strain).`, ventTotal);
   if (g.disabled <= 0 && !g.faceDown) {
     for (const ab of card.effect.abilities ?? []) {
       if (ab.trigger === 'onReject' && condOk(s, pl, ab.cond)) runOps(s, ab.ops, { caster: p, victim: other(p), source: card.name });

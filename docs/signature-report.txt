@@ -1,3 +1,3 @@
-predator  pred_apex_maw        with 50.6%  without 47.9%  signature worth 2.7 points (n=8000)
-parasite  para_queen_cyst      with 51.0%  without 48.3%  signature worth 2.8 points (n=8000)
-bastion   bast_bulwark_heart   with 46.5%  without 43.5%  signature worth 3.0 points (n=8000)
+predator  pred_apex_maw        with 50.0%  without 47.2%  signature worth 2.7 points (n=8000)
+parasite  para_queen_cyst      with 50.7%  without 47.8%  signature worth 2.9 points (n=8000)
+bastion   bast_bulwark_heart   with 48.0%  without 45.0%  signature worth 3.0 points (n=8000)

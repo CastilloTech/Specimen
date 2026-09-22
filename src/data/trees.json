@@ -49,7 +49,7 @@
       "strain": [
         { "id": "heatSink", "name": "Heat Sink", "text": "Vent 1 extra on even rounds, and 2 more on rounds you Hold.", "params": { "ventAlways": 1, "period": 2, "vent": 2 } },
         { "id": "pressureValve", "name": "Pressure Valve", "text": "Once per match, as a Protocol-speed reaction, vent 2.", "params": { "vent": 2, "uses": 1 } },
-        { "id": "hardened", "name": "Hardened", "text": "Rejection ejects your lowest-Strain graft instead.", "params": {} }
+        { "id": "hardened", "name": "Hardened", "text": "Rejection ejects your lowest-Strain graft instead, and vents 1 more Strain.", "params": { "ventBonus": 1 } }
       ],
       "stance": [
         { "id": "counterweight", "name": "Counterweight", "text": "Fortify counter deals 3.", "params": { "counter": 3 } },
