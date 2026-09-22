@@ -113,7 +113,7 @@ export function validateAction(s: GameState, a: Action): string | null {
       return null;
     case 'CHOOSE_EVOLUTION':
       if (s.phase !== 'evolve' || s.evoQueue[0] !== a.player) return 'Not your evolution choice.';
-      if (!pl.evolutionOptions.includes(a.id)) return 'Not a valid evolution.';
+      if (a.id !== null && !pl.evolutionOptions.includes(a.id)) return 'Not a valid evolution.';
       return null;
     case 'REACT':
     case 'DECLINE_REACTION':
@@ -253,7 +253,8 @@ function apply(s: GameState, a: Action): void {
       return;
     }
     case 'CHOOSE_EVOLUTION': {
-      evolve(s, a.player, a.id);
+      if (a.id !== null) evolve(s, a.player, a.id);
+      else logMsg(s, 'evolve', a.player, `${pl.name} holds off on evolving for now.`);
       s.evoQueue.shift();
       if (!s.evoQueue.length) finishRound(s);
       return;
@@ -335,9 +336,10 @@ function apply(s: GameState, a: Action): void {
     }
     case 'HOLD': {
       pl.hold = true;
+      pl.tempArmor += s.config.strain.holdArmor;
       s.passStreak = 0;
       s.actionCount++;
-      logMsg(s, 'info', a.player, `${pl.name} declares Hold: no Clash damage this round.`);
+      logMsg(s, 'info', a.player, `${pl.name} declares Hold: no Clash damage this round, +${s.config.strain.holdArmor} armor.`);
       afterAction(s, a.player);
       return;
     }

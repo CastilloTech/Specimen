@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { computeStats, evoEffects, evolutionProgress, findNode, metricValue, overclockBonus, pendingPlayers } from '../src/engine';
-import { arena, attached, edit, endRound, go, hands, nextRound, play, rawStrain, setEnergy, setStrain, tryGo, withNodes } from './kit';
+import { botAction, computeStats, evoEffects, evolutionProgress, findNode, makeRng, metricValue, overclockBonus, pendingPlayers } from '../src/engine';
+import { arena, attached, edit, endRound, go, hands, nextRound, pass, pickStances, play, rawStrain, setEnergy, setStrain, tryGo, withNodes } from './kit';
 
 const stats = (s: ReturnType<typeof arena>, p: 0 | 1, fn: (st: (typeof s.players)[0]['stats']) => void) =>
   edit(s, (d) => {
@@ -33,7 +33,8 @@ describe('Evolution: general rules', () => {
     s = rawStrain(s, 0, 9);
     s = nextRound(s);
     expect(s.players[0].evolution).toBe('apexStalker'); // Frenzy's condition is met, but it is too late
-    expect(s.log.filter((l) => l.kind === 'evolve' && /P1/.test(l.text))).toHaveLength(1);
+    // 2, not 4: the condition-met announcement and the evolve announcement, once each (Frenzy never announces: already evolved).
+    expect(s.log.filter((l) => l.kind === 'evolve' && /P1/.test(l.text))).toHaveLength(2);
   });
 
   it('lets the player choose when both conditions are met in the same check', () => {
@@ -50,6 +51,66 @@ describe('Evolution: general rules', () => {
     expect(s.players[0].evolution).toBe('frenzyForm');
     expect(s.phase).toBe('stance'); // the round continues
     expect(s.round).toBe(2);
+  });
+});
+
+describe('Declining an evolution', () => {
+  it('a single met condition still offers a choice: evolve, or hold off', () => {
+    let s = arena('predator', 'predator');
+    s = stats(s, 0, (st) => void (st.damageDealt = 11));
+    s = pass(s);
+    s = pass(s);
+    expect(s.phase).toBe('evolve');
+    expect(s.players[0].evolutionOptions).toEqual(['apexStalker']);
+    expect(s.players[0].evolution).toBeNull();
+  });
+
+  it('holding off leaves the Specimen unevolved and the round continues normally', () => {
+    let s = arena('predator', 'predator');
+    s = stats(s, 0, (st) => void (st.damageDealt = 11));
+    s = pass(s);
+    s = pass(s); // does not auto-accept: only the kit's endActions() convenience wrapper does that
+    s = go(s, { type: 'CHOOSE_EVOLUTION', player: 0, id: null });
+    expect(s.players[0].evolution).toBeNull();
+    expect(s.log.some((l) => /holds off/.test(l.text))).toBe(true);
+    expect(s.phase).toBe('stance'); // the round still finished
+    expect(s.round).toBe(2);
+  });
+
+  it('is offered again next round if the condition is still met, and can be accepted later', () => {
+    let s = arena('predator', 'predator');
+    s = stats(s, 0, (st) => void (st.damageDealt = 11));
+    s = pass(s);
+    s = pass(s);
+    s = go(s, { type: 'CHOOSE_EVOLUTION', player: 0, id: null });
+    s = pickStances(s, 'aggress', 'aggress');
+    s = pass(s);
+    s = pass(s); // damageDealt is cumulative and still >= target: offered again
+    expect(s.phase).toBe('evolve');
+    expect(s.players[0].evolutionOptions).toEqual(['apexStalker']);
+    s = go(s, { type: 'CHOOSE_EVOLUTION', player: 0, id: 'apexStalker' });
+    expect(s.players[0].evolution).toBe('apexStalker');
+  });
+
+  it('cannot decline on the other player\'s behalf, and cannot decline outside the evolve phase', () => {
+    let s = arena('predator', 'predator');
+    s = stats(s, 0, (st) => void (st.damageDealt = 11));
+    s = pass(s);
+    s = pass(s);
+    expect(tryGo(s, { type: 'CHOOSE_EVOLUTION', player: 1, id: null })).toMatch(/Not your/);
+    s = go(s, { type: 'CHOOSE_EVOLUTION', player: 0, id: null });
+    expect(tryGo(s, { type: 'CHOOSE_EVOLUTION', player: 0, id: null })).toMatch(/Not your/);
+  });
+
+  it('the bot always accepts and never declines', () => {
+    let s = arena('predator', 'predator');
+    s = stats(s, 0, (st) => void (st.damageDealt = 11));
+    s = edit(s, (d) => void (d.players[0].isBot = true));
+    s = pass(s);
+    s = pass(s);
+    expect(s.phase).toBe('evolve');
+    const a = botAction(s, 0, makeRng(1));
+    expect(a).toMatchObject({ type: 'CHOOSE_EVOLUTION', id: 'apexStalker' });
   });
 });
 

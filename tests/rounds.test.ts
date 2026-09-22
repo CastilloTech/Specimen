@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { pendingPlayers } from '../src/engine';
-import { arena, attached, baseMatch, edit, endActions, endRound, go, hands, nextRound, pass, pickStances, play, playErr, setEnergy, setHp, setStrain, start, tryGo } from './kit';
+import { arena, attached, baseMatch, edit, endActions, endRound, go, hands, nextRound, pass, pickStances, play, playErr, rawStrain, setEnergy, setHp, setStrain, start, tryGo } from './kit';
 
 describe('Energy and drawing', () => {
   it('Energy equals the round number, capped at 6', () => {
@@ -161,13 +161,14 @@ describe('Clash', () => {
     expect(s.result?.winner).toBeNull(); // both hit 0 together: draw
   });
 
-  it('a player who declared Hold deals no Clash damage', () => {
+  it('a player who declared Hold deals no Clash damage, and gets some armor from it', () => {
     let s = arena();
+    const holdArmor = s.config.strain.holdArmor;
     s = go(s, { type: 'HOLD', player: 0 });
     expect(tryGo(pass(s), { type: 'HOLD', player: 0 })).toMatch(/Already holding/);
     s = endRound(s);
-    expect(s.players[1].hp).toBe(30);
-    expect(s.players[0].hp).toBe(28);
+    expect(s.players[1].hp).toBe(30); // P1 dealt no Clash damage
+    expect(s.players[0].hp).toBe(30 - Math.max(0, 2 - holdArmor)); // P2's base attack, reduced by Hold's armor
   });
 
   it('Hold does not stop the Fortify counter', () => {
@@ -175,6 +176,22 @@ describe('Clash', () => {
     s = go(s, { type: 'HOLD', player: 1 });
     s = endRound(s);
     expect(s.players[0].hp).toBe(29); // no attack from the holder, only the 1 counter
+  });
+
+  it('Hold also vents a little Strain, for any faction, even without Heat Sink', () => {
+    let s = rawStrain(arena(), 0, 5);
+    s = go(s, { type: 'HOLD', player: 0 });
+    s = endRound(s);
+    expect(s.players[0].strain).toBe(5 - s.config.strain.holdVent);
+  });
+
+  it("Hold's armor bonus lasts only the round it is declared in", () => {
+    let s = arena();
+    s = go(s, { type: 'HOLD', player: 0 });
+    expect(s.players[0].tempArmor).toBe(s.config.strain.holdArmor);
+    s = endRound(s);
+    expect(s.players[0].tempArmor).toBe(0);
+    expect(s.players[0].hold).toBe(false); // Hold is per round too
   });
 });
 

@@ -4,7 +4,7 @@ import { budgetOf } from './budget';
 import { cardOf } from './data';
 import { legalPlays, reactionOptions } from './reducer';
 import type { makeRng } from './rng';
-import { computeStats, graftStrain, hasNode } from './stats';
+import { computeStats, graftStrain, nodeParam } from './stats';
 import type { Action, AttachedGraft, CardDef, GameState, PlayerId, Stance } from './types';
 import { other, STANCES } from './types';
 
@@ -142,6 +142,7 @@ function deadness(s: GameState, p: PlayerId, def: CardDef): number {
 
 export function botMainAction(s: GameState, p: PlayerId, rng: Rng): Action {
   const pl = s.players[p];
+  const opp = s.players[other(p)];
   // A sleeping graft wakes once it can ambush (it has slept a round) and the Strain it saved fits under the margin.
   const T = s.config.strain.threshold;
   const waking = pl.grafts.find((g) => g.faceDown && (g.sleptSince ?? s.round) < s.round && pl.strain + (g.dormantStrain ?? 0) <= T - strainMargin(s, p));
@@ -173,7 +174,20 @@ export function botMainAction(s: GameState, p: PlayerId, rng: Rng): Action {
     const ranked = pl.hand.map((c) => ({ c, d: deadness(s, p, cardOf(c.cardId)) })).sort((x, y) => y.d - x.d);
     if (ranked[0].d >= 0.6) return { type: 'CYCLE', player: p, uid: ranked[0].c.uid, mode: pl.strain >= 6 ? 'vent' : 'draw' };
   }
-  if (hasNode(pl, 'heatSink') && !pl.hold && pl.strain >= 7 && pl.hp > 10) return { type: 'HOLD', player: p };
+  if (!pl.hold) {
+    // Hold gives up this round's own Clash damage for some armor (reduces incoming damage) and Strain relief.
+    // Worth it when there is little to lose (weak attack) and something real to gain (a hit worth blunting, or
+    // high Strain), more so when low on HP.
+    const cfg = s.config;
+    const myStats = computeStats(s, pl);
+    const oppStats = computeStats(s, opp);
+    const holdVent = cfg.strain.holdVent + nodeParam(pl, 'heatSink', 'vent');
+    const incoming = Math.max(0, oppStats.attack - myStats.armor);
+    const blocked = Math.min(incoming, cfg.strain.holdArmor);
+    const defenseValue = blocked * (pl.hp <= 14 ? 2 : 1.2);
+    const strainValue = holdVent * (pl.strain >= 6 ? 1.4 : 0.4);
+    if (defenseValue + strainValue > myStats.attack * 0.85 + 0.5) return { type: 'HOLD', player: p };
+  }
   return { type: 'PASS', player: p };
 }
 

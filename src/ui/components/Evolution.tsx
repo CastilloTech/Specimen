@@ -41,7 +41,7 @@ export function EvolutionBanners({ state, events, me, onDismiss }: { state: Game
 
 function Banner({ state, event, me, onDismiss }: { state: GameState; event: EvoEvent; me: PlayerId; onDismiss: () => void }) {
   useEffect(() => {
-    const t = setTimeout(onDismiss, 14000);
+    const t = setTimeout(onDismiss, 3000);
     return () => clearTimeout(t);
   }, [onDismiss]);
   const p = state.players[event.player];

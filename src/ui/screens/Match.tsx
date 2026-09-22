@@ -63,7 +63,7 @@ export function MatchScreen({ setup, mode, settings, onExit, onFinish }: Props) 
   const playCount = state.plays.length;
   useEffect(() => {
     if (!introSeen || needsHandoff || unseenOpp.length === 0) return;
-    const t = setTimeout(() => setSeenPlays(playCount), 5000);
+    const t = setTimeout(() => setSeenPlays(playCount), 3000);
     return () => clearTimeout(t);
   }, [introSeen, needsHandoff, unseenOpp.length, playCount]);
   const mine = state.players[me];
@@ -117,6 +117,14 @@ export function MatchScreen({ setup, mode, settings, onExit, onFinish }: Props) 
     setSelected(uid);
     setFaceDown(false);
   };
+  // A double-click plays a card straight away when it needs no slot or target choice, skipping the
+  // extra "select, then confirm" step for the common case of a plain instant.
+  const onHandDoubleClick = (uid: string) => {
+    if (cycleMode || !myTurn) return;
+    const matches = legal.filter((a) => a.type === 'PLAY_CARD' && a.uid === uid);
+    const plain = matches.length === 1 && matches.every((a) => a.type === 'PLAY_CARD' && !a.slot && !a.target);
+    if (plain) send({ type: 'PLAY_CARD', player: me, uid });
+  };
 
   // ----- Quality of life: pass confirmation, "nothing to play" hint, keyboard shortcuts -----
   const playableNow = legal.some((a) => a.type === 'PLAY_CARD');
@@ -153,6 +161,12 @@ export function MatchScreen({ setup, mode, settings, onExit, onFinish }: Props) 
     } else if (state.phase === 'feint') {
       if (stanceIdx !== undefined) send({ type: 'FEINT', player: me, stance: STANCES[stanceIdx] });
       if (k === 'k') send({ type: 'FEINT', player: me, stance: null });
+    } else if (state.phase === 'evolve') {
+      if (k === 'k') send({ type: 'CHOOSE_EVOLUTION', player: me, id: null });
+      else if (stanceIdx !== undefined) {
+        const opt = mine.evolutionOptions[stanceIdx];
+        if (opt) send({ type: 'CHOOSE_EVOLUTION', player: me, id: opt });
+      }
     } else if (reacting) {
       if (k === 'n') send({ type: 'DECLINE_REACTION', player: me });
     } else if (myTurn) {
@@ -199,7 +213,7 @@ export function MatchScreen({ setup, mode, settings, onExit, onFinish }: Props) 
       <PassDevice
         name={state.players[actor].name}
         color={PLAYER_COLORS[actor]}
-        why={state.phase === 'mulligan' ? 'decide on your mulligan' : state.phase === 'stance' ? 'pick your secret stance' : state.phase === 'feint' ? 'decide on a Feint' : state.phase === 'evolve' ? 'choose your evolution' : state.window ? 'respond to a play' : 'take your turn'}
+        why={state.phase === 'mulligan' ? 'decide on your mulligan' : state.phase === 'stance' ? 'pick your secret stance' : state.phase === 'feint' ? 'decide on a Feint' : state.phase === 'evolve' ? 'evolve, or hold off' : state.window ? 'respond to a play' : 'take your turn'}
         recent={state.log.slice(-3).map((l) => l.text)}
         onReady={() => {
           setViewer(actor);
@@ -296,17 +310,44 @@ export function MatchScreen({ setup, mode, settings, onExit, onFinish }: Props) 
         ) : state.phase === 'feint' ? (
           <FeintPrompt state={state} me={me} onPick={(st) => send({ type: 'FEINT', player: me, stance: st })} />
         ) : state.phase === 'evolve' ? (
-          <EvolvePrompt state={state} me={me} onPick={(id) => send({ type: 'CHOOSE_EVOLUTION', player: me, id })} />
+          <EvolvePrompt
+            state={state}
+            me={me}
+            onPick={(id) => send({ type: 'CHOOSE_EVOLUTION', player: me, id })}
+            onDecline={() => send({ type: 'CHOOSE_EVOLUTION', player: me, id: null })}
+          />
         ) : reacting && state.window ? (
           <ReactionPrompt state={state} me={me} onAct={(a) => send(a)} />
         ) : (
           <section className="shrink-0 rounded-xl border border-accent/60 bg-panel p-2 lg:grid lg:grid-cols-[minmax(0,1fr)_290px] lg:gap-3" aria-label="Your hand">
-            <div className="scroll-thin flex gap-2 overflow-x-auto px-1 pb-2 pt-5 lg:pb-1">
-              {mine.hand.length === 0 && <div className="p-3 text-xs text-mute">Your hand is empty.</div>}
-              {mine.hand.map((c) => {
-                const d = cardOf(c.cardId);
-                return <CardView key={c.uid} def={d} cost={cardCost(state, mine, d)} selected={selected === c.uid} dim={!cycleMode && !playable.has(c.uid)} onClick={() => onHandClick(c.uid)} />;
-              })}
+            <div>
+              <div className="flex items-center justify-between px-1 text-[11px] text-mute">
+                <span>Hand ({mine.hand.length})</span>
+                {myTurn && !cycleMode && (
+                  <span className="text-accent">{selected ? 'Double-tap to play instantly, or tap where it goes' : playableNow ? 'Tap a card to play it' : 'Nothing playable — Pass or Cycle'}</span>
+                )}
+              </div>
+              <div className="scroll-thin flex max-h-[60vh] flex-wrap content-start justify-center gap-1.5 overflow-y-auto px-1 pb-2 pt-2 lg:pb-1">
+                {mine.hand.length === 0 && <div className="p-3 text-xs text-mute">Your hand is empty.</div>}
+                {mine.hand.map((c, i) => {
+                  const d = cardOf(c.cardId);
+                  const dim = !cycleMode && !playable.has(c.uid);
+                  return (
+                    <CardView
+                      key={c.uid}
+                      def={d}
+                      cost={cardCost(state, mine, d)}
+                      selected={selected === c.uid}
+                      dim={dim}
+                      reason={dim ? (whyNot(c.uid) ?? undefined) : undefined}
+                      hotkey={settings.keyboard && i < 9 ? String(i + 1) : undefined}
+                      onClick={() => onHandClick(c.uid)}
+                      onDoubleClick={() => onHandDoubleClick(c.uid)}
+                      size={mine.hand.length > 6 ? 'sm' : 'md'}
+                    />
+                  );
+                })}
+              </div>
             </div>
             <div className="flex min-w-0 flex-col justify-end lg:pt-1">
             {selDef && selected && (
@@ -367,7 +408,12 @@ export function MatchScreen({ setup, mode, settings, onExit, onFinish }: Props) 
                   Pass{kbd('P')}
                 </button>
               )}
-              <button disabled={!myTurn || mine.hold} onClick={() => send({ type: 'HOLD', player: me })} title="Deal no Clash damage this round" className="flex-1 rounded-lg bg-panel2 px-3 py-2 text-sm font-semibold disabled:opacity-40">
+              <button
+                disabled={!myTurn || mine.hold}
+                onClick={() => send({ type: 'HOLD', player: me })}
+                title={`Deal no Clash damage this round, in exchange for +${state.config.strain.holdArmor} armor (reduces what you take) and venting ${state.config.strain.holdVent} Strain now.`}
+                className="flex-1 rounded-lg bg-panel2 px-3 py-2 text-sm font-semibold disabled:opacity-40"
+              >
                 Hold{kbd('H')}
               </button>
               {settings.cycling && (
@@ -507,11 +553,12 @@ function FeintPrompt({ state, me, onPick }: { state: GameState; me: PlayerId; on
   );
 }
 
-function EvolvePrompt({ state, me, onPick }: { state: GameState; me: PlayerId; onPick: (id: string) => void }) {
+function EvolvePrompt({ state, me, onPick, onDecline }: { state: GameState; me: PlayerId; onPick: (id: string) => void; onDecline: () => void }) {
   const p = state.players[me];
   const defs = (state.config.evolutions as Record<string, { id: string; name: string; text: string }[]>)[p.faction].filter((d) => p.evolutionOptions.includes(d.id));
+  const both = defs.length > 1;
   return (
-    <PromptBox title="Both evolution conditions are met. Choose your form.">
+    <PromptBox title={both ? 'Both evolution conditions are met. Choose your form, or hold off.' : `Your condition for ${defs[0]?.name} is met. Evolve now, or hold off?`}>
       <div className="grid gap-2 sm:grid-cols-2">
         {defs.map((d) => (
           <button key={d.id} onClick={() => onPick(d.id)} className="rounded-xl border border-line bg-panel2 p-2 text-left hover:border-accent">
@@ -527,6 +574,9 @@ function EvolvePrompt({ state, me, onPick }: { state: GameState; me: PlayerId; o
           </button>
         ))}
       </div>
+      <button onClick={onDecline} className="mt-2 w-full rounded-lg bg-panel2 px-3 py-2 text-sm font-semibold hover:border hover:border-mute">
+        Hold off (evolving is permanent; you'll be asked again while the condition still holds)
+      </button>
     </PromptBox>
   );
 }

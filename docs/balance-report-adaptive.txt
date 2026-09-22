@@ -1,96 +1,96 @@
 
 > specimen-card-game@0.1.0 sim
-> tsx scripts/sim.ts --matches 30000 --seed 8100001 --policy adaptive --jobs 8
+> tsx scripts/sim.ts --matches 30000 --seed 5100001 --policy adaptive --jobs 8
 
 
-SPECIMEN SIMULATION  |  30000 matches  |  seed 8100001  |  loadout policy: adaptive  |  147.0s
+SPECIMEN SIMULATION  |  30000 matches  |  seed 5100001  |  loadout policy: adaptive  |  218.7s
 ==============================================================================
 
 1. FACTION MATCHUPS  (row faction vs column faction; score = wins + 0.5 x draws)
                         predator              parasite               bastion
-predator        50.0% (50%W 0%D)      51.7% (52%W 0%D)      50.1% (50%W 0%D)
-parasite        48.3% (48%W 0%D)      50.0% (50%W 0%D)      49.5% (49%W 0%D)
-bastion         49.9% (50%W 0%D)      50.5% (50%W 0%D)      50.0% (49%W 2%D)
-   Cross-faction matchups within 45-55%: YES  (most lopsided: 51.7%)
+predator        50.0% (50%W 0%D)      49.5% (49%W 0%D)      53.1% (53%W 0%D)
+parasite        50.5% (50%W 0%D)      50.0% (50%W 0%D)      50.2% (50%W 0%D)
+bastion         46.9% (47%W 0%D)      49.8% (50%W 0%D)      50.0% (49%W 3%D)
+   Cross-faction matchups within 45-55%: YES  (most lopsided: 53.1%)
    Overall faction score:
-     predator   50.6%  (20002 games)
-     parasite   49.3%  (19999 games)
-     bastion    50.1%  (19999 games)
+     predator   50.9%  (20002 games)
+     parasite   50.2%  (19999 games)
+     bastion    48.9%  (19999 games)
 
 2. MATCH LENGTH
-   Average: 6.46 rounds   |   ended by KO: 68.7%   |   draws: 0.4%
-   Rounds histogram: 3: 0%  4: 11%  5: 20%  6: 18%  7: 12%  8: 39%
+   Average: 6.55 rounds   |   ended by KO: 66.7%   |   draws: 0.4%
+   Rounds histogram: 3: 0%  4: 10%  5: 19%  6: 17%  7: 13%  8: 41%
 
 3. REJECTIONS
-   Games with at least one rejection: 25.2%
+   Games with at least one rejection: 26.7%
 
 4. EVOLUTION SPLIT (share of each faction's appearances)
-   predator   Apex Stalker 47.7%  |  Frenzy Form 37.5%  |  none 14.9%
-   parasite   Hive Host 33.4%  |  Leech Form 45.1%  |  none 21.5%
-   bastion    Carapace 53.3%  |  Juggernaut 45.9%  |  none 0.8%
+   predator   Apex Stalker 46.7%  |  Frenzy Form 38.4%  |  none 14.9%
+   parasite   Hive Host 61.7%  |  Leech Form 25.4%  |  none 12.9%
+   bastion    Carapace 27.2%  |  Juggernaut 70.9%  |  none 2.0%
 
 5. STANCE PICK RATES
-   predator   aggress 33.5%   adapt 33.2%   fortify 33.3%
-   parasite   aggress 33.5%   adapt 33.2%   fortify 33.2%
-   bastion    aggress 33.2%   adapt 33.6%   fortify 33.2%
+   predator   aggress 33.3%   adapt 33.1%   fortify 33.6%
+   parasite   aggress 33.2%   adapt 33.4%   fortify 33.3%
+   bastion    aggress 33.1%   adapt 33.3%   fortify 33.6%
 
 6. SKILL-TREE NODES (pick rate = share of that faction's appearances; win rate = score of players who took it)
    PREDATOR
-     grafts     Serrated Limbs     pick  29.1%   win  48.2%   (n=5818)
-     grafts     Adrenal Gland      pick  39.8%   win  53.1%   (n=7955)
-     grafts     Stripped Frame     pick  31.1%   win  49.7%   (n=6229)
-     strain     Pain Tolerance     pick  30.3%   win  50.5%   (n=6065)
-     strain     Burnout            pick  38.0%   win  51.7%   (n=7610)
-     strain     Redline            pick  31.6%   win  49.4%   (n=6327)
-     stance     Pounce             pick  33.7%   win  51.6%   (n=6736)
-     stance     Bloodlust          pick  33.2%   win  50.1%   (n=6632)
-     stance     Feint              pick  33.2%   win  50.0%   (n=6634)
+     grafts     Serrated Limbs     pick  32.0%   win  49.9%   (n=6407)
+     grafts     Adrenal Gland      pick  38.1%   win  52.9%   (n=7625)
+     grafts     Stripped Frame     pick  29.8%   win  49.3%   (n=5970)
+     strain     Pain Tolerance     pick  34.0%   win  50.7%   (n=6803)
+     strain     Burnout            pick  35.6%   win  51.9%   (n=7125)
+     strain     Redline            pick  30.4%   win  49.9%   (n=6074)
+     stance     Pounce             pick  31.3%   win  49.8%   (n=6254)
+     stance     Bloodlust          pick  34.0%   win  51.6%   (n=6798)
+     stance     Feint              pick  34.7%   win  51.1%   (n=6950)
    PARASITE
-     grafts     Spore Sacs         pick  37.0%   win  51.0%   (n=7398)
-     grafts     Symbiote           pick  31.9%   win  48.7%   (n=6371)
-     grafts     Incubator          pick  31.2%   win  47.7%   (n=6230)
-     strain     Contagion          pick  37.4%   win  50.8%   (n=7485)
-     strain     Feedback           pick  32.8%   win  48.9%   (n=6560)
-     strain     Dormancy           pick  29.8%   win  47.8%   (n=5954)
-     stance     Latch              pick  30.2%   win  48.1%   (n=6044)
-     stance     Mirror             pick  35.9%   win  50.6%   (n=7187)
-     stance     Siphon             pick  33.8%   win  48.9%   (n=6768)
+     grafts     Spore Sacs         pick  35.5%   win  51.7%   (n=7098)
+     grafts     Symbiote           pick  33.3%   win  49.7%   (n=6653)
+     grafts     Incubator          pick  31.2%   win  49.0%   (n=6248)
+     strain     Contagion          pick  40.7%   win  53.0%   (n=8147)
+     strain     Feedback           pick  29.1%   win  48.5%   (n=5821)
+     strain     Dormancy           pick  30.2%   win  48.1%   (n=6031)
+     stance     Latch              pick  31.1%   win  49.6%   (n=6210)
+     stance     Mirror             pick  35.7%   win  51.3%   (n=7130)
+     stance     Siphon             pick  33.3%   win  49.6%   (n=6659)
    BASTION
-     grafts     Plated Hide        pick  37.6%   win  52.0%   (n=7525)
-     grafts     Fortress Frame     pick  29.2%   win  48.3%   (n=5841)
-     grafts     Regenerator        pick  33.2%   win  49.5%   (n=6633)
-     strain     Heat Sink          pick  34.2%   win  50.1%   (n=6840)
-     strain     Pressure Valve     pick  35.5%   win  51.4%   (n=7102)
-     strain     Hardened           pick  30.3%   win  48.7%   (n=6057)
-     stance     Counterweight      pick  30.2%   win  48.2%   (n=6030)
-     stance     Brace              pick  30.8%   win  49.3%   (n=6152)
-     stance     Unshakable         pick  39.1%   win  52.3%   (n=7817)
+     grafts     Plated Hide        pick  34.4%   win  49.7%   (n=6887)
+     grafts     Fortress Frame     pick  33.9%   win  49.3%   (n=6770)
+     grafts     Regenerator        pick  31.7%   win  47.7%   (n=6342)
+     strain     Heat Sink          pick  39.0%   win  51.4%   (n=7807)
+     strain     Pressure Valve     pick  31.8%   win  48.2%   (n=6366)
+     strain     Hardened           pick  29.1%   win  46.3%   (n=5826)
+     stance     Counterweight      pick  31.6%   win  48.1%   (n=6312)
+     stance     Brace              pick  32.1%   win  48.3%   (n=6426)
+     stance     Unshakable         pick  36.3%   win  50.1%   (n=7261)
    EVOLUTION ROW (all factions)
-     evolution  Hair Trigger       pick  31.7%   win  49.1%   (n=18991)
-     evolution  Late Bloomer       pick  31.3%   win  49.1%   (n=18762)
-     evolution  Surge              pick  37.1%   win  51.6%   (n=22247)
+     evolution  Hair Trigger       pick  31.1%   win  48.8%   (n=18637)
+     evolution  Late Bloomer       pick  31.2%   win  49.0%   (n=18739)
+     evolution  Surge              pick  37.7%   win  51.9%   (n=22624)
 
 7. EVOLUTIONS AND THE EVOLUTION ROW, PER FACTION
    "reached" = share of that faction's games that ended in the form; "win" = score of those players.
    PREDATOR
-     form  Apex Stalker       reached  47.7%   win  63.6%
-     form  Frenzy Form        reached  37.5%   win  45.7%
-     form  no evolution       reached  14.9%   win  21.2%
-     node  Hair Trigger       win  50.5%   evolved  96.5%   (n=6318)
-     node  Late Bloomer       win  48.6%   evolved  73.1%   (n=6232)
-     node  Surge              win  52.3%   evolved  85.6%   (n=7452)
+     form  Apex Stalker       reached  46.7%   win  63.8%
+     form  Frenzy Form        reached  38.4%   win  47.2%
+     form  no evolution       reached  14.9%   win  20.0%
+     node  Hair Trigger       win  50.9%   evolved  95.9%   (n=6181)
+     node  Late Bloomer       win  49.0%   evolved  74.2%   (n=6245)
+     node  Surge              win  52.4%   evolved  85.4%   (n=7576)
    PARASITE
-     form  Hive Host          reached  33.4%   win  54.9%
-     form  Leech Form         reached  45.1%   win  54.0%
-     form  no evolution       reached  21.5%   win  30.6%
-     node  Hair Trigger       win  47.4%   evolved  86.8%   (n=6276)
-     node  Late Bloomer       win  47.5%   evolved  71.1%   (n=6304)
-     node  Surge              win  52.4%   evolved  77.8%   (n=7419)
+     form  Hive Host          reached  61.7%   win  50.8%
+     form  Leech Form         reached  25.4%   win  70.4%
+     form  no evolution       reached  12.9%   win   8.0%
+     node  Hair Trigger       win  48.6%   evolved  95.9%   (n=6257)
+     node  Late Bloomer       win  47.4%   evolved  79.0%   (n=6231)
+     node  Surge              win  53.9%   evolved  86.4%   (n=7511)
    BASTION
-     form  Carapace           reached  53.3%   win  53.5%
-     form  Juggernaut         reached  45.9%   win  47.0%
-     form  no evolution       reached   0.8%   win   2.5%
-     node  Hair Trigger       win  49.4%   evolved  99.6%   (n=6397)
-     node  Late Bloomer       win  51.2%   evolved  98.8%   (n=6226)
-     node  Surge              win  49.9%   evolved  99.3%   (n=7376)
+     form  Carapace           reached  27.2%   win  51.2%
+     form  Juggernaut         reached  70.9%   win  49.3%
+     form  no evolution       reached   2.0%   win   3.6%
+     node  Hair Trigger       win  46.8%   evolved  99.1%   (n=6199)
+     node  Late Bloomer       win  50.4%   evolved  96.9%   (n=6263)
+     node  Surge              win  49.3%   evolved  98.0%   (n=7537)
 

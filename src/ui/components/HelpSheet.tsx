@@ -7,10 +7,12 @@ const KEYS: [string, string][] = [
   ['K / M', 'Keep / Mulligan the opening hand'],
   ['1 - 9', 'Select that card in your hand'],
   ['P', 'Pass'],
-  ['H', 'Hold (deal no Clash damage this round)'],
+  ['H', 'Hold (no Clash damage, but armor and Strain relief this round)'],
   ['C', 'Cycle mode (then pick a card)'],
   ['W', 'Wake your first sleeping face-down graft'],
   ['N', 'No response to a play'],
+  ['1 / 2', 'Choose an evolution when offered'],
+  ['K', 'Hold off on an evolution choice'],
   ['Esc', 'Cancel / close'],
   ['?', 'Show or hide this help'],
 ];
@@ -41,13 +43,16 @@ export function HelpSheet({ state, onClose }: { state: GameState; onClose: () =>
             </div>
           ))}
         </div>
-        <p className="mt-1 text-[11px] text-mute">The winner acts first. On a tie the player who acted second last round goes first.</p>
+        <p className="mt-1 text-[11px] text-mute">The winner acts first. On a tie the player who acted second last round goes first. You get {c.timers.stanceSeconds}s to pick; once both stances are revealed you get {c.timers.actionSeconds}s per action to look over the board and plan your round.</p>
 
         <h3 className="mt-3 text-xs font-bold uppercase tracking-wide text-accent">Strain</h3>
         <ul className="mt-1 list-disc space-y-0.5 pl-5 text-xs text-ink2">
           <li>Grafts add Strain. 0-{stable} is Stable, {stable + 1}-{T} is Overclocked (+{c.strain.overclockClashBonus} Clash damage, but you take {c.strain.overclockSelfDamage} a round), above {T} the Specimen rejects: your highest-Strain graft is ejected at the round's Strain check.</li>
           <li>You vent {c.strain.ventPerRound} Strain when you did not graft last round. Fortify vents {c.strain.fortifyVent}.</li>
           <li>From round {c.match.meltdownFromRound} Meltdown adds {c.match.meltdownStrain} Strain to both Specimens every round.</li>
+          <li>
+            Hold: skip your own Clash damage this round for +{c.strain.holdArmor} armor (reduces what you take too) and venting {c.strain.holdVent} Strain right away. You can still play cards afterward; only the Clash damage is given up.
+          </li>
         </ul>
 
         <h3 className="mt-3 text-xs font-bold uppercase tracking-wide text-accent">Energy, cards and grafts</h3>
@@ -61,7 +66,9 @@ export function HelpSheet({ state, onClose }: { state: GameState; onClose: () =>
         </ul>
 
         <h3 className="mt-3 text-xs font-bold uppercase tracking-wide text-accent">Evolution</h3>
-        <p className="mt-1 text-xs text-ink2">Each Specimen evolves once, into the first of its two forms whose condition is met. The bars under each player show progress, and a banner announces the form and what it gives.</p>
+        <p className="mt-1 text-xs text-ink2">
+          Each Specimen evolves once, permanently, into one of its two forms. Meeting a form's condition always offers a choice: evolve now, or hold off — you'll be offered again at the next Strain check if it (or the other form) still qualifies. The bars under each player show progress, and a banner announces the form and what it gives when someone evolves.
+        </p>
 
         {c.match.koTiebreak && <p className="mt-2 text-[11px] text-mute">If both Specimens reach 0 HP together, the lower Strain wins, then the player who dealt more damage.</p>}
 

@@ -8,18 +8,27 @@ interface Props {
   selected?: boolean;
   dim?: boolean;
   onClick?: () => void;
+  onDoubleClick?: () => void;
   count?: number;
+  /** Why this card can't be played right now, shown in its tooltip so a hover explains a dimmed card. */
+  reason?: string;
+  /** Keyboard shortcut that selects this card (shown as a small corner badge, e.g. hand slot "3"). */
+  hotkey?: string;
 }
 
-export function CardView({ def, cost, size = 'md', selected, dim, onClick, count }: Props) {
+export function CardView({ def, cost, size = 'md', selected, dim, onClick, onDoubleClick, count, reason, hotkey }: Props) {
   const t = TYPE_META[def.type];
   const shownCost = cost ?? def.cost;
   const accent = def.faction === 'tech' ? '#8a948f' : FACTION_META[def.faction].color;
-  const sm = size === 'sm';
+  // A selected card always shows its full text, even in a shrunk "sm" hand, so picking it up never hides what it does.
+  const sm = size === 'sm' && !selected;
+  const tooltip = reason ? `${def.name}: ${reason}` : def.text;
   return (
     <button
       type="button"
       onClick={onClick}
+      onDoubleClick={onDoubleClick}
+      title={tooltip}
       className={`relative shrink-0 rounded-lg border text-left transition-transform ${sm ? 'h-[118px] w-[86px] p-1.5' : 'h-[164px] w-[112px] p-2'} ${
         selected ? '-translate-y-2 border-accent bg-panel2 shadow-lg shadow-accent/20' : 'border-line bg-panel'
       } ${dim ? 'opacity-40' : ''}`}
@@ -30,6 +39,7 @@ export function CardView({ def, cost, size = 'md', selected, dim, onClick, count
         {shownCost}
       </span>
       {count !== undefined && <span className="absolute -right-1.5 -top-2 grid h-5 min-w-5 place-items-center rounded-full bg-accent px-1 text-[11px] font-bold text-black">×{count}</span>}
+      {hotkey && <span className="absolute -right-1.5 -bottom-1.5 grid h-4 w-4 place-items-center rounded bg-black/70 text-[9px] font-bold text-mute">{hotkey}</span>}
       <div className={`${sm ? 'text-[9px]' : 'text-[10px]'} pl-3 font-semibold uppercase tracking-wide`} style={{ color: t.color }}>
         {t.label}
         {def.signature && <span className="ml-1 text-amber-300">★</span>}
@@ -45,7 +55,7 @@ export function CardView({ def, cost, size = 'md', selected, dim, onClick, count
         )}
         {def.strain > 0 && <span className="rounded bg-amber-900/60 px-1 text-amber-200">STR {def.strain}</span>}
       </div>
-      {!sm && <div className="mt-1 line-clamp-5 text-[10px] leading-snug text-ink2">{def.text}</div>}
+      {!sm && <div className="mt-1 line-clamp-5 text-[10px] leading-snug text-ink2">{dim && reason ? reason : def.text}</div>}
     </button>
   );
 }

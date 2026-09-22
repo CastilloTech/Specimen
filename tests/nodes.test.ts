@@ -293,7 +293,7 @@ describe('Bastion: Strain row', () => {
     let s = rawStrain(withNode('bastion', ['heatSink']), 0, 4);
     s = go(s, { type: 'HOLD', player: 0 });
     s = endRound(s);
-    expect(s.players[0].strain).toBe(4 - np('heatSink', 'vent'));
+    expect(s.players[0].strain).toBe(4 - (s.config.strain.holdVent + np('heatSink', 'vent'))); // the baseline Hold vent, plus Heat Sink's own
     let t = rawStrain(withNode('bastion', ['heatSink']), 0, 4);
     t = endRound(t); // round 1 is not a `period` round and there is no Hold: no extra venting
     expect(t.players[0].strain).toBe(4);

@@ -151,10 +151,24 @@ export const arena = (f0: Faction = 'predator', f1: Faction = 'predator', stance
 
 export const pass = (s: GameState, p?: PlayerId) => go(s, { type: 'PASS', player: p ?? s.turn });
 
+/**
+ * Meeting an evolution condition is always offered as evolve-or-hold-off. When only one condition is met,
+ * auto-accept it (mirrors what the bot does and what most tests expect); a real two-way choice is left
+ * alone, in the 'evolve' phase, for the test to resolve itself with a CHOOSE_EVOLUTION action.
+ */
+export function autoEvolve(s: GameState): GameState {
+  while (s.phase === 'evolve' && s.evoQueue.length && s.players[s.evoQueue[0]].evolutionOptions.length === 1) {
+    const p = s.evoQueue[0];
+    s = go(s, { type: 'CHOOSE_EVOLUTION', player: p, id: s.players[p].evolutionOptions[0] });
+  }
+  return s;
+}
+
 /** Both players pass in a row: ends the actions phase and runs Clash + Strain check. */
 export function endActions(s: GameState): GameState {
   s = pass(s);
-  return pass(s);
+  s = pass(s);
+  return autoEvolve(s);
 }
 
 /** Like endActions, but pretends both players grafted (so nobody vents in the next Draw phase). */

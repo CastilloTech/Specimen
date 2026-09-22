@@ -89,6 +89,13 @@ describe('Evolution config (live values)', () => {
       }
     }
   });
+
+  it("never gives a faction's two forms the same trigger metric (they must be reachable in visibly different ways)", () => {
+    for (const f of FACTIONS) {
+      const defs = (defaultConfig.evolutions as Record<string, { id: string; condition: { metric: string } }[]>)[f];
+      expect(defs[0].condition.metric, f).not.toBe(defs[1].condition.metric);
+    }
+  });
 });
 
 describe('Skill trees', () => {

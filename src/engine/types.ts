@@ -262,4 +262,4 @@ export type Action =
   | { type: 'PASS'; player: PlayerId }
   | { type: 'REACT'; player: PlayerId; uid?: string; ability?: 'pressureValve' }
   | { type: 'DECLINE_REACTION'; player: PlayerId }
-  | { type: 'CHOOSE_EVOLUTION'; player: PlayerId; id: string };
+  | { type: 'CHOOSE_EVOLUTION'; player: PlayerId; id: string | null };

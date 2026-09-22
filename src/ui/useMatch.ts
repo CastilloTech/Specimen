@@ -56,7 +56,7 @@ export function useMatch(setup: MatchSetup, timersOn: boolean, pausedRef: Mutabl
   }, [state, botP, dispatch, rngs, cfg.bot.actionDelayMs]);
 
   // Timers: 10s per stance; 90s for the opening mulligan decision (no reserve used);
-  // 20s per other decision plus a 30s reserve bank per player per match.
+  // 30s per other decision plus a 30s reserve bank per player per match.
   const limit = state.phase === 'stance' ? cfg.timers.stanceSeconds : state.phase === 'mulligan' ? cfg.timers.mulliganSeconds : cfg.timers.actionSeconds;
   const useReserve = state.phase !== 'stance' && state.phase !== 'mulligan';
   const key = `${state.phase}|${state.round}|${state.history.length}|${actor}`;

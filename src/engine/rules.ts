@@ -703,7 +703,8 @@ export function strainCheck(s: GameState): void {
     fireTrigger(s, p, 'onStrainCheck');
   }
   if (endIfDead(s)) return;
-  // 4. Evolution triggers (decided simultaneously)
+  // 4. Evolution triggers (decided simultaneously). Meeting a condition is always offered as a choice: evolve
+  // now, or hold off (the same or a newly-met condition is offered again at the next Strain check).
   const eligible = ids.map((p) => {
     const pl = s.players[p];
     if (pl.evolution) return [] as string[];
@@ -713,11 +714,14 @@ export function strainCheck(s: GameState): void {
   });
   s.evoQueue = [];
   for (const p of ids) {
-    if (eligible[p].length === 1) evolve(s, p, eligible[p][0]);
-    else if (eligible[p].length > 1) {
-      s.players[p].evolutionOptions = eligible[p];
-      s.evoQueue.push(p);
-      logMsg(s, 'evolve', p, `${name(s, p)} meets both evolution conditions and must choose.`);
+    if (!eligible[p].length) continue;
+    const pl = s.players[p];
+    pl.evolutionOptions = eligible[p];
+    s.evoQueue.push(p);
+    if (eligible[p].length > 1) logMsg(s, 'evolve', p, `${name(s, p)} meets both evolution conditions: choose one, or hold off.`);
+    else {
+      const def = evolutionDefs(s, pl).find((d) => d.id === eligible[p][0])!;
+      logMsg(s, 'evolve', p, `${name(s, p)}'s condition for ${def.name} is met: evolve now, or hold off?`);
     }
   }
   if (s.evoQueue.length) {

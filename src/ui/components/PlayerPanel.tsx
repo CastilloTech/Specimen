@@ -61,7 +61,11 @@ export function PlayerPanel({ state, player, color, active }: { state: GameState
               ARM {st.armor}
               {formArm > 0 && <span className="text-accent"> ▲</span>}
             </span>
-            {p.hold && <span className="rounded bg-amber-900/50 px-1.5 py-0.5 text-amber-200">HOLD</span>}
+            {p.hold && (
+              <span className="rounded bg-amber-900/50 px-1.5 py-0.5 text-amber-200" title="No Clash damage this round; armor and Strain vent already applied above.">
+                HOLD
+              </span>
+            )}
           </div>
         </div>
         <div className="col-span-2">

@@ -60,6 +60,16 @@ export function Specimen({ state, player, viewer, flip, highlight, onSlot, color
             {pg ? (
               <>
                 <span className="w-full truncate text-[9px] font-semibold">{def ? def.name : '? ? ?'}</span>
+                {def && (
+                  <span className="flex gap-0.5 leading-none">
+                    <span className="rounded bg-red-900/60 px-0.5 text-[7px] font-bold text-red-200" title="Attack">
+                      {def.attack}
+                    </span>
+                    <span className="rounded bg-sky-900/60 px-0.5 text-[7px] font-bold text-sky-200" title="Armor">
+                      {def.armor}
+                    </span>
+                  </span>
+                )}
                 <span className="text-[8px] text-amber-300">
                   STR {pg.strain}
                   {pg.faceDown && ' ▣ asleep'}

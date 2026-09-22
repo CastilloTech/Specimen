@@ -76,45 +76,58 @@ export function PlaysStrip({ state, viewer, onOpen }: { state: GameState; viewer
   );
 }
 
-/** The opponent's newest unseen plays, shown as real cards for a few seconds. */
+/** The opponent's newest unseen plays: a compact, card-sized-or-smaller stack anchored on the side of
+ * the arena where that player's Specimen sits (mine on the left, the opponent's on the right), so it
+ * reads as "theirs" at a glance instead of a big banner spanning the board. Each row states the card's
+ * own effect text directly, so what it did is obvious without opening it. */
 export function PlayToast({ state, viewer, recs, onDismiss, onOpen }: { state: GameState; viewer: PlayerId; recs: PlayRecord[]; onDismiss: () => void; onOpen: (r: PlayRecord) => void }) {
   if (!recs.length) return null;
   const who = state.players[recs[0].player];
   const color = PLAYER_COLORS[recs[0].player];
+  const mine = recs[0].player === viewer;
+  const side = mine ? 'left-1' : 'right-1';
   return (
-    // The panel itself lets clicks through (so enemy slots underneath stay targetable); only the header and the cards catch them.
-    <div className="pop pointer-events-none absolute inset-x-1 top-1 z-20 rounded-xl border-2 bg-bg/80 p-2 shadow-2xl" style={{ borderColor: color }} role="status" aria-live="polite">
-      <div className="pointer-events-auto mb-1 flex cursor-pointer items-center justify-between text-[11px] font-bold" onClick={onDismiss}>
-        <span style={{ color }}>{who.name} played</span>
-        <span className="font-normal text-mute">tap a card for details, or here to dismiss</span>
+    // The panel itself lets clicks through (so enemy slots underneath stay targetable); only the header and the rows catch them.
+    <div className={`pop pointer-events-none absolute top-1 z-20 w-[172px] ${side}`} role="status" aria-live="polite">
+      <div
+        className="pointer-events-auto mb-1 flex cursor-pointer items-center justify-between gap-1 rounded-lg border-2 bg-bg/90 px-1.5 py-1 text-[10px] font-bold shadow-xl"
+        style={{ borderColor: color }}
+        onClick={onDismiss}
+        title="Dismiss"
+      >
+        <span className="truncate" style={{ color }}>
+          {who.name} played
+        </span>
+        <span className="shrink-0 text-mute" aria-hidden>
+          ✕
+        </span>
       </div>
-      <div className="flex flex-wrap items-start justify-center gap-2">
+      <div className="flex flex-col gap-1">
         {recs.map((r) => {
           const v = viewPlay(state, r, viewer);
+          const typeColor = v.def ? TYPE_META[v.def.type].color : '#8a948f';
+          const effect = v.def ? v.def.text : v.rec.kind === 'cycle' ? 'A card was cycled (kept private).' : v.hiddenGraft ? 'Hidden until it wakes or is revealed.' : v.rec.kind === 'valve' ? 'Vented Strain as a reaction.' : '';
           return (
-            <div key={r.n} className="pointer-events-auto flex cursor-pointer flex-col items-center gap-1" onClick={() => onOpen(r)}>
-              {v.def ? (
-                <CardView def={v.def} size="sm" />
-              ) : (
-                <div className="grid h-[118px] w-[86px] place-items-center rounded-lg border border-dashed border-mute bg-panel text-center text-[11px] text-ink2">
-                  {v.rec.kind === 'cycle' ? (
-                    <span>
-                      Cycled
-                      <br />a card
-                    </span>
-                  ) : v.hiddenGraft ? (
-                    <span>
-                      Face-down
-                      <br />
-                      graft
-                    </span>
-                  ) : (
-                    v.title
-                  )}
-                </div>
-              )}
-              <div className={`max-w-[110px] text-center text-[10px] leading-tight ${r.negated ? 'text-amber-300' : 'text-ink2'}`}>{v.where}</div>
-            </div>
+            <button
+              type="button"
+              key={r.n}
+              onClick={() => onOpen(r)}
+              className={`pointer-events-auto rounded-lg border bg-panel/95 p-1.5 text-left shadow-xl ${r.negated ? 'opacity-60' : ''}`}
+              style={{ borderColor: color, borderLeftWidth: 3 }}
+            >
+              <div className="flex min-w-0 items-center gap-1">
+                {v.def && (
+                  <span className="grid h-4 w-4 shrink-0 place-items-center rounded-full bg-sky-600 text-[9px] font-bold text-white" title="Energy cost">
+                    {v.def.cost}
+                  </span>
+                )}
+                <span className="min-w-0 flex-1 truncate text-[11px] font-semibold" style={{ color: typeColor }} title={v.title}>
+                  {v.title}
+                </span>
+              </div>
+              {v.where && <div className={`text-[9px] ${r.negated ? 'text-amber-300 line-through' : 'text-amber-300'}`}>{v.where}</div>}
+              {effect && <div className="mt-0.5 line-clamp-2 text-[10px] leading-snug text-ink2">{effect}</div>}
+            </button>
           );
         })}
       </div>
