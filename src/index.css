@@ -1,0 +1,117 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #0d1110;
+  --color-panel: #151b19;
+  --color-panel2: #1c2421;
+  --color-line: #2b3532;
+  --color-ink: #eef2f0;
+  --color-ink2: #b9c3be;
+  --color-mute: #8a948f;
+  --color-p1: #3987e5;
+  --color-p2: #d95926;
+  --color-stable: #2f9e6e;
+  --color-oc: #e0a31a;
+  --color-rej: #d03b3b;
+  --color-accent: #7be0b0;
+  --font-sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  min-height: 100dvh;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-tap-highlight-color: transparent;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+.scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: #3a4642 transparent;
+}
+
+@keyframes pop {
+  from {
+    transform: scale(0.96);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.pop {
+  animation: pop 0.15s ease-out;
+}
+
+@keyframes pulse-ring {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(123, 224, 176, 0.55);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(123, 224, 176, 0);
+  }
+}
+
+/* target-glow marks a slot you can target; chip-glow marks the newest card in the played strip. */
+.target-glow,
+.chip-glow {
+  animation: pulse-ring 1.2s ease-in-out infinite;
+}
+
+/* Evolution: the banner drops in with a glow, and an evolved Specimen's badge keeps a soft pulse. */
+@keyframes evo-drop {
+  0% {
+    opacity: 0;
+    transform: translateY(-14px) scale(0.96);
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.5);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(0) scale(1.02);
+    box-shadow: 0 0 34px 6px rgba(255, 255, 255, 0.25);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+  }
+}
+.evo-banner {
+  animation: evo-drop 0.55s ease-out;
+}
+@keyframes evo-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(90, 168, 111, 0);
+  }
+  50% {
+    box-shadow: 0 0 10px 1px rgba(90, 168, 111, 0.45);
+  }
+}
+.evo-glow {
+  animation: evo-pulse 2.6s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .evo-banner,
+  .evo-glow {
+    animation: none;
+  }
+}

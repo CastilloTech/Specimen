@@ -1,0 +1,82 @@
+BALANCE AUDIT  |  9000 bot matches, all 9 pairings, random loadouts
+
+1. FIRST MOVER (who acts first in round 1)
+   first mover wins 52.5% of decided games; when round-1 stances tied (coin flip) 49.9% (2270 games)
+
+2. SNOWBALL (a lead of 6+ HP after round 3 among games that go on)
+   3761 games; the leader wins 77.3%
+
+3. DRAWS (simultaneous KO) by pairing
+   predator|predator    0.0%
+   parasite|predator    0.1%
+   bastion|predator     0.3%
+   parasite|parasite    0.0%
+   bastion|parasite     0.1%
+   bastion|bastion      2.7%
+
+4. STANCES: mean net HP swing per round for the row stance (own damage taken minus dealt; positive = good for the row)
+   row \ opp     aggress  adapt    fortify  
+   aggress       0.00     2.31     -2.39      avg -0.02
+   adapt         -2.31    0.00     2.71       avg 0.15
+   fortify       2.39     -2.71    0.00       avg -0.13
+
+5. CARDS: share of the faction's games where it was played at least once, average round, and the score of those games vs the faction average
+   PREDATOR (faction average 50.3%)
+     Bone Spur              x2  cost 1  played in  69% of games  avg round 2.7  score 55.1%
+     Kinetic Spine          x2  cost 3  played in  26% of games  avg round 4.3  score 51.7%
+     Blood Rush             x2  cost 2  played in  60% of games  avg round 4.5  score 51.1%
+     Twitch Nerve           x1  cost 0  played in  27% of games  avg round 1.8  score 50.4%
+     Razor Talon            x2  cost 2  played in  72% of games  avg round 2.7  score 50.3%
+     Furnace Heart          x2  cost 3  played in  72% of games  avg round 3.7  score 49.8%
+     Field Scalpel          x1  cost 3  played in  37% of games  avg round 4.2  score 49.5%
+     Bile Spit              x1  cost 1  played in  22% of games  avg round 5.2  score 49.4%
+     Apex Maw               x1  cost 3  played in  44% of games  avg round 3.7  score 49.3%
+     Scanner Probe          x1  cost 0  played in  16% of games  avg round 2.6  score 48.3%
+     Maw Crown              x2  cost 3  played in  37% of games  avg round 4.0  score 47.3%
+     Predator Eye           x2  cost 2  played in  38% of games  avg round 2.5  score 46.5%
+     Counter-Strike         x2  cost 2  played in  74% of games  avg round 3.5  score 45.3%
+     Armor Piercer          x2  cost 1  played in  45% of games  avg round 4.6  score 45.1%
+     Blood Scent            x1  cost 1  played in  30% of games  avg round 5.2  score 42.4%
+     Emergency Bleed        x1  cost 1  played in  32% of games  avg round 5.0  score 41.1%
+   PARASITE (faction average 48.9%)
+     Neurotoxin             x2  cost 2  played in  51% of games  avg round 6.1  score 58.6%
+     Queen Cyst             x1  cost 4  played in  35% of games  avg round 5.0  score 57.4%
+     Necrotic Bloom         x1  cost 4  played in  43% of games  avg round 6.1  score 56.1%
+     Gnawing Larva          x1  cost 3  played in  42% of games  avg round 4.7  score 54.3%
+     Symbiotic Node         x2  cost 1  played in  77% of games  avg round 3.1  score 52.4%
+     Cytokine Storm         x2  cost 2  played in  52% of games  avg round 5.6  score 52.3%
+     Hooked Limb            x2  cost 2  played in  72% of games  avg round 2.7  score 51.6%
+     Leech Sucker           x2  cost 1  played in  67% of games  avg round 3.0  score 51.6%
+     Field Scalpel          x1  cost 3  played in  42% of games  avg round 4.7  score 51.5%
+     Barbed Proboscis       x2  cost 2  played in  71% of games  avg round 2.2  score 51.1%
+     Purge Serum            x1  cost 2  played in  40% of games  avg round 6.1  score 49.0%
+     Field Dressing         x1  cost 1  played in  56% of games  avg round 4.7  score 48.9%
+     Emergency Bleed        x1  cost 1  played in  42% of games  avg round 5.9  score 47.5%
+     Static Jam             x2  cost 1  played in  68% of games  avg round 5.6  score 47.1%
+     Mind Lash              x1  cost 4  played in  22% of games  avg round 5.0  score 47.0%
+     Gland of Rot           x2  cost 3  played in  71% of games  avg round 3.6  score 46.5%
+     Armor Piercer          x1  cost 1  played in  36% of games  avg round 5.0  score 45.1%
+   BASTION (faction average 50.8%)
+     Pressure Release       x2  cost 3  played in  49% of games  avg round 7.1  score 57.2%
+     Immune Response        x2  cost 2  played in  49% of games  avg round 5.8  score 56.1%
+     Bone Helm              x2  cost 2  played in  86% of games  avg round 3.4  score 54.8%
+     Bulwark Heart          x1  cost 4  played in  48% of games  avg round 5.6  score 54.2%
+     Shell Limb             x2  cost 3  played in  90% of games  avg round 5.0  score 53.9%
+     Reflex Ganglion        x2  cost 2  played in  90% of games  avg round 3.0  score 53.8%
+     Field Scalpel          x1  cost 3  played in  56% of games  avg round 4.7  score 53.5%
+     Venting Sigh           x2  cost 1  played in  46% of games  avg round 6.6  score 52.7%
+     Reflective Carapace    x2  cost 3  played in  23% of games  avg round 7.1  score 52.6%
+     Ablative Plating       x2  cost 4  played in  34% of games  avg round 5.4  score 52.6%
+     Armor Piercer          x1  cost 1  played in  47% of games  avg round 5.2  score 51.0%
+     Scale Patch            x1  cost 0  played in  66% of games  avg round 3.1  score 50.0%
+     Lung Filter            x2  cost 2  played in  74% of games  avg round 2.9  score 49.8%
+     Field Dressing         x1  cost 1  played in  59% of games  avg round 5.2  score 48.7%
+     Brace for Impact       x2  cost 2  played in  50% of games  avg round 4.9  score 41.0%
+
+6. FACE-DOWN: one side follows a policy, the other never plays face-down; same faction both sides, seats swapped (50% = no effect)
+   always  vs never:  predator 49.0%   parasite 51.5%   bastion 54.7%   (3000 games each)
+   early   vs never:  predator 54.0%   parasite 58.9%   bastion 51.0%   (3000 games each)
+   cheap   vs never:  predator 53.3%   parasite 57.1%   bastion 54.1%   (3000 games each)
+   smart   vs never:  predator 55.8%   parasite 58.4%   bastion 50.5%   (3000 games each)
+   smart3  vs never:  predator 55.3%   parasite 57.8%   bastion 52.8%   (3000 games each)
+   bot     vs never:  predator 50.6%   parasite 51.3%   bastion 51.5%   (3000 games each)

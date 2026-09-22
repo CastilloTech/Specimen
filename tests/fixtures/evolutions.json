@@ -1,0 +1,14 @@
+{
+  "predator": [
+    { "id": "apexStalker", "name": "Apex Stalker", "text": "Deal 12+ total damage: +2 attack; your attacks ignore Fortify's damage halving.", "condition": { "metric": "damageDealt", "target": 12, "label": "total damage dealt" }, "effects": { "attack": 2, "ignoreFortifyHalving": true } },
+    { "id": "frenzyForm", "name": "Frenzy Form", "text": "End a round at 9+ Strain with no rejection: the Overclocked bonus becomes +2.", "condition": { "metric": "endRoundStrain", "target": 9, "label": "Strain at round end (no rejection)" }, "effects": { "overclockBonus": 2 } }
+  ],
+  "parasite": [
+    { "id": "hiveHost", "name": "Hive Host", "text": "The opponent suffers a rejection: heal 3 whenever the opponent rejects a graft.", "condition": { "metric": "oppRejections", "target": 1, "label": "opponent rejections" }, "effects": { "healOnOppReject": 3 } },
+    { "id": "leechForm", "name": "Leech Form", "text": "The opponent reaches 8+ Strain: your Toxins also drain 1 HP.", "condition": { "metric": "oppMaxStrain", "target": 8, "label": "opponent peak Strain" }, "effects": { "toxinDrain": 1 } }
+  ],
+  "bastion": [
+    { "id": "carapace", "name": "Carapace", "text": "Vent 6 total Strain: +3 armor; Fortify vents 3 instead of 2.", "condition": { "metric": "strainVented", "target": 6, "label": "Strain vented" }, "effects": { "armor": 3, "fortifyVent": 3 } },
+    { "id": "juggernaut", "name": "Juggernaut", "text": "Block 10 total damage: your armor adds to your attack.", "condition": { "metric": "damageBlocked", "target": 10, "label": "damage blocked" }, "effects": { "armorToAttack": true } }
+  ]
+}

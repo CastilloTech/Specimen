@@ -1,0 +1,38 @@
+{
+  "name": "specimen-card-game",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "sim": "tsx scripts/sim.ts",
+    "budget": "tsx scripts/budget.ts",
+    "log": "tsx scripts/match-log.ts",
+    "diag": "tsx scripts/diag.ts",
+    "audit": "tsx scripts/audit.ts",
+    "energy": "tsx scripts/energy.ts",
+    "signatures": "tsx scripts/signatures.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "immer": "^11.1.18",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/node": "^26.6.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "tailwindcss": "^4.3.3",
+    "tsx": "^4.23.13",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.0",
+    "vitest": "^5.0.1"
+  }
+}

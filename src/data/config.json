@@ -1,0 +1,190 @@
+{
+  "specimen": { "hp": 40, "attack": 2, "armor": 0 },
+  "match": {
+    "maxRounds": 8,
+    "startingHand": 5,
+    "freeMulligans": 1,
+    "drawPerRound": 1,
+    "meltdownFromRound": 7,
+    "meltdownStrain": 3,
+    "lateDrawFromRound": 5,
+    "lateDraw": 1,
+    "catchUpHpGap": 8,
+    "catchUpDraw": 1,
+    "secondMoverDraw": 0,
+    "secondMoverEnergy": 0,
+    "koTiebreak": true
+  },
+  "energy": { "cap": 6, "bankMax": 2, "min": 2 },
+  "replace": { "enabled": true, "extraCost": 1 },
+  "strain": {
+    "threshold": 10,
+    "stableMaxRatio": 0.5,
+    "overclockClashBonus": 1,
+    "overclockSelfDamage": 1,
+    "ventPerRound": 1,
+    "fortifyVent": 2,
+    "holdVent": 0,
+    "severRemovesStrain": false
+  },
+  "stances": {
+    "aggressBeatsAdaptBonus": 3,
+    "fortifyDamageDivisor": 2,
+    "fortifyCounterDamage": 0,
+    "momentumBonus": 1
+  },
+  "slots": ["head", "limbA", "limbB", "organ", "nerve"],
+  "slotTypes": {
+    "head": "Head",
+    "limbA": "Limb",
+    "limbB": "Limb",
+    "organ": "Organ",
+    "organB": "Organ",
+    "nerve": "Nerve"
+  },
+  "adjacency": [
+    ["nerve", "head"],
+    ["nerve", "limbA"],
+    ["nerve", "limbB"],
+    ["nerve", "organ"],
+    ["nerve", "organB"],
+    ["limbA", "limbB"]
+  ],
+  "features": {
+    "cycling": true,
+    "dormant": true,
+    "neuralLinks": false,
+    "energyBanking": false,
+    "stanceMomentum": false
+  },
+  "dormant": {
+    "quietStrain": 1,
+    "ambush": {
+      "predator": { "attack": 5, "armor": 0, "heal": 0, "oppStrain": 0, "draw": 0 },
+      "parasite": { "attack": 2, "armor": 0, "heal": 0, "oppStrain": 1, "draw": 0 },
+      "bastion": { "attack": 1, "armor": 4, "heal": 1, "oppStrain": 0, "draw": 0 }
+    }
+  },
+  "cycle": { "perRound": 1, "ventAmount": 1, "drawAmount": 1 },
+  "neuralLinks": { "attackBonus": 1 },
+  "sabotage": { "poisonRounds": 2, "disableRounds": 1 },
+  "deck": {
+    "size": 25,
+    "minFaction": 20,
+    "maxTech": 5,
+    "maxCopies": 2,
+    "signatureCopies": 1
+  },
+  "timers": {
+    "enabled": true,
+    "stanceSeconds": 10,
+    "mulliganSeconds": 90,
+    "actionSeconds": 20,
+    "reserveSeconds": 30
+  },
+  "evolutions": {
+    "predator": [
+      {
+        "id": "apexStalker",
+        "name": "Apex Stalker",
+        "text": "Deal 25+ total damage: +2 attack; your attacks ignore Fortify's damage halving.",
+        "condition": { "metric": "damageDealt", "target": 25, "label": "total damage dealt" },
+        "effects": { "attack": 2, "ignoreFortifyHalving": true }
+      },
+      {
+        "id": "frenzyForm",
+        "name": "Frenzy Form",
+        "text": "End a round at 6+ Strain with no rejection: the Overclocked bonus becomes +3, and +1 attack.",
+        "condition": { "metric": "endRoundStrain", "target": 6, "label": "Strain at round end (no rejection)" },
+        "effects": { "overclockBonus": 3, "attack": 1 }
+      }
+    ],
+    "parasite": [
+      {
+        "id": "hiveHost",
+        "name": "Hive Host",
+        "text": "The opponent's Strain hits 8+: heal 4 whenever the opponent rejects a graft, and +1 armor, +2 attack.",
+        "condition": { "metric": "oppMaxStrain", "target": 8, "label": "opponent peak Strain" },
+        "effects": { "healOnOppReject": 4, "armor": 1, "attack": 2 }
+      },
+      {
+        "id": "leechForm",
+        "name": "Leech Form",
+        "text": "The opponent reaches 7+ Strain: your Toxins also drain 2 HP, and +3 attack.",
+        "condition": { "metric": "oppMaxStrain", "target": 7, "label": "opponent peak Strain" },
+        "effects": { "toxinDrain": 2, "attack": 3 }
+      }
+    ],
+    "bastion": [
+      {
+        "id": "carapace",
+        "name": "Carapace",
+        "text": "Vent 3 total Strain: +2 armor; Fortify vents 3 instead of 2.",
+        "condition": { "metric": "strainVented", "target": 3, "label": "Strain vented" },
+        "effects": { "armor": 2, "fortifyVent": 3 }
+      },
+      {
+        "id": "juggernaut",
+        "name": "Juggernaut",
+        "text": "Block 11 total damage: your armor adds to your attack (up to +1).",
+        "condition": { "metric": "damageBlocked", "target": 11, "label": "damage blocked" },
+        "effects": { "armorToAttack": true, "armorToAttackCap": 1 }
+      }
+    ]
+  },
+  "budget": {
+    "strainPoints": 1.5,
+    "base": 1,
+    "costPoints": 1,
+    "tolerance": 2,
+    "signatureBonus": 5,
+    "expectedRounds": 3,
+    "conditionMultiplier": 0.6,
+    "protocolMultiplier": 0.8,
+    "prices": {
+      "heal": 0.75,
+      "damage": 1,
+      "vent": 1.5,
+      "strainOpp": 1.5,
+      "strainSelf": -1.5,
+      "draw": 1.5,
+      "discard": 1.5,
+      "energy": 1,
+      "drain": 1,
+      "buff": 0.5,
+      "mod": 1,
+      "sever": 4,
+      "poison": 3,
+      "disable": 2,
+      "reveal": 0.5,
+      "negate": 4,
+      "reflect": 5
+    },
+    "triggerMultipliers": {
+      "onAttach": 1,
+      "onRoundStart": 3,
+      "onStrainCheck": 3,
+      "onDealDamage": 2.5,
+      "onTakeDamage": 2,
+      "onReject": 0.5,
+      "passive": 1
+    }
+  },
+  "bot": {
+    "graftStrainMargin": 2,
+    "graftStrainMarginByFaction": { "predator": 2, "parasite": 2, "bastion": 2 },
+    "toxinOppStrain": 7,
+    "stanceCounterWeight": 2,
+    "stanceBaseWeights": {
+      "predator": { "aggress": 1, "adapt": 1, "fortify": 1 },
+      "parasite": { "aggress": 1, "adapt": 1, "fortify": 1 },
+      "bastion": { "aggress": 1, "adapt": 1, "fortify": 1 }
+    },
+    "dormantChance": 0.25,
+    "dormantMaxRound": 3,
+    "dormantMaxCost": 2,
+    "mulliganIfPlayableGraftsBelow": 2,
+    "actionDelayMs": 700
+  },
+  "ui": { "bigHitThreshold": 7 }
+}

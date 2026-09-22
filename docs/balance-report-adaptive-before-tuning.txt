@@ -1,0 +1,72 @@
+﻿
+> specimen-card-game@0.1.0 sim
+> tsx scripts/sim.ts --matches 24000 --seed 424242 --jobs 8 --policy adaptive
+
+
+SPECIMEN SIMULATION  |  24000 matches  |  seed 424242  |  loadout policy: adaptive  |  108.6s
+==============================================================================
+
+1. FACTION MATCHUPS  (row faction vs column faction; score = wins + 0.5 x draws)
+                        predator              parasite               bastion
+predator       50.0% (32%W 35%D)     59.1% (45%W 28%D)     49.4% (44%W 11%D)
+parasite       40.9% (27%W 28%D)     50.0% (43%W 15%D)      41.3% (38%W 6%D)
+bastion        50.6% (45%W 11%D)      58.7% (56%W 6%D)      50.0% (49%W 2%D)
+   Cross-faction matchups within 45-55%: NO  (most lopsided: 59.1%)
+   Overall faction score:
+     predator   52.8%  (16001 games)
+     parasite   44.1%  (16001 games)
+     bastion    53.1%  (15998 games)
+
+2. MATCH LENGTH
+   Average: 4.93 rounds   |   ended by KO: 92.1%   |   draws: 15.6%
+   Rounds histogram: 3: 15%  4: 34%  5: 22%  6: 12%  7: 6%  8: 11%
+
+3. REJECTIONS
+   Games with at least one rejection: 4.4%
+
+4. EVOLUTION SPLIT (share of each faction's appearances)
+   predator   Apex Stalker 84.2%  |  Frenzy Form 1.1%  |  none 14.7%
+   parasite   Hive Host 1.2%  |  Leech Form 29.2%  |  none 69.6%
+   bastion    Carapace 8.2%  |  Juggernaut 82.0%  |  none 9.8%
+
+5. STANCE PICK RATES
+   predator   aggress 33.6%   adapt 33.2%   fortify 33.2%
+   parasite   aggress 33.1%   adapt 33.5%   fortify 33.4%
+   bastion    aggress 33.3%   adapt 33.4%   fortify 33.3%
+
+6. SKILL-TREE NODES (pick rate = share of that faction's appearances; win rate = score of players who took it)
+   PREDATOR
+     grafts     Serrated Limbs     pick  24.4%   win  41.7%   (n=3900)
+     grafts     Adrenal Gland      pick  63.0%   win  61.7%   (n=10075)
+     grafts     Stripped Frame     pick  12.7%   win  30.4%   (n=2026)
+     strain     Pain Tolerance     pick  34.3%   win  53.0%   (n=5484)
+     strain     Burnout            pick  33.2%   win  53.2%   (n=5308)
+     strain     Redline            pick  32.6%   win  52.3%   (n=5209)
+     stance     Pounce             pick  27.3%   win  48.5%   (n=4365)
+     stance     Bloodlust          pick  29.2%   win  50.6%   (n=4668)
+     stance     Feint              pick  43.5%   win  57.0%   (n=6968)
+   PARASITE
+     grafts     Spore Sacs         pick  33.3%   win  44.4%   (n=5333)
+     grafts     Symbiote           pick  35.9%   win  44.9%   (n=5743)
+     grafts     Incubator          pick  30.8%   win  42.7%   (n=4925)
+     strain     Contagion          pick  34.8%   win  44.8%   (n=5561)
+     strain     Feedback           pick  32.7%   win  43.6%   (n=5229)
+     strain     Dormancy           pick  32.6%   win  43.8%   (n=5211)
+     stance     Latch              pick  27.1%   win  40.9%   (n=4333)
+     stance     Mirror             pick  37.1%   win  46.1%   (n=5933)
+     stance     Siphon             pick  35.8%   win  44.3%   (n=5735)
+   BASTION
+     grafts     Plated Hide        pick  40.9%   win  53.2%   (n=6548)
+     grafts     Fortress Frame     pick   8.0%   win  22.7%   (n=1282)
+     grafts     Regenerator        pick  51.1%   win  57.8%   (n=8168)
+     strain     Heat Sink          pick  27.8%   win  49.4%   (n=4448)
+     strain     Pressure Valve     pick  34.9%   win  54.9%   (n=5583)
+     strain     Hardened           pick  37.3%   win  54.3%   (n=5967)
+     stance     Counterweight      pick  27.4%   win  49.7%   (n=4389)
+     stance     Brace              pick  37.1%   win  55.1%   (n=5933)
+     stance     Unshakable         pick  35.5%   win  53.7%   (n=5676)
+   EVOLUTION ROW (all factions)
+     evolution  Hair Trigger       pick  34.6%   win  50.4%   (n=16608)
+     evolution  Late Bloomer       pick  30.7%   win  49.1%   (n=14744)
+     evolution  Surge              pick  34.7%   win  50.4%   (n=16648)
+
