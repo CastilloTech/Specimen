@@ -109,9 +109,50 @@ button:disabled {
 .evo-glow {
   animation: evo-pulse 2.6s ease-in-out infinite;
 }
+/* Integrity wear: the graft's slot flashes and a "-N INT" / "destroyed" tag floats off it. */
+@keyframes wear-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(234, 88, 12, 0);
+  }
+  25%,
+  65% {
+    box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.85);
+  }
+}
+.wear-flash {
+  animation: wear-pulse 0.8s ease-in-out 2;
+}
+@keyframes wear-rise {
+  0% {
+    opacity: 0;
+    transform: translateY(4px) scale(0.9);
+  }
+  15% {
+    opacity: 1;
+    transform: translateY(0) scale(1.1);
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-10px) scale(1);
+  }
+}
+.wear-float {
+  animation: wear-rise 1.6s ease-out forwards;
+}
 @media (prefers-reduced-motion: reduce) {
   .evo-banner,
   .evo-glow {
+    animation: none;
+  }
+  .wear-flash {
+    animation: none;
+    box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.85);
+  }
+  .wear-float {
     animation: none;
   }
 }

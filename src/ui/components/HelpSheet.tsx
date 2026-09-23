@@ -59,7 +59,7 @@ export function HelpSheet({ state, onClose }: { state: GameState; onClose: () =>
         <ul className="mt-1 list-disc space-y-0.5 pl-5 text-xs text-ink2">
           <li>Energy equals the round number, at least {c.energy.min} and at most {c.energy.cap}, and does not carry over. You draw {c.match.drawPerRound} card a round, and {c.match.drawPerRound + c.match.lateDraw} from round {c.match.lateDrawFromRound}.</li>
           {c.match.catchUpDraw > 0 && (
-            <li>Second wind: if you are {c.match.catchUpHpGap}+ HP behind at the start of a round, you draw {c.match.catchUpDraw} extra card.</li>
+            <li>Second wind: if you are {c.match.catchUpHpGap}+ HP behind at the start of a round, you draw {c.match.catchUpDraw} extra card{c.match.catchUpDraw === 1 ? '' : 's'}{c.match.catchUpEnergy > 0 ? ` and gain ${c.match.catchUpEnergy} extra Energy` : ''}.</li>
           )}
           {c.replace.enabled && <li>Playing a graft on an occupied slot replaces it for {c.replace.extraCost} extra Energy (the old graft leaves with its Strain).</li>}
           <li>Face-down grafts are asleep: no stats or text, {c.dormant.quietStrain} less Strain until they wake. Waking one on purpose after it has slept a round gives an Ambush for that round: Predator {ambushText(c, 'predator')}; Parasite {ambushText(c, 'parasite')}; Bastion {ambushText(c, 'bastion')}. Scanner Probe and Sabotage wake them by force, with no Ambush.</li>
@@ -68,6 +68,9 @@ export function HelpSheet({ state, onClose }: { state: GameState; onClose: () =>
         <h3 className="mt-3 text-xs font-bold uppercase tracking-wide text-accent">Integrity and statuses</h3>
         <ul className="mt-1 list-disc space-y-0.5 pl-5 text-xs text-ink2">
           <li>Every graft also has its own small Integrity pool (usually {c.integrity.default}), separate from your own HP and Strain. Some cards chip a specific graft's Integrity directly (bypassing armor); at 0 it is destroyed, which is not a rejection.</li>
+          {c.integrity.clashDamageDivisor > 0 && (
+            <li>Clash wear: whenever you take Clash damage, your awake graft with the most Integrity loses 1 Integrity per {c.integrity.clashDamageDivisor} damage taken (rounded up, so any hit wears at least 1). The ⬢ badge turns amber when worn and red at 1.</li>
+          )}
           <li>Bleed: {c.status.bleedDamage} damage at the start of each round while it lasts.</li>
           <li>Numb: Protocols cannot be played while it lasts.</li>
           <li>Fever: grafts cost {c.status.feverCostIncrease} more Energy while it lasts.</li>

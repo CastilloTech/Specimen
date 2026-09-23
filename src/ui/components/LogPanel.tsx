@@ -7,6 +7,7 @@ const KIND_STYLE: Partial<Record<LogEntry['kind'], string>> = {
   reject: 'font-semibold text-red-300',
   evolve: 'font-semibold text-violet-300',
   hit: 'font-semibold text-amber-200',
+  wear: 'text-orange-300',
   end: 'font-bold text-accent',
   stance: 'text-sky-300',
   strain: 'text-amber-200/90',

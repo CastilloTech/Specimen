@@ -14,7 +14,7 @@ export function nodeParam(p: PlayerState, id: string, key: string, def = 0): num
   return typeof v === 'number' ? v : def;
 }
 
-/** Sums a numeric param across every node in a player's loadout (their chip's 3 picks) that carries it,
+/** Sums a numeric param across every node in a player's loadout (one pick per chip row) that carries it,
  * skipping any node whose `cond` isn't currently met. This is how most chip nodes work: many different
  * nodes can share the same param key (e.g. `flatAttack`) - what makes two nodes genuinely different is the
  * (key, cond) pair, not just the key - without each needing its own hardcoded check. */

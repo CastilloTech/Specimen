@@ -257,10 +257,10 @@ function graftDamage(s: GameState, ctx: OpCtx, op: Extract<Op, { op: 'graftDamag
   g.integrity -= amount;
   if (g.integrity <= 0) {
     destroyGraft(s, victim, g);
-    logMsg(s, 'play', ctx.caster, `${ctx.source} destroys ${victim.name}'s ${card.name} in ${SLOT_LABEL[g.slot]} (integrity depleted).`);
+    logMsg(s, 'wear', ctx.caster, `${ctx.source} destroys ${victim.name}'s ${card.name} in ${SLOT_LABEL[g.slot]} (integrity depleted).`);
     onGraftKilled(s, ctx.caster);
   } else {
-    logMsg(s, 'play', ctx.caster, `${ctx.source} hits ${victim.name}'s ${card.name} for ${amount} integrity (${g.integrity} left).`);
+    logMsg(s, 'wear', ctx.caster, `${ctx.source} hits ${victim.name}'s ${card.name} for ${amount} integrity (${g.integrity} left).`);
   }
 }
 
@@ -270,8 +270,8 @@ function graftDamage(s: GameState, ctx: OpCtx, op: Extract<Op, { op: 'graftDamag
 function chipIntegrityFromClash(s: GameState, casterId: PlayerId, victimId: PlayerId, damage: number): void {
   const divisor = s.config.integrity.clashDamageDivisor;
   if (!divisor || damage <= 0) return;
-  const base = Math.floor(damage / divisor);
-  if (base <= 0) return;
+  // Rounded up, so every damaging hit wears at least 1: flooring made most 1-3 damage hits wear nothing.
+  const base = Math.ceil(damage / divisor);
   const victim = s.players[victimId];
   const caster = s.players[casterId];
   const awake = victim.grafts.filter((g) => !g.faceDown);
@@ -285,10 +285,10 @@ function chipIntegrityFromClash(s: GameState, casterId: PlayerId, victimId: Play
   g.integrity -= amount;
   if (g.integrity <= 0) {
     destroyGraft(s, victim, g);
-    logMsg(s, 'play', casterId, `Clash wears down ${victim.name}'s ${card.name} in ${SLOT_LABEL[g.slot]}: it is destroyed (integrity depleted).`);
+    logMsg(s, 'wear', casterId, `Clash wears down ${victim.name}'s ${card.name} in ${SLOT_LABEL[g.slot]}: it is destroyed (integrity depleted).`);
     onGraftKilled(s, casterId);
   } else {
-    logMsg(s, 'play', casterId, `Clash wears ${amount} integrity off ${victim.name}'s ${card.name} (${g.integrity} left).`);
+    logMsg(s, 'wear', casterId, `Clash wears ${amount} integrity off ${victim.name}'s ${card.name} (${g.integrity} left).`);
   }
 }
 

@@ -111,7 +111,7 @@ export interface ChipDef {
   name: string;
   text: string;
   worldFaction: WorldFactionId;
-  tree: TreeRow[]; // exactly 3 rows of exactly 2 nodes each
+  tree: TreeRow[]; // exactly 2 rows of exactly 2 nodes each
 }
 
 export interface EvolutionDef {
@@ -221,7 +221,7 @@ export interface ReactionWindow {
   play: PendingPlay;
 }
 
-export type LogKind = 'round' | 'stance' | 'play' | 'damage' | 'strain' | 'reject' | 'evolve' | 'heal' | 'end' | 'info' | 'hit';
+export type LogKind = 'round' | 'stance' | 'play' | 'damage' | 'strain' | 'reject' | 'evolve' | 'heal' | 'end' | 'info' | 'hit' | 'wear';
 
 export interface LogEntry {
   n: number;

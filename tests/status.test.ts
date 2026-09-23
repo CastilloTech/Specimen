@@ -52,14 +52,22 @@ describe('Integrity heal (op)', () => {
 describe('Clash chips Integrity', () => {
   // t_low_integrity_graft (2 attack, 0 armor) keeps the Clash-damage arithmetic simple: with no armor in
   // the way, P0's base 2 attack always lands as exactly 2 damage on P1, regardless of P1's own graft.
-  it('does nothing when the round\'s Clash damage does not clear the divisor', () => {
+  it('every damaging hit wears at least 1, even below the divisor', () => {
     let s = arena('predator', 'predator', ['aggress', 'aggress'], { integrity: { clashDamageDivisor: 4 } });
     s = attached(s, 1, 't_low_integrity_graft', 'limbA', { integrity: 3 });
-    s = endRound(s); // base Clash: 2 attack - 0 armor = 2 damage; floor(2/4) = 0
+    s = endRound(s); // base Clash: 2 attack - 0 armor = 2 damage; ceil(2/4) = 1
+    expect(s.players[1].grafts[0].integrity).toBe(2);
+    expect(s.log.some((l) => /Clash wears 1 integrity/.test(l.text))).toBe(true);
+  });
+
+  it('a hit fully stopped by armor wears nothing', () => {
+    let s = arena('predator', 'predator', ['aggress', 'aggress'], { integrity: { clashDamageDivisor: 4 } });
+    s = attached(s, 1, 't_bast_shell_limb', 'limbA', { integrity: 3 }); // enough armor to absorb P0's base 2 attack
+    s = endRound(s);
     expect(s.players[1].grafts[0].integrity).toBe(3);
   });
 
-  it('chips the defender\'s toughest awake graft by floor(damage/divisor), plus graftDamageBonus/Reduction', () => {
+  it('chips the defender\'s toughest awake graft by ceil(damage/divisor), plus graftDamageBonus/Reduction', () => {
     let s = arena('predator', 'predator', ['aggress', 'aggress'], { integrity: { clashDamageDivisor: 1 } });
     s = withNodes(s, 0, ['t_dmg']); // graftDamageBonus 2 (also graftDamageReduction 1, irrelevant here: P0 is the attacker)
     s = attached(s, 1, 't_low_integrity_graft', 'limbA', { integrity: 5 });

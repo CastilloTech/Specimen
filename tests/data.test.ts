@@ -204,10 +204,10 @@ describe('Chips', () => {
     'perGraftArmor',
   ]);
 
-  it('gives every World Faction exactly 3 chips of exactly 3 rows x 2 nodes', () => {
+  it('gives every World Faction exactly 3 chips of exactly 2 rows x 2 nodes', () => {
     for (const wf of WORLD_FACTIONS) expect(CHIPS.filter((c) => c.worldFaction === wf)).toHaveLength(3);
     for (const c of CHIPS) {
-      expect(c.tree, c.id).toHaveLength(3);
+      expect(c.tree, c.id).toHaveLength(2);
       for (const row of c.tree) expect(row.nodes, `${c.id}/${row.id}`).toHaveLength(2);
     }
   });

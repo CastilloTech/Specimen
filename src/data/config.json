@@ -122,9 +122,9 @@
       {
         "id": "hiveHost",
         "name": "Hive Host",
-        "text": "The opponent's Strain reaches 8+: heal 4 whenever the opponent later rejects a graft, and +1 armor, +1 attack.",
+        "text": "The opponent's Strain reaches 8+: heal 4 whenever the opponent later rejects a graft, and +1 armor, +2 attack.",
         "condition": { "metric": "oppMaxStrain", "target": 8, "label": "opponent peak Strain" },
-        "effects": { "healOnOppReject": 4, "armor": 1, "attack": 1 }
+        "effects": { "healOnOppReject": 4, "armor": 1, "attack": 2 }
       },
       {
         "id": "leechForm",
@@ -181,8 +181,8 @@
       "reflect": 5,
       "graftDamage": 1.3,
       "bleed": 2.5,
-      "numb": 3,
-      "fever": 2,
+      "numb": 2,
+      "fever": 1.5,
       "purge": 2,
       "integrity": 0.5,
       "integrityHeal": 0.6

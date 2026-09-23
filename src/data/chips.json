@@ -7,14 +7,6 @@
       "worldFaction": "corrosion",
       "tree": [
         {
-          "id": "bite",
-          "name": "Bite",
-          "nodes": [
-            { "id": "sharpenedFangs", "name": "Sharpened Fangs", "text": "+2 attack.", "params": { "flatAttack": 2 } },
-            { "id": "aggressiveBite", "name": "Aggressive Bite", "text": "+1 attack while you picked Aggress.", "params": { "flatAttack": 1 }, "cond": { "stance": "aggress" } }
-          ]
-        },
-        {
           "id": "feed",
           "name": "Feed",
           "nodes": [
@@ -26,8 +18,8 @@
           "id": "reach",
           "name": "Reach",
           "nodes": [
-            { "id": "corrodingBite", "name": "Corroding Bite", "text": "+2 integrity damage dealt.", "params": { "graftDamageBonus": 2 } },
-            { "id": "opportunisticStrike", "name": "Opportunistic Strike", "text": "+1 integrity damage dealt while the opponent has an active status.", "params": { "graftDamageBonus": 1 }, "cond": { "oppHasAnyStatus": true } }
+            { "id": "corrodingBite", "name": "Corroding Bite", "text": "+1 integrity damage dealt (Clash wear included).", "params": { "graftDamageBonus": 1 } },
+            { "id": "opportunisticStrike", "name": "Opportunistic Strike", "text": "+2 integrity damage dealt (Clash wear included) while the opponent has an active status.", "params": { "graftDamageBonus": 2 }, "cond": { "oppHasAnyStatus": true } }
           ]
         }
       ]
@@ -35,31 +27,23 @@
     {
       "id": "rustbite",
       "name": "Rustbite",
-      "text": "Bleed, upkeep economy, and battlefield scrap.",
+      "text": "Bleed and upkeep economy.",
       "worldFaction": "corrosion",
       "tree": [
         {
           "id": "corrosionRow",
           "name": "Corrosion",
           "nodes": [
-            { "id": "deepCorrosion", "name": "Deep Corrosion", "text": "Bleed you inflict lasts 1 round longer.", "params": { "bleedRoundsBonus": 1 } },
-            { "id": "overclockedRot", "name": "Overclocked Rot", "text": "Bleed you inflict lasts 1 round longer while you're Overclocked.", "params": { "bleedRoundsBonus": 1 }, "cond": { "zone": "overclocked" } }
+            { "id": "deepCorrosion", "name": "Deep Corrosion", "text": "Bleed you inflict lasts 2 rounds longer.", "params": { "bleedRoundsBonus": 2 } },
+            { "id": "rustingStrike", "name": "Rusting Strike", "text": "+1 integrity damage dealt (Clash wear included) from round 4 on.", "params": { "graftDamageBonus": 1 }, "cond": { "minRound": 4 } }
           ]
         },
         {
           "id": "upkeep",
           "name": "Upkeep",
           "nodes": [
-            { "id": "causticEdge", "name": "Caustic Edge", "text": "Your Corrosion cards cost 1 less.", "params": { "worldCardDiscount": 1 } },
+            { "id": "causticEdge", "name": "Caustic Edge", "text": "Your Corrosion cards cost 2 less.", "params": { "worldCardDiscount": 2 } },
             { "id": "quickRust", "name": "Quick Rust", "text": "Your first graft each round costs 1 less.", "params": { "firstGraftDiscount": 1 } }
-          ]
-        },
-        {
-          "id": "harvest",
-          "name": "Harvest",
-          "nodes": [
-            { "id": "scrapFeast", "name": "Scrap Feast", "text": "Destroying a graft heals 2 integrity across your own grafts.", "params": { "killIntegrityHeal": 2 } },
-            { "id": "ragingRot", "name": "Raging Rot", "text": "Severing a graft heals 2.", "params": { "severHeal": 2 } }
           ]
         }
       ]
@@ -84,14 +68,6 @@
           "nodes": [
             { "id": "thickScales", "name": "Thick Scales", "text": "+2 armor.", "params": { "flatArmor": 2 } },
             { "id": "reinforcedCarapace", "name": "Reinforced Carapace", "text": "Grafts you attach get +2 integrity.", "params": { "flatIntegrity": 2 } }
-          ]
-        },
-        {
-          "id": "instinct",
-          "name": "Instinct",
-          "nodes": [
-            { "id": "predatorInstinct", "name": "Predator Instinct", "text": "+1 attack per graft you control.", "params": { "perGraftAttack": 1 } },
-            { "id": "opportunist", "name": "Opportunist", "text": "Your Signature graft hardens into a veteran 1 Strain check sooner.", "params": { "veteranThresholdReduction": 1 } }
           ]
         }
       ]
@@ -119,14 +95,6 @@
             { "id": "lateReinforcement", "name": "Late Reinforcement", "text": "Grafts you attach from round 4 on get +3 integrity.", "params": { "flatIntegrity": 3 }, "cond": { "minRound": 4 } },
             { "id": "hardenedPlate", "name": "Hardened Plate", "text": "+1 armor while you have no active status on yourself.", "params": { "flatArmor": 1 }, "cond": { "selfHasAnyStatus": false } }
           ]
-        },
-        {
-          "id": "resolve",
-          "name": "Resolve",
-          "nodes": [
-            { "id": "unbreaking", "name": "Unbreaking", "text": "+1 armor per graft you control.", "params": { "perGraftArmor": 1 } },
-            { "id": "hardenedResolve", "name": "Hardened Resolve", "text": "Your Signature graft hardens into a veteran 1 Strain check sooner while you picked Fortify.", "params": { "veteranThresholdReduction": 1 }, "cond": { "stance": "fortify" } }
-          ]
         }
       ]
     },
@@ -142,14 +110,6 @@
           "nodes": [
             { "id": "slowMend", "name": "Slow Mend", "text": "At the start of each round, heal 1 integrity on every graft you control.", "params": { "integrityRegen": 1 } },
             { "id": "vitalSurge", "name": "Vital Surge", "text": "Heal 1 extra integrity each round while you have an active status on yourself.", "params": { "integrityRegen": 1 }, "cond": { "selfHasAnyStatus": true } }
-          ]
-        },
-        {
-          "id": "coil",
-          "name": "Coil",
-          "nodes": [
-            { "id": "coiledDefense", "name": "Coiled Defense", "text": "+1 armor from round 5 on.", "params": { "flatArmor": 1 }, "cond": { "minRound": 5 } },
-            { "id": "composed", "name": "Composed", "text": "Grafts you attach get +1 integrity while you have no active status on yourself.", "params": { "flatIntegrity": 1 }, "cond": { "selfHasAnyStatus": false } }
           ]
         },
         {
@@ -183,14 +143,6 @@
             { "id": "steadfast", "name": "Steadfast", "text": "Replacing a graft costs 1 less.", "params": { "replaceCostReduction": 1 } },
             { "id": "enduringForm", "name": "Enduring Form", "text": "Incoming integrity damage against you is reduced by 1 while your HP is 20 or less.", "params": { "graftDamageReduction": 1 }, "cond": { "hpAtMost": 20 } }
           ]
-        },
-        {
-          "id": "endurance",
-          "name": "Endurance",
-          "nodes": [
-            { "id": "lastStand", "name": "Last Stand", "text": "Purging your own statuses also vents 2 Strain.", "params": { "purgeVent": 2 } },
-            { "id": "preparedStand", "name": "Prepared Stand", "text": "Draw 1 extra card in round 1.", "params": { "firstDrawRoundBonus": 1 } }
-          ]
         }
       ]
     }
@@ -217,14 +169,6 @@
             { "id": "spreadingBlight", "name": "Spreading Blight", "text": "Numb you inflict lasts 1 round longer.", "params": { "numbRoundsBonus": 1 } },
             { "id": "virulence", "name": "Virulence", "text": "Fever you inflict lasts 1 round longer while you're Overclocked.", "params": { "feverRoundsBonus": 1 }, "cond": { "zone": "overclocked" } }
           ]
-        },
-        {
-          "id": "decay",
-          "name": "Decay",
-          "nodes": [
-            { "id": "slowDecay", "name": "Slow Decay", "text": "Destroying a graft gives the opponent 2 Strain while they already have an active status.", "params": { "killStrain": 2 }, "cond": { "oppHasAnyStatus": true } },
-            { "id": "quickDecay", "name": "Quick Decay", "text": "Your Miasma cards cost 1 less while you have an active status on yourself.", "params": { "worldCardDiscount": 1 }, "cond": { "selfHasAnyStatus": true } }
-          ]
         }
       ]
     },
@@ -240,14 +184,6 @@
           "nodes": [
             { "id": "ironGrip", "name": "Iron Grip", "text": "Numb you inflict lasts 1 round longer while you picked Adapt.", "params": { "numbRoundsBonus": 1 }, "cond": { "stance": "adapt" } },
             { "id": "looseningGrip", "name": "Loosening Grip", "text": "Disable you inflict lasts 1 round longer.", "params": { "disableRoundsBonus": 1 } }
-          ]
-        },
-        {
-          "id": "chokeholdRow",
-          "name": "Chokehold",
-          "nodes": [
-            { "id": "suffocate", "name": "Suffocate", "text": "Poison you inflict lasts 1 round longer.", "params": { "poisonRoundsBonus": 1 } },
-            { "id": "strangle", "name": "Strangle", "text": "Hold vents 1 extra Strain while you have an active status on yourself.", "params": { "holdVentBonus": 1 }, "cond": { "selfHasAnyStatus": true } }
           ]
         },
         {
@@ -281,14 +217,6 @@
             { "id": "relapsingFever", "name": "Relapsing Fever", "text": "Destroying a graft heals 2 integrity across your grafts while you have an active status on yourself.", "params": { "killIntegrityHeal": 2 }, "cond": { "selfHasAnyStatus": true } },
             { "id": "recurringNumb", "name": "Recurring Numb", "text": "+1 armor per graft you control while you have an active status on yourself.", "params": { "perGraftArmor": 1 }, "cond": { "selfHasAnyStatus": true } }
           ]
-        },
-        {
-          "id": "persistence",
-          "name": "Persistence",
-          "nodes": [
-            { "id": "enduringAfflictions", "name": "Enduring Afflictions", "text": "Fever you inflict lasts 1 round longer from round 4 on.", "params": { "feverRoundsBonus": 1 }, "cond": { "minRound": 4 } },
-            { "id": "lingeringNumb", "name": "Lingering Numb", "text": "Numb you inflict lasts 1 round longer from round 4 on.", "params": { "numbRoundsBonus": 1 }, "cond": { "minRound": 4 } }
-          ]
         }
       ]
     }
@@ -315,14 +243,6 @@
             { "id": "deathToll", "name": "Death Toll", "text": "Necrosing a graft also vents 1 Strain for you.", "params": { "necrosisVent": 1 } },
             { "id": "harvestSoul", "name": "Harvest Soul", "text": "Destroying a graft draws 1 card.", "params": { "killDraw": 1 } }
           ]
-        },
-        {
-          "id": "reach",
-          "name": "Reach",
-          "nodes": [
-            { "id": "grimReach", "name": "Grim Reach", "text": "+1 integrity damage dealt from round 4 on.", "params": { "graftDamageBonus": 1 }, "cond": { "minRound": 4 } },
-            { "id": "coldGrip", "name": "Cold Grip", "text": "+1 integrity damage dealt while the opponent has 6+ Strain.", "params": { "graftDamageBonus": 1 }, "cond": { "oppStrainAtLeast": 6 } }
-          ]
         }
       ]
     },
@@ -347,21 +267,13 @@
             { "id": "clearMind", "name": "Clear Mind", "text": "+1 armor while the opponent has an active status.", "params": { "flatArmor": 1 }, "cond": { "oppHasAnyStatus": true } },
             { "id": "clearBody", "name": "Clear Body", "text": "+1 attack while the opponent has 6+ Strain.", "params": { "flatAttack": 1 }, "cond": { "oppStrainAtLeast": 6 } }
           ]
-        },
-        {
-          "id": "balance",
-          "name": "Balance",
-          "nodes": [
-            { "id": "equilibrium", "name": "Equilibrium", "text": "Purging your own statuses heals 1 integrity across your grafts while the opponent has an active status.", "params": { "purgeIntegrityHeal": 1 }, "cond": { "oppHasAnyStatus": true } },
-            { "id": "harmony", "name": "Harmony", "text": "Severing a graft heals 2 while the opponent has an active status.", "params": { "severHeal": 2 }, "cond": { "oppHasAnyStatus": true } }
-          ]
         }
       ]
     },
     {
       "id": "nullField",
       "name": "Null Field",
-      "text": "Low-Strain control and evolution synergy.",
+      "text": "Low-Strain control.",
       "worldFaction": "hollow",
       "tree": [
         {
@@ -378,14 +290,6 @@
           "nodes": [
             { "id": "stillnessNode", "name": "Stillness", "text": "Numb you inflict lasts 1 round longer while your Strain is 6+.", "params": { "numbRoundsBonus": 1 }, "cond": { "strainAtLeast": 6 } },
             { "id": "silence", "name": "Silence", "text": "Destroying a graft heals 3 while the opponent has an active status.", "params": { "killHeal": 3 }, "cond": { "oppHasAnyStatus": true } }
-          ]
-        },
-        {
-          "id": "vacancy",
-          "name": "Vacancy",
-          "nodes": [
-            { "id": "vacancyNode", "name": "Vacancy", "text": "+2 armor once evolved into Carapace.", "params": { "flatArmor": 2 }, "cond": { "evolution": "carapace" } },
-            { "id": "emptiness", "name": "Emptiness", "text": "+2 attack once evolved into Juggernaut.", "params": { "flatAttack": 2 }, "cond": { "evolution": "juggernaut" } }
           ]
         }
       ]

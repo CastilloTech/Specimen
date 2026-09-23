@@ -1,6 +1,52 @@
+import { useEffect, useRef, useState } from 'react';
 import { CARD_MAP, publicGraft, SLOT_LABEL } from '../../engine';
-import type { GameState, PlayerId, SlotId } from '../../engine';
+import type { GameState, PlayerId, PlayerState, SlotId } from '../../engine';
 import { FACTION_META } from '../meta';
+
+interface WearFlash {
+  key: number;
+  text: string;
+  destroyed: boolean;
+}
+
+const FLASH_MS = 1600;
+let flashKey = 0;
+
+/** Slots whose graft just lost Integrity (or was destroyed by losing it all), cleared after a moment. */
+function useWearFlashes(state: GameState, p: PlayerState): Partial<Record<SlotId, WearFlash>> {
+  const prev = useRef<Map<SlotId, { uid: string; integrity: number }> | null>(null);
+  const lastLog = useRef(state.log.length);
+  const [flashes, setFlashes] = useState<Partial<Record<SlotId, WearFlash>>>({});
+  useEffect(() => {
+    const now = new Map(p.grafts.map((g) => [g.slot, { uid: g.uid, integrity: g.integrity }] as const));
+    const fresh = state.log.slice(lastLog.current);
+    lastLog.current = state.log.length;
+    const before = prev.current;
+    prev.current = now;
+    if (!before) return;
+    const found: Partial<Record<SlotId, WearFlash>> = {};
+    for (const [slot, old] of before) {
+      const cur = now.get(slot);
+      if (cur && cur.uid === old.uid && cur.integrity < old.integrity) {
+        found[slot] = { key: ++flashKey, text: `−${old.integrity - cur.integrity} INT`, destroyed: false };
+      } else if (cur?.uid !== old.uid) {
+        const depleted = fresh.some((l) => l.kind === 'wear' && /integrity depleted/.test(l.text) && l.text.includes(`${p.name}'s`) && l.text.includes(` in ${SLOT_LABEL[slot]}`));
+        if (depleted) found[slot] = { key: ++flashKey, text: 'destroyed', destroyed: true };
+      }
+    }
+    const entries = Object.entries(found) as [SlotId, WearFlash][];
+    if (!entries.length) return;
+    setFlashes((f) => ({ ...f, ...found }));
+    setTimeout(() => {
+      setFlashes((f) => {
+        const next = { ...f };
+        for (const [slot, fl] of entries) if (next[slot]?.key === fl.key) delete next[slot];
+        return next;
+      });
+    }, FLASH_MS);
+  }, [p.grafts, p.name, state.log]);
+  return flashes;
+}
 
 // Slot anchor points in a 100x120 body box (percent). `flip` mirrors the Limbs so the
 // two Specimens face each other.
@@ -26,6 +72,7 @@ interface Props {
 export function Specimen({ state, player, viewer, flip, highlight, onSlot, color }: Props) {
   const p = state.players[player];
   const fm = FACTION_META[p.faction];
+  const flashes = useWearFlashes(state, p);
   return (
     <div className="relative mx-auto aspect-[5/4.4] w-full max-w-[210px] lg:max-w-[250px]" aria-label={`${p.name}'s Specimen`}>
       <svg viewBox="0 0 100 88" preserveAspectRatio="none" className="absolute inset-0 h-full w-full" aria-hidden>
@@ -48,6 +95,9 @@ export function Specimen({ state, player, viewer, flip, highlight, onSlot, color
         const veteran = !!def?.signature && !!pg && pg.roundsSurvived >= veteranAt;
         const lit = highlight?.has(slot);
         const necrotic = p.necrosis[slot] ?? 0;
+        const flash = flashes[slot];
+        const maxIntegrity = def?.integrity ?? state.config.integrity.default;
+        const intStyle = !pg || pg.integrity >= maxIntegrity ? 'bg-emerald-900/60 text-emerald-200' : pg.integrity <= 1 ? 'bg-red-800/80 text-red-100' : 'bg-amber-800/70 text-amber-100';
         return (
           <button
             key={slot}
@@ -55,7 +105,7 @@ export function Specimen({ state, player, viewer, flip, highlight, onSlot, color
             onClick={() => onSlot?.(slot)}
             className={`absolute grid w-[31%] -translate-x-1/2 -translate-y-1/2 place-items-center rounded-md border px-0.5 py-0.5 text-center leading-[1.05] ${
               lit ? 'target-glow border-accent bg-accent/15' : pg ? 'border-line bg-panel2' : necrotic > 0 ? 'border-fuchsia-800 bg-fuchsia-950/40' : 'border-dashed border-line/80 bg-black/30'
-            } ${pg?.poisoned ? 'ring-1 ring-fuchsia-500' : ''} ${pg?.disabled ? 'grayscale' : ''}`}
+            } ${pg?.poisoned ? 'ring-1 ring-fuchsia-500' : ''} ${pg?.disabled ? 'grayscale' : ''} ${flash ? 'wear-flash' : ''}`}
             style={{ left: `${x}%`, top: `${pos.y}%`, minHeight: '16%' }}
             title={
               def
@@ -67,6 +117,11 @@ export function Specimen({ state, player, viewer, flip, highlight, onSlot, color
                     : SLOT_LABEL[slot]
             }
           >
+            {flash && (
+              <span key={flash.key} className={`wear-float pointer-events-none absolute -top-2 right-0 z-10 rounded px-1 text-[9px] font-bold shadow ${flash.destroyed ? 'bg-red-700 text-white' : 'bg-orange-600 text-white'}`} aria-live="polite">
+                {flash.text}
+              </span>
+            )}
             <span className="text-[7px] font-semibold uppercase tracking-wider text-mute">{SLOT_LABEL[slot]}</span>
             {pg ? (
               <>
@@ -82,8 +137,8 @@ export function Specimen({ state, player, viewer, flip, highlight, onSlot, color
                     <span className="rounded bg-sky-900/60 px-0.5 text-[7px] font-bold text-sky-200" title="Armor">
                       {def.armor}
                     </span>
-                    <span className="rounded bg-emerald-900/60 px-0.5 text-[7px] font-bold text-emerald-200" title="Integrity remaining">
-                      {pg.integrity}/{def.integrity ?? state.config.integrity.default}
+                    <span className={`rounded px-0.5 text-[7px] font-bold ${intStyle}`} title="Integrity: the graft's own HP. Clash damage and some cards wear it down; at 0 the graft is destroyed.">
+                      ⬢{pg.integrity}/{maxIntegrity}
                     </span>
                   </span>
                 )}

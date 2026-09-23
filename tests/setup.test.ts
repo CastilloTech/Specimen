@@ -147,12 +147,12 @@ describe('Deck rules', () => {
 });
 
 describe('Chip choice and loadout rules', () => {
-  it('every World Faction offers exactly 3 chips, each with 3 rows of 2 nodes', () => {
+  it('every World Faction offers exactly 3 chips, each with 2 rows of 2 nodes', () => {
     for (const w of WORLD_FACTIONS) {
       const chips = chipsFor(w);
       expect(chips).toHaveLength(3);
       for (const c of chips) {
-        expect(c.tree).toHaveLength(3);
+        expect(c.tree).toHaveLength(2);
         for (const row of c.tree) expect(row.nodes).toHaveLength(2);
       }
     }
@@ -170,9 +170,9 @@ describe('Chip choice and loadout rules', () => {
 
   it('rejects two nodes in one row, a missing row, and a node from another chip', () => {
     const chip = chipsFor('corrosion')[0];
-    const [rowA, rowB, rowC] = chip.tree;
-    expect(validateLoadout(chip.id, [rowA.nodes[0].id, rowA.nodes[1].id, rowB.nodes[0].id, rowC.nodes[0].id]).join()).toMatch(new RegExp(`only one node in the ${rowA.name}`));
-    expect(validateLoadout(chip.id, [rowA.nodes[0].id, rowB.nodes[0].id]).join()).toMatch(new RegExp(`Pick a node in the ${rowC.name}`));
-    expect(validateLoadout(chip.id, [rowA.nodes[0].id, rowB.nodes[0].id, 'not_on_this_chip']).join()).toMatch(/is not on this chip/);
+    const [rowA, rowB] = chip.tree;
+    expect(validateLoadout(chip.id, [rowA.nodes[0].id, rowA.nodes[1].id, rowB.nodes[0].id]).join()).toMatch(new RegExp(`only one node in the ${rowA.name}`));
+    expect(validateLoadout(chip.id, [rowA.nodes[0].id]).join()).toMatch(new RegExp(`Pick a node in the ${rowB.name}`));
+    expect(validateLoadout(chip.id, [rowA.nodes[0].id, 'not_on_this_chip']).join()).toMatch(/is not on this chip/);
   });
 });

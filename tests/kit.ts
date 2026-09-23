@@ -37,8 +37,8 @@ export function baseMatch(f0: Faction = 'predator', f1: Faction = 'predator', co
       match: { lateDraw: 0, catchUpDraw: 0, catchUpEnergy: 0, secondMoverDraw: 0, secondMoverEnergy: 0, energyRampBonus: 0, koTiebreak: false, ...config?.match, meltdownStrain: 2 },
       energy: { min: 1, ...config?.energy },
       replace: { enabled: false, extraCost: 1, ...config?.replace },
-      // Off by default (a huge divisor never floors above 0): Clash's passive Integrity chip is opt-in per test.
-      integrity: { clashDamageDivisor: 1_000_000, ...config?.integrity },
+      // Off by default (divisor 0): Clash's passive Integrity wear is opt-in per test.
+      integrity: { clashDamageDivisor: 0, ...config?.integrity },
       stances: { aggressBeatsAdaptBonus: 2, fortifyCounterDamage: 1, ...config?.stances },
       dormant: {
         quietStrain: 1,
