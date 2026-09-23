@@ -18,7 +18,7 @@ import {
   sumLoadoutParam,
   zoneOf,
 } from './stats';
-import type { Ability, AttachedGraft, CardInstance, GameState, LogKind, Op, PendingPlay, PlayerId, PlayRecord, SlotId, Trigger } from './types';
+import type { Ability, AttachedGraft, CardInstance, GameState, LogKind, Op, PendingPlay, PlayerId, PlayerState, PlayRecord, SlotId, Trigger } from './types';
 import { other } from './types';
 
 export const SLOT_LABEL: Record<SlotId, string> = {
@@ -206,28 +206,40 @@ function sabotage(s: GameState, ctx: OpCtx, op: Extract<Op, { op: 'sabotage' }>)
   revealGraft(s, ctx.victim, g);
   const card = cardOf(g.cardId);
   const cfg = s.config.sabotage;
+  const caster = s.players[ctx.caster];
   if (op.mode === 'sever') {
-    victim.grafts = victim.grafts.filter((x) => x !== g);
-    victim.discard.push({ uid: g.uid, cardId: g.cardId });
-    if (s.config.strain.severRemovesStrain) victim.strain = Math.max(0, victim.strain - g.strain);
+    destroyGraft(s, victim, g);
     logMsg(s, 'play', ctx.caster, `${ctx.source} severs ${victim.name}'s ${card.name} from ${SLOT_LABEL[g.slot]}.`);
+    const h = sumLoadoutParam(s, caster, 'severHeal');
+    if (h > 0) heal(s, ctx.caster, h, 'a Sever');
   } else if (op.mode === 'poison') {
-    g.poisoned = Math.max(g.poisoned, op.rounds ?? cfg.poisonRounds);
+    g.poisoned = Math.max(g.poisoned, (op.rounds ?? cfg.poisonRounds) + sumLoadoutParam(s, caster, 'poisonRoundsBonus'));
     logMsg(s, 'play', ctx.caster, `${ctx.source} poisons ${victim.name}'s ${card.name}: it gives 0 stats for ${g.poisoned} round(s).`);
   } else if (op.mode === 'disable') {
-    g.disabled = Math.max(g.disabled, op.rounds ?? cfg.disableRounds);
+    g.disabled = Math.max(g.disabled, (op.rounds ?? cfg.disableRounds) + sumLoadoutParam(s, caster, 'disableRoundsBonus'));
     logMsg(s, 'play', ctx.caster, `${ctx.source} disables ${victim.name}'s ${card.name}: its text is off for ${g.disabled} round(s).`);
   } else {
     // necrosis: sever the graft, and the empty slot itself cannot be refilled for a while.
-    victim.grafts = victim.grafts.filter((x) => x !== g);
-    victim.discard.push({ uid: g.uid, cardId: g.cardId });
-    if (s.config.strain.severRemovesStrain) victim.strain = Math.max(0, victim.strain - g.strain);
-    const caster = s.players[ctx.caster];
-    const rounds = (op.rounds ?? cfg.necrosisRounds) + sumLoadoutParam(caster, 'necrosisRoundsBonus');
+    destroyGraft(s, victim, g);
+    const rounds = (op.rounds ?? cfg.necrosisRounds) + sumLoadoutParam(s, caster, 'necrosisRoundsBonus');
     victim.necrosis[g.slot] = Math.max(victim.necrosis[g.slot] ?? 0, rounds);
     logMsg(s, 'play', ctx.caster, `${ctx.source} necroses ${victim.name}'s ${card.name} from ${SLOT_LABEL[g.slot]}: the slot cannot be refilled for ${rounds} round(s).`);
+    const v = sumLoadoutParam(s, caster, 'necrosisVent');
+    if (v > 0) {
+      const vented = vent(s, ctx.caster, v);
+      if (vented > 0) logMsg(s, 'strain', ctx.caster, `${caster.name} vents ${vented} Strain (necrosis).`, -vented);
+    }
     onGraftKilled(s, ctx.caster);
   }
+}
+
+/** The mechanical part of a graft leaving the board via Integrity loss: filter it out, discard it, and
+ * remove its Strain if severRemovesStrain. Callers do their own logging and onGraftKilled call, in that
+ * order, so log ordering stays exactly as it was before this was extracted. */
+function destroyGraft(s: GameState, victim: PlayerState, g: AttachedGraft): void {
+  victim.grafts = victim.grafts.filter((x) => x !== g);
+  victim.discard.push({ uid: g.uid, cardId: g.cardId });
+  if (s.config.strain.severRemovesStrain) victim.strain = Math.max(0, victim.strain - g.strain);
 }
 
 /** Chips a graft's own small integrity pool (bypasses armor); destroys it at 0, separate from rejection. */
@@ -241,12 +253,10 @@ function graftDamage(s: GameState, ctx: OpCtx, op: Extract<Op, { op: 'graftDamag
   revealGraft(s, ctx.victim, g);
   const card = cardOf(g.cardId);
   const caster = s.players[ctx.caster];
-  const amount = Math.max(0, op.amount + sumLoadoutParam(caster, 'graftDamageBonus') - sumLoadoutParam(victim, 'graftDamageReduction'));
+  const amount = Math.max(0, op.amount + sumLoadoutParam(s, caster, 'graftDamageBonus') - sumLoadoutParam(s, victim, 'graftDamageReduction'));
   g.integrity -= amount;
   if (g.integrity <= 0) {
-    victim.grafts = victim.grafts.filter((x) => x !== g);
-    victim.discard.push({ uid: g.uid, cardId: g.cardId });
-    if (s.config.strain.severRemovesStrain) victim.strain = Math.max(0, victim.strain - g.strain);
+    destroyGraft(s, victim, g);
     logMsg(s, 'play', ctx.caster, `${ctx.source} destroys ${victim.name}'s ${card.name} in ${SLOT_LABEL[g.slot]} (integrity depleted).`);
     onGraftKilled(s, ctx.caster);
   } else {
@@ -254,15 +264,50 @@ function graftDamage(s: GameState, ctx: OpCtx, op: Extract<Op, { op: 'graftDamag
   }
 }
 
-/** Corrosion/Hollow chip nodes that pay off destroying a graft (via graftDamage or necrosis). */
+/** Clash damage itself now also wears down Integrity, not just Sabotage cards: some of a hit's force lands
+ * on the graft absorbing it. Reuses the same graftDamageBonus/Reduction hooks as the `graftDamage` op, so
+ * those nodes matter every round, not only when a Sabotage card happens to be drawn. */
+function chipIntegrityFromClash(s: GameState, casterId: PlayerId, victimId: PlayerId, damage: number): void {
+  const divisor = s.config.integrity.clashDamageDivisor;
+  if (!divisor || damage <= 0) return;
+  const base = Math.floor(damage / divisor);
+  if (base <= 0) return;
+  const victim = s.players[victimId];
+  const caster = s.players[casterId];
+  const awake = victim.grafts.filter((g) => !g.faceDown);
+  if (!awake.length) return;
+  const slotOrder = s.config.slots as string[];
+  const g = [...awake].sort((a, b) => b.integrity - a.integrity || slotOrder.indexOf(a.slot) - slotOrder.indexOf(b.slot))[0];
+  const amount = Math.max(0, base + sumLoadoutParam(s, caster, 'graftDamageBonus') - sumLoadoutParam(s, victim, 'graftDamageReduction'));
+  if (amount <= 0) return;
+  revealGraft(s, victimId, g);
+  const card = cardOf(g.cardId);
+  g.integrity -= amount;
+  if (g.integrity <= 0) {
+    destroyGraft(s, victim, g);
+    logMsg(s, 'play', casterId, `Clash wears down ${victim.name}'s ${card.name} in ${SLOT_LABEL[g.slot]}: it is destroyed (integrity depleted).`);
+    onGraftKilled(s, casterId);
+  } else {
+    logMsg(s, 'play', casterId, `Clash wears ${amount} integrity off ${victim.name}'s ${card.name} (${g.integrity} left).`);
+  }
+}
+
+/** Chip nodes that pay off destroying a graft (via graftDamage, Clash wear, necrosis, or Sever). */
 function onGraftKilled(s: GameState, casterId: PlayerId): void {
   const caster = s.players[casterId];
-  const h = sumLoadoutParam(caster, 'killHeal');
+  const h = sumLoadoutParam(s, caster, 'killHeal');
   if (h > 0) heal(s, casterId, h, 'a graft kill');
-  const st = sumLoadoutParam(caster, 'killStrain');
+  const st = sumLoadoutParam(s, caster, 'killStrain');
   if (st > 0) {
     addStrain(s, other(casterId), st);
     logMsg(s, 'strain', other(casterId), `${name(s, other(casterId))} gains ${st} Strain (a graft kill).`, st);
+  }
+  const ih = sumLoadoutParam(s, caster, 'killIntegrityHeal');
+  if (ih > 0) runOps(s, [{ op: 'integrityHeal', amount: ih }], { caster: casterId, victim: other(casterId), source: 'a graft kill' });
+  const dr = sumLoadoutParam(s, caster, 'killDraw');
+  if (dr > 0) {
+    const n = drawCards(s, casterId, dr);
+    if (n > 0) logMsg(s, 'info', casterId, `${caster.name} draws ${n} card(s) (a graft kill).`);
   }
 }
 
@@ -271,13 +316,13 @@ function applyStatus(s: GameState, ctx: OpCtx, op: Extract<Op, { op: 'status' }>
   const caster = s.players[ctx.caster];
   const t = s.players[(op.who ?? 'opp') === 'self' ? ctx.caster : ctx.victim];
   if (op.kind === 'bleed') {
-    t.bleed = Math.max(t.bleed, (op.rounds ?? cfg.bleedRounds) + sumLoadoutParam(caster, 'bleedRoundsBonus'));
+    t.bleed = Math.max(t.bleed, (op.rounds ?? cfg.bleedRounds) + sumLoadoutParam(s, caster, 'bleedRoundsBonus'));
     logMsg(s, 'strain', t.id, `${ctx.source}: ${t.name} is bleeding for ${t.bleed} round(s).`);
   } else if (op.kind === 'numb') {
-    t.numb = Math.max(t.numb, (op.rounds ?? cfg.numbRounds) + sumLoadoutParam(caster, 'numbRoundsBonus'));
+    t.numb = Math.max(t.numb, (op.rounds ?? cfg.numbRounds) + sumLoadoutParam(s, caster, 'numbRoundsBonus'));
     logMsg(s, 'info', t.id, `${ctx.source}: ${t.name} is numbed and cannot play Protocols for ${t.numb} round(s).`);
   } else {
-    t.fever = Math.max(t.fever, (op.rounds ?? cfg.feverRounds) + sumLoadoutParam(caster, 'feverRoundsBonus'));
+    t.fever = Math.max(t.fever, (op.rounds ?? cfg.feverRounds) + sumLoadoutParam(s, caster, 'feverRoundsBonus'));
     logMsg(s, 'info', t.id, `${ctx.source}: ${t.name}'s grafts cost 1 more Energy for ${t.fever} round(s) (Fever).`);
   }
 }
@@ -291,14 +336,31 @@ function purge(s: GameState, ctx: OpCtx, op: Extract<Op, { op: 'purge' }>): void
   t.necrosis = {};
   logMsg(s, 'info', t.id, `${ctx.source}: ${t.name}'s statuses are purged.`);
   if (self) {
-    const h = sumLoadoutParam(t, 'purgeHeal');
+    const h = sumLoadoutParam(s, t, 'purgeHeal');
     if (h > 0) heal(s, t.id, h, 'Purge');
-    const v = sumLoadoutParam(t, 'purgeVent');
+    const v = sumLoadoutParam(s, t, 'purgeVent');
     if (v > 0) {
       const vented = vent(s, t.id, v);
       if (vented > 0) logMsg(s, 'strain', t.id, `${t.name} vents ${vented} Strain (Purge).`, -vented);
     }
+    const ih = sumLoadoutParam(s, t, 'purgeIntegrityHeal');
+    if (ih > 0) runOps(s, [{ op: 'integrityHeal', amount: ih }], { caster: t.id, victim: other(t.id), source: 'Purge' });
   }
+}
+
+/** Heals integrity on every graft the caster controls (not just awake ones - matches integrityRegen and
+ * the cards' own "every graft you control" text), capped at each graft's own max + flatIntegrity. */
+function integrityHeal(s: GameState, ctx: OpCtx, op: Extract<Op, { op: 'integrityHeal' }>): void {
+  const pl = s.players[ctx.caster];
+  const bonus = sumLoadoutParam(s, pl, 'flatIntegrity');
+  let healed = 0;
+  for (const g of pl.grafts) {
+    const cap = (cardOf(g.cardId).integrity ?? s.config.integrity.default) + bonus;
+    const before = g.integrity;
+    g.integrity = Math.min(cap, g.integrity + op.amount);
+    healed += g.integrity - before;
+  }
+  if (healed > 0) logMsg(s, 'info', ctx.caster, `${ctx.source}: ${pl.name} heals ${healed} integrity across their grafts.`);
 }
 
 export function runOps(s: GameState, ops: Op[], ctx: OpCtx): void {
@@ -379,6 +441,9 @@ export function runOps(s: GameState, ops: Op[], ctx: OpCtx): void {
       case 'purge':
         purge(s, ctx, op);
         break;
+      case 'integrityHeal':
+        integrityHeal(s, ctx, op);
+        break;
     }
   }
 }
@@ -417,7 +482,7 @@ export function attachGraft(s: GameState, p: PlayerId, card: CardInstance, slot:
     dormantStrain: quiet,
     sleptSince: s.round,
     roundsSurvived: 0,
-    integrity: (def.integrity ?? s.config.integrity.default) + sumLoadoutParam(pl, 'flatIntegrity'),
+    integrity: (def.integrity ?? s.config.integrity.default) + sumLoadoutParam(s, pl, 'flatIntegrity'),
   };
   pl.grafts.push(g);
   pl.firstGraftDone = true;
@@ -483,7 +548,6 @@ export function beginRound(s: GameState): void {
     pl.hold = false;
     pl.cycledThisRound = 0;
     pl.stance = null;
-    pl.stanceGuess = null;
     pl.rejectedThisRound = false;
     pl.attachedThisRound = 0;
     pl.tempAttack = 0;
@@ -491,7 +555,8 @@ export function beginRound(s: GameState): void {
   }
   for (const pl of s.players) {
     const late = s.round >= cfg.match.lateDrawFromRound ? cfg.match.lateDraw : 0; // the late game is card-starved, so draw more
-    drawCards(s, pl.id, cfg.match.drawPerRound + late);
+    const firstRoundBonus = s.round === 1 ? sumLoadoutParam(s, pl, 'firstDrawRoundBonus') : 0;
+    drawCards(s, pl.id, cfg.match.drawPerRound + late + firstRoundBonus);
     if (late > 0 && s.round === cfg.match.lateDrawFromRound) logMsg(s, 'info', pl.id, `Late game: ${pl.name} now draws ${cfg.match.drawPerRound + late} cards a round.`);
     pl.energy = Math.max(cfg.energy.min, Math.min(s.round, cfg.energy.cap)) + (cfg.features.energyBanking ? pl.bank : 0);
     pl.bank = 0;
@@ -499,8 +564,8 @@ export function beginRound(s: GameState): void {
       const v = vent(s, pl.id, cfg.strain.ventPerRound);
       if (v > 0) logMsg(s, 'strain', pl.id, `${pl.name} vents ${v} Strain (no graft last round).`, -v);
     }
-    const regen = sumLoadoutParam(pl, 'integrityRegen');
-    if (regen > 0) for (const g of pl.grafts) g.integrity = Math.min((cardOf(g.cardId).integrity ?? cfg.integrity.default) + sumLoadoutParam(pl, 'flatIntegrity'), g.integrity + regen);
+    const regen = sumLoadoutParam(s, pl, 'integrityRegen');
+    if (regen > 0) for (const g of pl.grafts) g.integrity = Math.min((cardOf(g.cardId).integrity ?? cfg.integrity.default) + sumLoadoutParam(s, pl, 'flatIntegrity'), g.integrity + regen);
   }
   // Comeback draw: the Specimen that is well behind on HP draws extra, so an early lead does not decide the match alone.
   const [pa, pb] = s.players;
@@ -531,21 +596,6 @@ export function resolveStances(s: GameState): void {
   const winner: PlayerId | null = beats(sa, sb) ? 0 : beats(sb, sa) ? 1 : null;
   s.stanceResult = { winner };
   logMsg(s, 'stance', null, `Stances revealed: ${a.name} ${STANCE_NAME[sa]}, ${b.name} ${STANCE_NAME[sb]}. ${winner === null ? 'Tie.' : `${name(s, winner)} wins the stance.`}`);
-  // A stance call: predicting the opponent's stance alongside your own pick. Right pays off in attack,
-  // wrong costs Strain, and not calling is always safe - so it is a bet, not a free read.
-  for (const pl of s.players) {
-    if (pl.stanceGuess === null) continue;
-    const opp = s.players[other(pl.id)];
-    if (pl.stanceGuess === opp.stance) {
-      const n = s.config.stances.callBonus;
-      pl.tempAttack += n;
-      logMsg(s, 'info', pl.id, `Call: ${pl.name} correctly calls ${STANCE_NAME[opp.stance!]} and gets +${n} attack this round.`);
-    } else {
-      const n = s.config.stances.callPenalty;
-      addStrain(s, pl.id, n);
-      logMsg(s, 'strain', pl.id, `Call: ${pl.name} calls ${STANCE_NAME[pl.stanceGuess]} but ${opp.name} picked ${STANCE_NAME[opp.stance!]} - ${pl.name} gains ${n} Strain.`, n);
-    }
-  }
   s.initiative = winner ?? other(s.lastInitiative);
   s.lastInitiative = s.initiative;
   if (s.round === 1 && s.config.match.secondMoverEnergy > 0) {
@@ -665,6 +715,12 @@ export function clash(s: GameState): void {
     if (heals[i] > 0) heal(s, i, heals[i], 'Siphon');
   }
   if (endIfDead(s)) return;
+  // Clash also wears down Integrity: combine everything a side took this round (main exchange + Fortify
+  // counter, always from the same opponent) into one chip, rather than flooring twice and often rounding to 0.
+  for (const p of [0, 1] as PlayerId[]) {
+    const taken = res[other(p)].damage + counters[other(p)];
+    if (taken > 0) chipIntegrityFromClash(s, other(p), p, taken);
+  }
   for (const i of [0, 1] as PlayerId[]) {
     if (dealt[i] > 0) fireTrigger(s, i, 'onDealDamage');
     if (dealt[other(i)] > 0) fireTrigger(s, i, 'onTakeDamage');
@@ -764,7 +820,7 @@ export function strainCheck(s: GameState): void {
     const pl = s.players[p];
     let amount = 0;
     if (pl.stance === 'fortify') amount += Math.max(cfg.strain.fortifyVent, evoNum(s, pl, 'fortifyVent')) + (momentum(s, pl) ? cfg.stances.momentumBonus : 0);
-    if (pl.hold) amount += cfg.strain.holdVent;
+    if (pl.hold) amount += cfg.strain.holdVent + sumLoadoutParam(s, pl, 'holdVentBonus');
     if (amount > 0) {
       const v = vent(s, p, amount);
       if (v > 0) logMsg(s, 'strain', p, `${pl.name} vents ${v} Strain.`, -v);

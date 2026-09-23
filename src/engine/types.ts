@@ -31,6 +31,9 @@ export type Cond = {
   minRound?: number;
   /** Only true once the player has evolved into this specific form id. */
   evolution?: string;
+  /** True while the opponent/self has any of the four status effects (Bleed/Necrosis/Numb/Fever) active. */
+  oppHasAnyStatus?: boolean;
+  selfHasAnyStatus?: boolean;
 };
 
 /** A round-timed debuff on the player rather than a specific graft: see PlayerState. */
@@ -91,6 +94,8 @@ export interface TreeNode {
   name: string;
   text: string;
   params: Record<string, number | string | boolean>;
+  /** Gates every param on this node: with no cond it's always active, matching the old flat-sum behavior. */
+  cond?: Cond;
 }
 
 export interface TreeRow {
@@ -173,9 +178,6 @@ export interface PlayerState {
   grafts: AttachedGraft[];
   stance: Stance | null;
   stanceHistory: Stance[];
-  /** An optional prediction of the opponent's stance, made at the same time as your own pick: right pays
-   * off with attack this round, wrong costs Strain, and no call is always safe. Cleared every round. */
-  stanceGuess: Stance | null;
   hold: boolean;
   cycledThisRound: number;
   attachedThisRound: number;
@@ -310,7 +312,7 @@ export interface MatchSetup {
 // ---------- Actions ----------
 export type Action =
   | { type: 'MULLIGAN'; player: PlayerId; mulligan: boolean }
-  | { type: 'PICK_STANCE'; player: PlayerId; stance: Stance; guess?: Stance | null }
+  | { type: 'PICK_STANCE'; player: PlayerId; stance: Stance }
   | { type: 'AUTO_STANCE'; player: PlayerId }
   | { type: 'FEINT'; player: PlayerId; stance: Stance | null }
   | { type: 'PLAY_CARD'; player: PlayerId; uid: string; slot?: SlotId; target?: SlotId; faceDown?: boolean }

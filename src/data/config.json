@@ -33,7 +33,8 @@
     "signatureAttackBonus": 1
   },
   "integrity": {
-    "default": 3
+    "default": 3,
+    "clashDamageDivisor": 4
   },
   "status": {
     "bleedRounds": 2,
@@ -46,9 +47,7 @@
     "aggressBeatsAdaptBonus": 3,
     "fortifyDamageDivisor": 2,
     "fortifyCounterDamage": 0,
-    "momentumBonus": 1,
-    "callBonus": 2,
-    "callPenalty": 2
+    "momentumBonus": 1
   },
   "slots": ["head", "limbA", "limbB", "organ", "nerve"],
   "slotTypes": {
@@ -86,10 +85,10 @@
   "neuralLinks": { "attackBonus": 1 },
   "sabotage": { "poisonRounds": 2, "disableRounds": 1, "necrosisRounds": 2 },
   "deck": {
-    "size": 25,
-    "minBuild": 12,
+    "size": 20,
+    "minBuild": 8,
     "minWorldFaction": 8,
-    "maxTech": 5,
+    "maxTech": 4,
     "maxCopies": 2,
     "signatureCopies": 1
   },

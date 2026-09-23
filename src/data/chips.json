@@ -3,31 +3,31 @@
     {
       "id": "acidFang",
       "name": "Acid Fang",
-      "text": "Offense: hit harder with integrity damage and profit from destroying grafts.",
+      "text": "An aggressive Chip built around direct integrity damage.",
       "worldFaction": "corrosion",
       "tree": [
         {
           "id": "bite",
           "name": "Bite",
           "nodes": [
-            { "id": "corrodingBite", "name": "Corroding Bite", "text": "Your integrity-damage cards deal 1 more.", "params": { "graftDamageBonus": 1 } },
-            { "id": "relentlessBite", "name": "Relentless Bite", "text": "+1 attack.", "params": { "flatAttack": 1 } }
+            { "id": "sharpenedFangs", "name": "Sharpened Fangs", "text": "+2 attack.", "params": { "flatAttack": 2 } },
+            { "id": "aggressiveBite", "name": "Aggressive Bite", "text": "+1 attack while you picked Aggress.", "params": { "flatAttack": 1 }, "cond": { "stance": "aggress" } }
           ]
         },
         {
           "id": "feed",
           "name": "Feed",
           "nodes": [
-            { "id": "gorge", "name": "Gorge", "text": "When you destroy a graft, heal 2.", "params": { "killHeal": 2 } },
-            { "id": "venomFeed", "name": "Venom Feed", "text": "When you destroy a graft, the opponent gains 2 Strain.", "params": { "killStrain": 2 } }
+            { "id": "gorge", "name": "Gorge", "text": "Destroying a graft heals 2.", "params": { "killHeal": 2 } },
+            { "id": "venomFeed", "name": "Venom Feed", "text": "Destroying a graft gives the opponent 2 Strain.", "params": { "killStrain": 2 } }
           ]
         },
         {
           "id": "reach",
           "name": "Reach",
           "nodes": [
-            { "id": "causticEdge", "name": "Caustic Edge", "text": "Your Corrosion cards cost 1 less.", "params": { "worldCardDiscount": 1 } },
-            { "id": "lingeringAcid", "name": "Lingering Acid", "text": "Bleed you inflict lasts 1 round longer.", "params": { "bleedRoundsBonus": 1 } }
+            { "id": "corrodingBite", "name": "Corroding Bite", "text": "+2 integrity damage dealt.", "params": { "graftDamageBonus": 2 } },
+            { "id": "opportunisticStrike", "name": "Opportunistic Strike", "text": "+1 integrity damage dealt while the opponent has an active status.", "params": { "graftDamageBonus": 1 }, "cond": { "oppHasAnyStatus": true } }
           ]
         }
       ]
@@ -35,7 +35,7 @@
     {
       "id": "rustbite",
       "name": "Rustbite",
-      "text": "Control: Bleed that lingers and punishes an already-afflicted opponent.",
+      "text": "Bleed, upkeep economy, and battlefield scrap.",
       "worldFaction": "corrosion",
       "tree": [
         {
@@ -43,23 +43,23 @@
           "name": "Corrosion",
           "nodes": [
             { "id": "deepCorrosion", "name": "Deep Corrosion", "text": "Bleed you inflict lasts 1 round longer.", "params": { "bleedRoundsBonus": 1 } },
-            { "id": "witheringRot", "name": "Withering Rot", "text": "+1 attack while the opponent has an active status.", "params": { "attackVsAfflicted": 1 } }
+            { "id": "overclockedRot", "name": "Overclocked Rot", "text": "Bleed you inflict lasts 1 round longer while you're Overclocked.", "params": { "bleedRoundsBonus": 1 }, "cond": { "zone": "overclocked" } }
           ]
         },
         {
-          "id": "duration",
-          "name": "Duration",
+          "id": "upkeep",
+          "name": "Upkeep",
           "nodes": [
-            { "id": "chronicWound", "name": "Chronic Wound", "text": "Bleed you inflict lasts 1 round longer.", "params": { "bleedRoundsBonus": 1 } },
-            { "id": "venomousStrike", "name": "Venomous Strike", "text": "Your integrity-damage cards deal 1 more.", "params": { "graftDamageBonus": 1 } }
+            { "id": "causticEdge", "name": "Caustic Edge", "text": "Your Corrosion cards cost 1 less.", "params": { "worldCardDiscount": 1 } },
+            { "id": "quickRust", "name": "Quick Rust", "text": "Your first graft each round costs 1 less.", "params": { "firstGraftDiscount": 1 } }
           ]
         },
         {
           "id": "harvest",
           "name": "Harvest",
           "nodes": [
-            { "id": "ragingRot", "name": "Raging Rot", "text": "+2 attack.", "params": { "flatAttack": 2 } },
-            { "id": "cripplingRot", "name": "Crippling Rot", "text": "Incoming integrity damage against you is reduced by 1.", "params": { "graftDamageReduction": 1 } }
+            { "id": "scrapFeast", "name": "Scrap Feast", "text": "Destroying a graft heals 2 integrity across your own grafts.", "params": { "killIntegrityHeal": 2 } },
+            { "id": "ragingRot", "name": "Raging Rot", "text": "Severing a graft heals 2.", "params": { "severHeal": 2 } }
           ]
         }
       ]
@@ -67,31 +67,31 @@
     {
       "id": "corrodedTalon",
       "name": "Corroded Talon",
-      "text": "Hybrid: board presence alongside the debuffs.",
+      "text": "A tougher, more self-sufficient build.",
       "worldFaction": "corrosion",
       "tree": [
         {
           "id": "claws",
           "name": "Claws",
           "nodes": [
-            { "id": "tearingClaws", "name": "Tearing Claws", "text": "+2 attack.", "params": { "flatAttack": 2 } },
-            { "id": "acidClaws", "name": "Acid Claws", "text": "Your integrity-damage cards deal 2 more.", "params": { "graftDamageBonus": 2 } }
+            { "id": "cleanClaws", "name": "Clean Claws", "text": "+2 attack while you have no active status on yourself.", "params": { "flatAttack": 2 }, "cond": { "selfHasAnyStatus": false } },
+            { "id": "temperedHide", "name": "Tempered Hide", "text": "Incoming integrity damage against you is reduced by 1.", "params": { "graftDamageReduction": 1 } }
           ]
         },
         {
           "id": "hide",
           "name": "Hide",
           "nodes": [
-            { "id": "temperedHide", "name": "Tempered Hide", "text": "Grafts you attach get +1 integrity.", "params": { "flatIntegrity": 1 } },
-            { "id": "thickScales", "name": "Thick Scales", "text": "+1 armor.", "params": { "flatArmor": 1 } }
+            { "id": "thickScales", "name": "Thick Scales", "text": "+2 armor.", "params": { "flatArmor": 2 } },
+            { "id": "reinforcedCarapace", "name": "Reinforced Carapace", "text": "Grafts you attach get +2 integrity.", "params": { "flatIntegrity": 2 } }
           ]
         },
         {
           "id": "instinct",
           "name": "Instinct",
           "nodes": [
-            { "id": "predatorInstinct", "name": "Predator Instinct", "text": "+2 attack while the opponent has an active status.", "params": { "attackVsAfflicted": 2 } },
-            { "id": "opportunist", "name": "Opportunist", "text": "When you destroy a graft, heal 3.", "params": { "killHeal": 3 } }
+            { "id": "predatorInstinct", "name": "Predator Instinct", "text": "+1 attack per graft you control.", "params": { "perGraftAttack": 1 } },
+            { "id": "opportunist", "name": "Opportunist", "text": "Your Signature graft hardens into a veteran 1 Strain check sooner.", "params": { "veteranThresholdReduction": 1 } }
           ]
         }
       ]
@@ -101,31 +101,31 @@
     {
       "id": "ironclad",
       "name": "Ironclad",
-      "text": "Mitigation: blunt incoming integrity damage.",
+      "text": "Armor and integrity mitigation.",
       "worldFaction": "aegis",
       "tree": [
         {
           "id": "plating",
           "name": "Plating",
           "nodes": [
-            { "id": "stoutPlating", "name": "Stout Plating", "text": "Incoming integrity damage against you is reduced by 1.", "params": { "graftDamageReduction": 1 } },
-            { "id": "reinforcedCore", "name": "Reinforced Core", "text": "Grafts you attach get +1 integrity.", "params": { "flatIntegrity": 1 } }
+            { "id": "stalwartPlating", "name": "Stalwart Plating", "text": "+2 armor while you picked Fortify.", "params": { "flatArmor": 2 }, "cond": { "stance": "fortify" } },
+            { "id": "aegisWard", "name": "Aegis Ward", "text": "Incoming integrity damage against you is reduced by 2 while you're Stable.", "params": { "graftDamageReduction": 2 }, "cond": { "zone": "stable" } }
           ]
         },
         {
           "id": "ward",
           "name": "Ward",
           "nodes": [
-            { "id": "aegisWard", "name": "Aegis Ward", "text": "+1 armor.", "params": { "flatArmor": 1 } },
-            { "id": "stalwart", "name": "Stalwart", "text": "Your Aegis cards cost 1 less.", "params": { "worldCardDiscount": 1 } }
+            { "id": "lateReinforcement", "name": "Late Reinforcement", "text": "Grafts you attach from round 4 on get +3 integrity.", "params": { "flatIntegrity": 3 }, "cond": { "minRound": 4 } },
+            { "id": "hardenedPlate", "name": "Hardened Plate", "text": "+1 armor while you have no active status on yourself.", "params": { "flatArmor": 1 }, "cond": { "selfHasAnyStatus": false } }
           ]
         },
         {
           "id": "resolve",
           "name": "Resolve",
           "nodes": [
-            { "id": "unbreaking", "name": "Unbreaking", "text": "At the start of each round, heal 1 integrity on every graft you control.", "params": { "integrityRegen": 1 } },
-            { "id": "hardenedResolve", "name": "Hardened Resolve", "text": "+1 armor.", "params": { "flatArmor": 1 } }
+            { "id": "unbreaking", "name": "Unbreaking", "text": "+1 armor per graft you control.", "params": { "perGraftArmor": 1 } },
+            { "id": "hardenedResolve", "name": "Hardened Resolve", "text": "Your Signature graft hardens into a veteran 1 Strain check sooner while you picked Fortify.", "params": { "veteranThresholdReduction": 1 }, "cond": { "stance": "fortify" } }
           ]
         }
       ]
@@ -133,7 +133,7 @@
     {
       "id": "mendingCoil",
       "name": "Mending Coil",
-      "text": "Regeneration: restore what integrity damage takes away.",
+      "text": "Regeneration and self-Purge.",
       "worldFaction": "aegis",
       "tree": [
         {
@@ -141,15 +141,15 @@
           "name": "Mend",
           "nodes": [
             { "id": "slowMend", "name": "Slow Mend", "text": "At the start of each round, heal 1 integrity on every graft you control.", "params": { "integrityRegen": 1 } },
-            { "id": "vitalSurge", "name": "Vital Surge", "text": "When you destroy a graft, heal 2.", "params": { "killHeal": 2 } }
+            { "id": "vitalSurge", "name": "Vital Surge", "text": "Heal 1 extra integrity each round while you have an active status on yourself.", "params": { "integrityRegen": 1 }, "cond": { "selfHasAnyStatus": true } }
           ]
         },
         {
           "id": "coil",
           "name": "Coil",
           "nodes": [
-            { "id": "coiledDefense", "name": "Coiled Defense", "text": "Incoming integrity damage against you is reduced by 1.", "params": { "graftDamageReduction": 1 } },
-            { "id": "coiledStrength", "name": "Coiled Strength", "text": "+1 attack.", "params": { "flatAttack": 1 } }
+            { "id": "coiledDefense", "name": "Coiled Defense", "text": "+1 armor from round 5 on.", "params": { "flatArmor": 1 }, "cond": { "minRound": 5 } },
+            { "id": "composed", "name": "Composed", "text": "Grafts you attach get +1 integrity while you have no active status on yourself.", "params": { "flatIntegrity": 1 }, "cond": { "selfHasAnyStatus": false } }
           ]
         },
         {
@@ -157,7 +157,7 @@
           "name": "Renewal",
           "nodes": [
             { "id": "renewingPulse", "name": "Renewing Pulse", "text": "Purging your own statuses also heals 2.", "params": { "purgeHeal": 2 } },
-            { "id": "cleansingPulse", "name": "Cleansing Pulse", "text": "Purging your own statuses also vents 2 Strain.", "params": { "purgeVent": 2 } }
+            { "id": "cleansingRepair", "name": "Cleansing Repair", "text": "Purging your own statuses also heals 2 integrity across your grafts.", "params": { "purgeIntegrityHeal": 2 } }
           ]
         }
       ]
@@ -165,31 +165,31 @@
     {
       "id": "bulwarkChip",
       "name": "Bulwark Chip",
-      "text": "Hybrid: armor and integrity together.",
+      "text": "Emergency defense and upkeep.",
       "worldFaction": "aegis",
       "tree": [
         {
           "id": "bulwark",
           "name": "Bulwark",
           "nodes": [
-            { "id": "ironBulwark", "name": "Iron Bulwark", "text": "+2 armor.", "params": { "flatArmor": 2 } },
-            { "id": "livingBulwark", "name": "Living Bulwark", "text": "Grafts you attach get +2 integrity.", "params": { "flatIntegrity": 2 } }
+            { "id": "ironBulwark", "name": "Iron Bulwark", "text": "+3 armor while your HP is 20 or less.", "params": { "flatArmor": 3 }, "cond": { "hpAtMost": 20 } },
+            { "id": "livingBulwark", "name": "Living Bulwark", "text": "Hold vents 1 extra Strain.", "params": { "holdVentBonus": 1 } }
           ]
         },
         {
           "id": "stability",
           "name": "Stability",
           "nodes": [
-            { "id": "steadfast", "name": "Steadfast", "text": "+1 armor while you have no active status on yourself.", "params": { "armorVsHealthy": 1 } },
-            { "id": "composed", "name": "Composed", "text": "Incoming integrity damage against you is reduced by 1.", "params": { "graftDamageReduction": 1 } }
+            { "id": "steadfast", "name": "Steadfast", "text": "Replacing a graft costs 1 less.", "params": { "replaceCostReduction": 1 } },
+            { "id": "enduringForm", "name": "Enduring Form", "text": "Incoming integrity damage against you is reduced by 1 while your HP is 20 or less.", "params": { "graftDamageReduction": 1 }, "cond": { "hpAtMost": 20 } }
           ]
         },
         {
           "id": "endurance",
           "name": "Endurance",
           "nodes": [
-            { "id": "lastStand", "name": "Last Stand", "text": "At the start of each round, heal 1 integrity on every graft you control.", "params": { "integrityRegen": 1 } },
-            { "id": "enduringForm", "name": "Enduring Form", "text": "+1 armor.", "params": { "flatArmor": 1 } }
+            { "id": "lastStand", "name": "Last Stand", "text": "Purging your own statuses also vents 2 Strain.", "params": { "purgeVent": 2 } },
+            { "id": "preparedStand", "name": "Prepared Stand", "text": "Draw 1 extra card in round 1.", "params": { "firstDrawRoundBonus": 1 } }
           ]
         }
       ]
@@ -199,31 +199,31 @@
     {
       "id": "wastingTouch",
       "name": "Wasting Touch",
-      "text": "Fever-focused: tax the opponent's Energy.",
+      "text": "Fever-focused denial.",
       "worldFaction": "miasma",
       "tree": [
         {
           "id": "wither",
           "name": "Wither",
           "nodes": [
-            { "id": "witheringTouch", "name": "Withering Touch", "text": "Fever you inflict lasts 1 round longer.", "params": { "feverRoundsBonus": 1 } },
-            { "id": "cripplingTouch", "name": "Crippling Touch", "text": "Numb you inflict lasts 1 round longer.", "params": { "numbRoundsBonus": 1 } }
+            { "id": "witheringTouch", "name": "Withering Touch", "text": "+1 attack while the opponent has an active status.", "params": { "flatAttack": 1 }, "cond": { "oppHasAnyStatus": true } },
+            { "id": "cripplingTouch", "name": "Crippling Touch", "text": "Fever you inflict lasts 1 round longer.", "params": { "feverRoundsBonus": 1 } }
           ]
         },
         {
           "id": "spread",
           "name": "Spread",
           "nodes": [
-            { "id": "spreadingBlight", "name": "Spreading Blight", "text": "Your Miasma cards cost 1 less.", "params": { "worldCardDiscount": 1 } },
-            { "id": "virulence", "name": "Virulence", "text": "+1 attack while the opponent has an active status.", "params": { "attackVsAfflicted": 1 } }
+            { "id": "spreadingBlight", "name": "Spreading Blight", "text": "Numb you inflict lasts 1 round longer.", "params": { "numbRoundsBonus": 1 } },
+            { "id": "virulence", "name": "Virulence", "text": "Fever you inflict lasts 1 round longer while you're Overclocked.", "params": { "feverRoundsBonus": 1 }, "cond": { "zone": "overclocked" } }
           ]
         },
         {
           "id": "decay",
           "name": "Decay",
           "nodes": [
-            { "id": "slowDecay", "name": "Slow Decay", "text": "+1 armor.", "params": { "flatArmor": 1 } },
-            { "id": "quickDecay", "name": "Quick Decay", "text": "+1 attack.", "params": { "flatAttack": 1 } }
+            { "id": "slowDecay", "name": "Slow Decay", "text": "Destroying a graft gives the opponent 2 Strain while they already have an active status.", "params": { "killStrain": 2 }, "cond": { "oppHasAnyStatus": true } },
+            { "id": "quickDecay", "name": "Quick Decay", "text": "Your Miasma cards cost 1 less while you have an active status on yourself.", "params": { "worldCardDiscount": 1 }, "cond": { "selfHasAnyStatus": true } }
           ]
         }
       ]
@@ -231,31 +231,31 @@
     {
       "id": "chokeHold",
       "name": "Choke Hold",
-      "text": "Numb-focused: deny Protocols and punish denial.",
+      "text": "Numb-focused denial.",
       "worldFaction": "miasma",
       "tree": [
         {
           "id": "grip",
           "name": "Grip",
           "nodes": [
-            { "id": "ironGrip", "name": "Iron Grip", "text": "Numb you inflict lasts 1 round longer.", "params": { "numbRoundsBonus": 1 } },
-            { "id": "looseningGrip", "name": "Loosening Grip", "text": "Fever you inflict lasts 1 round longer.", "params": { "feverRoundsBonus": 1 } }
+            { "id": "ironGrip", "name": "Iron Grip", "text": "Numb you inflict lasts 1 round longer while you picked Adapt.", "params": { "numbRoundsBonus": 1 }, "cond": { "stance": "adapt" } },
+            { "id": "looseningGrip", "name": "Loosening Grip", "text": "Disable you inflict lasts 1 round longer.", "params": { "disableRoundsBonus": 1 } }
           ]
         },
         {
           "id": "chokeholdRow",
           "name": "Chokehold",
           "nodes": [
-            { "id": "suffocate", "name": "Suffocate", "text": "+2 attack while the opponent has an active status.", "params": { "attackVsAfflicted": 2 } },
-            { "id": "strangle", "name": "Strangle", "text": "When you destroy a graft, the opponent gains 1 Strain.", "params": { "killStrain": 1 } }
+            { "id": "suffocate", "name": "Suffocate", "text": "Poison you inflict lasts 1 round longer.", "params": { "poisonRoundsBonus": 1 } },
+            { "id": "strangle", "name": "Strangle", "text": "Hold vents 1 extra Strain while you have an active status on yourself.", "params": { "holdVentBonus": 1 }, "cond": { "selfHasAnyStatus": true } }
           ]
         },
         {
           "id": "focus",
           "name": "Focus",
           "nodes": [
-            { "id": "clarity", "name": "Clarity", "text": "+1 attack.", "params": { "flatAttack": 1 } },
-            { "id": "discipline", "name": "Discipline", "text": "+1 armor.", "params": { "flatArmor": 1 } }
+            { "id": "clarity", "name": "Clarity", "text": "+1 attack while you picked Adapt.", "params": { "flatAttack": 1 }, "cond": { "stance": "adapt" } },
+            { "id": "discipline", "name": "Discipline", "text": "Cycling to vent, vents 1 extra Strain.", "params": { "cycleVentBonus": 1 } }
           ]
         }
       ]
@@ -263,31 +263,31 @@
     {
       "id": "contaminant",
       "name": "Contaminant",
-      "text": "Hybrid: durable afflictions that linger.",
+      "text": "Status upkeep and persistence.",
       "worldFaction": "miasma",
       "tree": [
         {
           "id": "infection",
           "name": "Infection",
           "nodes": [
-            { "id": "festering", "name": "Festering", "text": "Grafts you attach get +1 integrity.", "params": { "flatIntegrity": 1 } },
-            { "id": "contagious", "name": "Contagious", "text": "Your Miasma cards cost 1 less.", "params": { "worldCardDiscount": 1 } }
+            { "id": "festering", "name": "Festering", "text": "Fever you inflict lasts 1 round longer while you have an active status on yourself.", "params": { "feverRoundsBonus": 1 }, "cond": { "selfHasAnyStatus": true } },
+            { "id": "contagious", "name": "Contagious", "text": "Numb you inflict lasts 1 round longer while the opponent already has an active status.", "params": { "numbRoundsBonus": 1 }, "cond": { "oppHasAnyStatus": true } }
           ]
         },
         {
           "id": "relapse",
           "name": "Relapse",
           "nodes": [
-            { "id": "relapsingFever", "name": "Relapsing Fever", "text": "Fever you inflict lasts 1 round longer.", "params": { "feverRoundsBonus": 1 } },
-            { "id": "recurringNumb", "name": "Recurring Numb", "text": "Numb you inflict lasts 1 round longer.", "params": { "numbRoundsBonus": 1 } }
+            { "id": "relapsingFever", "name": "Relapsing Fever", "text": "Destroying a graft heals 2 integrity across your grafts while you have an active status on yourself.", "params": { "killIntegrityHeal": 2 }, "cond": { "selfHasAnyStatus": true } },
+            { "id": "recurringNumb", "name": "Recurring Numb", "text": "+1 armor per graft you control while you have an active status on yourself.", "params": { "perGraftArmor": 1 }, "cond": { "selfHasAnyStatus": true } }
           ]
         },
         {
           "id": "persistence",
           "name": "Persistence",
           "nodes": [
-            { "id": "enduringAfflictions", "name": "Enduring Afflictions", "text": "+1 attack while the opponent has an active status.", "params": { "attackVsAfflicted": 1 } },
-            { "id": "hardyConstitution", "name": "Hardy Constitution", "text": "Grafts you attach get +1 integrity.", "params": { "flatIntegrity": 1 } }
+            { "id": "enduringAfflictions", "name": "Enduring Afflictions", "text": "Fever you inflict lasts 1 round longer from round 4 on.", "params": { "feverRoundsBonus": 1 }, "cond": { "minRound": 4 } },
+            { "id": "lingeringNumb", "name": "Lingering Numb", "text": "Numb you inflict lasts 1 round longer from round 4 on.", "params": { "numbRoundsBonus": 1 }, "cond": { "minRound": 4 } }
           ]
         }
       ]
@@ -297,7 +297,7 @@
     {
       "id": "gravedigger",
       "name": "Gravedigger",
-      "text": "Necrosis-focused: deny the opponent's slots for longer.",
+      "text": "Necrosis-focused board control.",
       "worldFaction": "hollow",
       "tree": [
         {
@@ -305,23 +305,23 @@
           "name": "Dig",
           "nodes": [
             { "id": "deepGrave", "name": "Deep Grave", "text": "Necrosis you inflict lasts 1 round longer.", "params": { "necrosisRoundsBonus": 1 } },
-            { "id": "shallowGrave", "name": "Shallow Grave", "text": "Your integrity-damage cards deal 1 more.", "params": { "graftDamageBonus": 1 } }
+            { "id": "shallowGrave", "name": "Shallow Grave", "text": "Necrosis you inflict lasts 1 round longer from round 4 on.", "params": { "necrosisRoundsBonus": 1 }, "cond": { "minRound": 4 } }
           ]
         },
         {
           "id": "toll",
           "name": "Toll",
           "nodes": [
-            { "id": "deathToll", "name": "Death Toll", "text": "When you destroy a graft, the opponent gains 2 Strain.", "params": { "killStrain": 2 } },
-            { "id": "harvestSoul", "name": "Harvest Soul", "text": "When you destroy a graft, heal 2.", "params": { "killHeal": 2 } }
+            { "id": "deathToll", "name": "Death Toll", "text": "Necrosing a graft also vents 1 Strain for you.", "params": { "necrosisVent": 1 } },
+            { "id": "harvestSoul", "name": "Harvest Soul", "text": "Destroying a graft draws 1 card.", "params": { "killDraw": 1 } }
           ]
         },
         {
           "id": "reach",
           "name": "Reach",
           "nodes": [
-            { "id": "grimReach", "name": "Grim Reach", "text": "Your Hollow cards cost 1 less.", "params": { "worldCardDiscount": 1 } },
-            { "id": "coldGrip", "name": "Cold Grip", "text": "Incoming integrity damage against you is reduced by 1.", "params": { "graftDamageReduction": 1 } }
+            { "id": "grimReach", "name": "Grim Reach", "text": "+1 integrity damage dealt from round 4 on.", "params": { "graftDamageBonus": 1 }, "cond": { "minRound": 4 } },
+            { "id": "coldGrip", "name": "Cold Grip", "text": "+1 integrity damage dealt while the opponent has 6+ Strain.", "params": { "graftDamageBonus": 1 }, "cond": { "oppStrainAtLeast": 6 } }
           ]
         }
       ]
@@ -329,31 +329,31 @@
     {
       "id": "cleansingRite",
       "name": "Cleansing Rite",
-      "text": "Purge-focused: turn cleansing into extra value.",
+      "text": "Purge-focused utility.",
       "worldFaction": "hollow",
       "tree": [
         {
           "id": "rite",
           "name": "Rite",
           "nodes": [
-            { "id": "sacredRite", "name": "Sacred Rite", "text": "Purging your own statuses also heals 2.", "params": { "purgeHeal": 2 } },
-            { "id": "solemnRite", "name": "Solemn Rite", "text": "Purging your own statuses also vents 2 Strain.", "params": { "purgeVent": 2 } }
+            { "id": "sacredRite", "name": "Sacred Rite", "text": "Purging your own statuses heals 2 while the opponent has an active status.", "params": { "purgeHeal": 2 }, "cond": { "oppHasAnyStatus": true } },
+            { "id": "solemnRite", "name": "Solemn Rite", "text": "Purging your own statuses vents 2 Strain while the opponent has an active status.", "params": { "purgeVent": 2 }, "cond": { "oppHasAnyStatus": true } }
           ]
         },
         {
           "id": "clarityRow",
           "name": "Clarity",
           "nodes": [
-            { "id": "clearMind", "name": "Clear Mind", "text": "+1 armor.", "params": { "flatArmor": 1 } },
-            { "id": "clearBody", "name": "Clear Body", "text": "Grafts you attach get +1 integrity.", "params": { "flatIntegrity": 1 } }
+            { "id": "clearMind", "name": "Clear Mind", "text": "+1 armor while the opponent has an active status.", "params": { "flatArmor": 1 }, "cond": { "oppHasAnyStatus": true } },
+            { "id": "clearBody", "name": "Clear Body", "text": "+1 attack while the opponent has 6+ Strain.", "params": { "flatAttack": 1 }, "cond": { "oppStrainAtLeast": 6 } }
           ]
         },
         {
           "id": "balance",
           "name": "Balance",
           "nodes": [
-            { "id": "equilibrium", "name": "Equilibrium", "text": "+1 armor while you have no active status on yourself.", "params": { "armorVsHealthy": 1 } },
-            { "id": "harmony", "name": "Harmony", "text": "+1 attack.", "params": { "flatAttack": 1 } }
+            { "id": "equilibrium", "name": "Equilibrium", "text": "Purging your own statuses heals 1 integrity across your grafts while the opponent has an active status.", "params": { "purgeIntegrityHeal": 1 }, "cond": { "oppHasAnyStatus": true } },
+            { "id": "harmony", "name": "Harmony", "text": "Severing a graft heals 2 while the opponent has an active status.", "params": { "severHeal": 2 }, "cond": { "oppHasAnyStatus": true } }
           ]
         }
       ]
@@ -361,31 +361,31 @@
     {
       "id": "nullField",
       "name": "Null Field",
-      "text": "Utility: reward a clean board state.",
+      "text": "Low-Strain control and evolution synergy.",
       "worldFaction": "hollow",
       "tree": [
         {
           "id": "field",
           "name": "Field",
           "nodes": [
-            { "id": "nullFieldNode", "name": "Null Field", "text": "+2 armor while you have no active status on yourself.", "params": { "armorVsHealthy": 2 } },
-            { "id": "voidField", "name": "Void Field", "text": "Incoming integrity damage against you is reduced by 1.", "params": { "graftDamageReduction": 1 } }
+            { "id": "nullFieldNode", "name": "Null Field", "text": "+2 armor while your Strain is 3 or less.", "params": { "flatArmor": 2 }, "cond": { "strainAtMost": 3 } },
+            { "id": "voidField", "name": "Void Field", "text": "Incoming integrity damage against you is reduced by 1 while your Strain is 3 or less.", "params": { "graftDamageReduction": 1 }, "cond": { "strainAtMost": 3 } }
           ]
         },
         {
           "id": "stillness",
           "name": "Stillness",
           "nodes": [
-            { "id": "stillnessNode", "name": "Stillness", "text": "+1 armor.", "params": { "flatArmor": 1 } },
-            { "id": "silence", "name": "Silence", "text": "Numb you inflict lasts 1 round longer.", "params": { "numbRoundsBonus": 1 } }
+            { "id": "stillnessNode", "name": "Stillness", "text": "Numb you inflict lasts 1 round longer while your Strain is 6+.", "params": { "numbRoundsBonus": 1 }, "cond": { "strainAtLeast": 6 } },
+            { "id": "silence", "name": "Silence", "text": "Destroying a graft heals 3 while the opponent has an active status.", "params": { "killHeal": 3 }, "cond": { "oppHasAnyStatus": true } }
           ]
         },
         {
           "id": "vacancy",
           "name": "Vacancy",
           "nodes": [
-            { "id": "vacancyNode", "name": "Vacancy", "text": "Necrosis you inflict lasts 1 round longer.", "params": { "necrosisRoundsBonus": 1 } },
-            { "id": "emptiness", "name": "Emptiness", "text": "Grafts you attach get +1 integrity.", "params": { "flatIntegrity": 1 } }
+            { "id": "vacancyNode", "name": "Vacancy", "text": "+2 armor once evolved into Carapace.", "params": { "flatArmor": 2 }, "cond": { "evolution": "carapace" } },
+            { "id": "emptiness", "name": "Emptiness", "text": "+2 attack once evolved into Juggernaut.", "params": { "flatAttack": 2 }, "cond": { "evolution": "juggernaut" } }
           ]
         }
       ]

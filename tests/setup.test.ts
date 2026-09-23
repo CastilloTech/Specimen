@@ -28,7 +28,7 @@ describe('Specimen', () => {
 });
 
 describe('Match setup', () => {
-  it('deals a 5-card hand from a 25-card deck', () => {
+  it('deals a 5-card hand from a 20-card deck', () => {
     const s = baseMatch();
     for (const p of s.players) {
       expect(p.hand).toHaveLength(5);
@@ -64,16 +64,16 @@ describe('Match setup', () => {
     const predDeck = starterDeck('predator', 'corrosion');
     const bastDeck = starterDeck('bastion', 'aegis');
 
-    // a 24-card deck
+    // a 19-card deck
     expect(() =>
       createMatch({
         seed: 1,
         players: [
-          { name: 'a', faction: 'predator', worldFaction: 'corrosion', chip: predChip, deck: predDeck.slice(0, 24), loadout: defaultLoadout(predChip) },
+          { name: 'a', faction: 'predator', worldFaction: 'corrosion', chip: predChip, deck: predDeck.slice(0, 19), loadout: defaultLoadout(predChip) },
           { name: 'b', faction: 'bastion', worldFaction: 'aegis', chip: bastChip, deck: bastDeck, loadout: defaultLoadout(bastChip) },
         ],
       }),
-    ).toThrow(/exactly 25/);
+    ).toThrow(/exactly 20/);
 
     // an empty loadout
     expect(() =>
@@ -113,23 +113,23 @@ describe('Deck rules', () => {
     for (const f of FACTIONS) for (const w of WORLD_FACTIONS) expect(validateDeck(f, w, starterDeck(f, w))).toEqual([]);
   });
 
-  it('requires exactly 25 cards', () => {
-    expect(validateDeck('predator', wf, pred.slice(0, 24)).join()).toMatch(/exactly 25/);
-    expect(validateDeck('predator', wf, [...pred, 'tech_bleed']).join()).toMatch(/exactly 25/);
+  it('requires exactly 20 cards', () => {
+    expect(validateDeck('predator', wf, pred.slice(0, 19)).join()).toMatch(/exactly 20/);
+    expect(validateDeck('predator', wf, [...pred, 'tech_pierce']).join()).toMatch(/exactly 20/);
   });
 
   it('allows at most 2 copies of a standard card', () => {
-    expect(validateDeck('predator', wf, [...pred.slice(0, 24), 'pred_bone_spur']).join()).toMatch(/Bone Spur: at most 2/);
+    expect(validateDeck('predator', wf, [...pred.slice(0, 18), 'pred_bone_spur', 'pred_bone_spur']).join()).toMatch(/Bone Spur: at most 2/);
   });
 
   it('allows only 1 copy of a Signature card', () => {
-    expect(validateDeck('predator', wf, [...pred.slice(0, 24), 'pred_apex_maw']).join()).toMatch(/Apex Maw: at most 1/);
+    expect(validateDeck('predator', wf, [...pred.slice(0, 19), 'pred_apex_maw']).join()).toMatch(/Apex Maw: at most 1/);
   });
 
-  it('allows at most 5 tech cards and needs at least 12 build cards', () => {
+  it('allows at most 4 tech cards and needs at least 8 build cards', () => {
     const errs = validateDeck('predator', wf, swap('pred_bile_spit', 'tech_stim')).join();
-    expect(errs).toMatch(/At most 5 tech/);
-    expect(errs).toMatch(/at least 12 predator/);
+    expect(errs).toMatch(/At most 4 tech/);
+    expect(errs).toMatch(/at least 8 predator/);
   });
 
   it('needs at least 8 World Faction cards', () => {

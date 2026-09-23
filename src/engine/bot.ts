@@ -42,14 +42,6 @@ export function pickStance(s: GameState, p: PlayerId, rng: Rng): Stance {
   return weightedPick(rng, STANCES, weights);
 }
 
-/** The bot never calls the opponent's stance: a real read needs pattern-spotting the heuristic bot does
- * not attempt (an early version that guessed "repeat their last pick" every round proved to be a bad bet
- * far more often than a good one, and skewed bot-vs-bot Strain and evolution balance badly as a result).
- * This keeps the call a human-only skill lever, the same way the bot never bluffs with face-down grafts. */
-export function guessStance(_s: GameState, _p: PlayerId): Stance | null {
-  return null;
-}
-
 /** How far below the Rejection threshold the bot keeps its Strain when grafting (per-faction override). */
 function strainMargin(s: GameState, p: PlayerId): number {
   const byFaction = s.config.bot.graftStrainMarginByFaction as Record<string, number | undefined>;
@@ -275,7 +267,7 @@ export function botAction(s: GameState, p: PlayerId, rng: Rng): Action {
       return { type: 'MULLIGAN', player: p, mulligan: playable < s.config.bot.mulliganIfPlayableGraftsBelow };
     }
     case 'stance':
-      return { type: 'PICK_STANCE', player: p, stance: pickStance(s, p, rng), guess: guessStance(s, p) };
+      return { type: 'PICK_STANCE', player: p, stance: pickStance(s, p, rng) };
     case 'feint': {
       const opp = s.players[other(p)];
       return { type: 'FEINT', player: p, stance: COUNTER[opp.stance!] };

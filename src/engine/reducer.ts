@@ -22,7 +22,7 @@ import {
   SLOT_LABEL,
 } from './rules';
 import { nextInt, shuffleInPlace } from './rng';
-import { canBeDormant, cardCost, hasNode, nodeParam } from './stats';
+import { canBeDormant, cardCost, hasNode, nodeParam, sumLoadoutParam } from './stats';
 import type { Action, CardDef, GameState, PendingPlay, PlayerId, PlayKind, SlotId, Stance } from './types';
 import { other, STANCES } from './types';
 
@@ -70,7 +70,8 @@ export function reactionOptions(s: GameState, reactor: PlayerId, play: PendingPl
 /** Extra Energy for putting a graft on an occupied slot (it replaces the graft there). 0 for everything else. */
 export function replaceCost(s: GameState, pl: GameState['players'][number], def: CardDef, slot: SlotId | undefined): number {
   if (def.type !== 'graft' || !slot || !s.config.replace.enabled) return 0;
-  return pl.grafts.some((g) => g.slot === slot) ? s.config.replace.extraCost : 0;
+  if (!pl.grafts.some((g) => g.slot === slot)) return 0;
+  return Math.max(0, s.config.replace.extraCost - sumLoadoutParam(s, pl, 'replaceCostReduction'));
 }
 
 export function legalPlays(s: GameState, p: PlayerId): Action[] {
@@ -106,10 +107,7 @@ export function validateAction(s: GameState, a: Action): string | null {
     case 'AUTO_STANCE':
       if (s.phase !== 'stance') return 'Not the stance phase.';
       if (pl.stance !== null) return 'Stance already chosen.';
-      if (a.type === 'PICK_STANCE') {
-        if (!STANCES.includes(a.stance)) return 'Unknown stance.';
-        if (a.guess != null && !STANCES.includes(a.guess)) return 'Unknown guess.';
-      }
+      if (a.type === 'PICK_STANCE' && !STANCES.includes(a.stance)) return 'Unknown stance.';
       return null;
     case 'FEINT':
       if (s.phase !== 'feint' || s.feintQueue[0] !== a.player) return 'Feint is not available.';
@@ -257,7 +255,6 @@ function apply(s: GameState, a: Action): void {
     case 'PICK_STANCE':
     case 'AUTO_STANCE': {
       pl.stance = a.type === 'PICK_STANCE' ? a.stance : (STANCES[nextInt(s, 3)] as Stance);
-      pl.stanceGuess = a.type === 'PICK_STANCE' ? (a.guess ?? null) : null;
       if (s.players.every((p) => p.stance !== null)) afterStancesPicked(s);
       return;
     }
@@ -344,7 +341,7 @@ function apply(s: GameState, a: Action): void {
       s.passStreak = 0;
       s.actionCount++;
       if (a.mode === 'vent') {
-        const v = vent(s, a.player, s.config.cycle.ventAmount);
+        const v = vent(s, a.player, s.config.cycle.ventAmount + sumLoadoutParam(s, pl, 'cycleVentBonus'));
         logMsg(s, 'strain', a.player, `${pl.name} cycles a card to vent ${v} Strain.`, -v);
       } else {
         drawCards(s, a.player, s.config.cycle.drawAmount);

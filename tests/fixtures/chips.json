@@ -10,7 +10,7 @@
         "name": "Carapace",
         "nodes": [
           { "id": "t_flat", "name": "Test Flat Stats", "text": "+2 attack, +1 armor, +2 integrity.", "params": { "flatAttack": 2, "flatArmor": 1, "flatIntegrity": 2 } },
-          { "id": "t_conditional", "name": "Test Conditional Stats", "text": "+2 attack vs an afflicted opponent; +1 armor while you have no status.", "params": { "attackVsAfflicted": 2, "armorVsHealthy": 1 } }
+          { "id": "t_conditional", "name": "Test Conditional Stats", "text": "+2 attack while Overclocked.", "params": { "flatAttack": 2 }, "cond": { "zone": "overclocked" } }
         ]
       },
       {

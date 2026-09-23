@@ -82,55 +82,6 @@ describe('Stances', () => {
     expect(s.log.some((l) => l.kind === 'stance' && /Adapt/.test(l.text) && /Fortify/.test(l.text))).toBe(true);
   });
 
-  describe('Calling the opponent\'s stance', () => {
-    it('a correct call gives +2 attack this round', () => {
-      let s = start(baseMatch());
-      s = go(s, { type: 'PICK_STANCE', player: 0, stance: 'aggress', guess: 'adapt' });
-      s = go(s, { type: 'PICK_STANCE', player: 1, stance: 'adapt' });
-      expect(s.players[0].tempAttack).toBe(2);
-      expect(s.players[0].strain).toBe(0);
-      expect(s.log.some((l) => l.kind === 'info' && /correctly calls Adapt/.test(l.text))).toBe(true);
-    });
-
-    it('a wrong call costs 2 Strain instead', () => {
-      let s = start(baseMatch());
-      s = go(s, { type: 'PICK_STANCE', player: 0, stance: 'aggress', guess: 'fortify' });
-      s = go(s, { type: 'PICK_STANCE', player: 1, stance: 'adapt' });
-      expect(s.players[0].tempAttack).toBe(0);
-      expect(s.players[0].strain).toBe(2);
-    });
-
-    it('not calling has no effect either way', () => {
-      let s = start(baseMatch());
-      s = go(s, { type: 'PICK_STANCE', player: 0, stance: 'aggress' });
-      s = go(s, { type: 'PICK_STANCE', player: 1, stance: 'adapt' });
-      expect(s.players[0].tempAttack).toBe(0);
-      expect(s.players[0].strain).toBe(0);
-    });
-
-    it('a call only judges the final stance after a Feint re-pick', () => {
-      let s = start(baseMatch('predator', 'predator'));
-      s = withNodes(s, 1, ['feint']); // player 1 can Feint
-      // Both tie on Aggress; P1 re-picks Fortify. P0's guess of Fortify should score against that final
-      // pick, not the original tied one it was made against.
-      s = go(s, { type: 'PICK_STANCE', player: 0, stance: 'aggress', guess: 'fortify' });
-      s = go(s, { type: 'PICK_STANCE', player: 1, stance: 'aggress' });
-      expect(s.phase).toBe('feint');
-      s = go(s, { type: 'FEINT', player: 1, stance: 'fortify' });
-      expect(s.players[1].stance).toBe('fortify');
-      expect(s.players[0].tempAttack).toBe(2); // judged against the FINAL stance, so the call was correct
-    });
-
-    it('the call is cleared at the start of the next round', () => {
-      let s = start(baseMatch());
-      s = go(s, { type: 'PICK_STANCE', player: 0, stance: 'aggress', guess: 'adapt' });
-      s = go(s, { type: 'PICK_STANCE', player: 1, stance: 'adapt' });
-      expect(s.players[0].stanceGuess).toBe('adapt');
-      s = endRound(s);
-      expect(s.players[0].stanceGuess).toBeNull();
-    });
-  });
-
   // Feint is gated purely by hasNode(pl,'feint'), which just checks loadout membership - no chip currently
   // grants it, but the reducer mechanic itself is still real and worth covering directly via withNodes.
   describe('Feint', () => {

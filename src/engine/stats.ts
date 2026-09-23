@@ -14,14 +14,16 @@ export function nodeParam(p: PlayerState, id: string, key: string, def = 0): num
   return typeof v === 'number' ? v : def;
 }
 
-/** Sums a numeric param across every node in a player's loadout (their chip's 3 picks) that carries it.
- * This is how most chip nodes work: many different nodes can share the same param key (e.g. `flatAttack`)
- * without each needing its own hardcoded check - only genuinely new mechanics need a dedicated hook. */
-export function sumLoadoutParam(p: PlayerState, key: string): number {
+/** Sums a numeric param across every node in a player's loadout (their chip's 3 picks) that carries it,
+ * skipping any node whose `cond` isn't currently met. This is how most chip nodes work: many different
+ * nodes can share the same param key (e.g. `flatAttack`) - what makes two nodes genuinely different is the
+ * (key, cond) pair, not just the key - without each needing its own hardcoded check. */
+export function sumLoadoutParam(s: GameState, p: PlayerState, key: string): number {
   let total = 0;
   for (const id of p.loadout) {
-    const v = findNode(id)?.params[key];
-    if (typeof v === 'number') total += v;
+    const node = findNode(id);
+    const v = node?.params[key];
+    if (typeof v === 'number' && (!node!.cond || condOk(s, p, node!.cond))) total += v;
   }
   return total;
 }
@@ -161,6 +163,8 @@ export function condOk(s: GameState, p: PlayerState, cond?: Cond): boolean {
   if (cond.hpAtMost !== undefined && p.hp > cond.hpAtMost) return false;
   if (cond.minRound !== undefined && s.round < cond.minRound) return false;
   if (cond.evolution !== undefined && p.evolution !== cond.evolution) return false;
+  if (cond.oppHasAnyStatus !== undefined && hasAnyStatus(opp) !== cond.oppHasAnyStatus) return false;
+  if (cond.selfHasAnyStatus !== undefined && hasAnyStatus(p) !== cond.selfHasAnyStatus) return false;
   return true;
 }
 
@@ -181,7 +185,9 @@ export function computeStats(s: GameState, p: PlayerState): DerivedStats {
       attack += card.attack;
       armor += card.armor;
       // Veterancy: a Signature graft that has survived enough Strain checks unrejected hardens in place.
-      if (card.signature && g.roundsSurvived >= cfg.veterancy.signatureThreshold) attack += cfg.veterancy.signatureAttackBonus;
+      // Some chip nodes shorten that wait (veteranThresholdReduction), never below 1 check.
+      const threshold = Math.max(1, cfg.veterancy.signatureThreshold - sumLoadoutParam(s, p, 'veteranThresholdReduction'));
+      if (card.signature && g.roundsSurvived >= threshold) attack += cfg.veterancy.signatureAttackBonus;
     }
     if (g.disabled <= 0) {
       for (const ab of card.effect.abilities ?? []) {
@@ -205,11 +211,13 @@ export function computeStats(s: GameState, p: PlayerState): DerivedStats {
       for (const g of awake) if (g !== n && g.poisoned <= 0 && adjacent(s, n.slot, g.slot)) attack += cfg.neuralLinks.attackBonus;
     }
   }
-  // Flat bonuses from the evolved form and the equipped chip's nodes.
-  attack += p.tempAttack + evoNum(s, p, 'attack') + sumLoadoutParam(p, 'flatAttack');
-  armor += p.tempArmor + evoNum(s, p, 'armor') + sumLoadoutParam(p, 'flatArmor');
-  if (hasAnyStatus(opp)) attack += sumLoadoutParam(p, 'attackVsAfflicted');
-  if (!hasAnyStatus(p)) armor += sumLoadoutParam(p, 'armorVsHealthy');
+  // Flat bonuses from the evolved form and the equipped chip's nodes (some nodes are conditional - see
+  // sumLoadoutParam - e.g. a node granting flatAttack only while the opponent has an active status).
+  attack += p.tempAttack + evoNum(s, p, 'attack') + sumLoadoutParam(s, p, 'flatAttack');
+  armor += p.tempArmor + evoNum(s, p, 'armor') + sumLoadoutParam(s, p, 'flatArmor');
+  // A few nodes scale with your graft count instead of being flat, for genuine mechanical variety.
+  attack += sumLoadoutParam(s, p, 'perGraftAttack') * awake.length;
+  armor += sumLoadoutParam(s, p, 'perGraftArmor') * awake.length;
   armor = Math.max(0, armor);
   if (evoFlag(s, p, 'armorToAttack')) {
     // Juggernaut: armor adds to attack, optionally capped (armorToAttackCap; no cap when absent).
@@ -233,7 +241,8 @@ export function momentum(s: GameState, p: PlayerState): boolean {
 export function cardCost(s: GameState, p: PlayerState, card: CardDef): number {
   let c = card.cost;
   if (card.type === 'graft' && p.fever > 0) c += s.config.status.feverCostIncrease; // Fever: grafts cost more while it lasts.
-  if (card.faction === p.worldFaction) c -= sumLoadoutParam(p, 'worldCardDiscount'); // some chip nodes discount your World Faction's own cards.
+  if (card.faction === p.worldFaction) c -= sumLoadoutParam(s, p, 'worldCardDiscount'); // some chip nodes discount your World Faction's own cards.
+  if (card.type === 'graft' && p.attachedThisRound === 0) c -= sumLoadoutParam(s, p, 'firstGraftDiscount'); // some chip nodes discount your first graft each round.
   return Math.max(0, c);
 }
 

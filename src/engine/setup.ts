@@ -80,7 +80,6 @@ function makePlayer(id: PlayerId, setup: PlayerSetup, config: Config): PlayerSta
     grafts: [],
     stance: null,
     stanceHistory: [],
-    stanceGuess: null,
     hold: false,
     cycledThisRound: 0,
     attachedThisRound: 0,
