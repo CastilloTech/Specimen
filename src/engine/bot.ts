@@ -207,7 +207,6 @@ export function botReaction(s: GameState, p: PlayerId): Action {
   const opp = s.players[other(p)];
   const T = s.config.strain.threshold;
   const kind = cardOf(w.play.card.cardId).type;
-  const incoming = Math.max(0, computeStats(s, opp).attack - computeStats(s, pl).armor);
   let best: Action | null = null;
   let bestScore = 1.5;
   for (const a of reactionOptions(s, p, w.play)) {
@@ -231,7 +230,11 @@ export function botReaction(s: GameState, p: PlayerId): Action {
             if (op.who !== 'self') score += op.amount * (opp.hp <= 12 ? 0.9 : 0.55);
             break;
           case 'buff':
-            if (op.who !== 'opp') score += Math.min(op.amount, incoming) * 0.7;
+            // Armor (or attack) this round is worth close to its face value. This used to be capped at a
+            // crude, stance-blind pre-Clash damage guess (ignoring Adapt/Fortify's modifiers and any graft
+            // the opponent had not played yet), which badly undervalued defensive reactions like Brace for
+            // Impact - raising a card's own armor amount barely moved its win rate because of that cap.
+            if (op.who !== 'opp') score += op.amount * 0.6;
             break;
           case 'drain':
             score += opp.energy >= 2 ? op.amount * 1.3 : 0;

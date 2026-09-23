@@ -2,11 +2,11 @@
   "build": {
     "predator": ["pred_apex_maw", "pred_bone_spur", "pred_razor_talon", "pred_predator_eye", "pred_furnace_heart", "pred_maw_crown", "pred_blood_rush", "pred_bile_spit"],
     "parasite": ["para_queen_cyst", "para_symbiotic_node", "para_hooked_limb", "para_barbed_proboscis", "para_gland_of_rot", "para_neurotoxin", "para_static_jam", "para_gnawing_larva"],
-    "bastion": ["bast_bulwark_heart", "bast_scale_patch", "bast_bone_helm", "bast_shell_limb", "bast_reflex_ganglion", "bast_pressure_release", "bast_field_repair", "bast_brace"]
+    "bastion": ["bast_bulwark_heart", "bast_scale_patch", "bast_bone_helm", "bast_shell_limb", "bast_reflex_ganglion", "bast_pressure_release", "bast_reflective_carapace", "bast_brace"]
   },
   "world": {
     "corrosion": ["cor_matriarch", "cor_shard_claw", "cor_pitted_hide", "cor_venom_gland", "cor_acid_maw", "cor_corrosive_strike", "cor_festering_wound", "cor_rot_serum"],
-    "aegis": ["aeg_vital_ward", "aeg_scaled_plate", "aeg_bastion_shell", "aeg_warding_core", "aeg_ironclad_frame", "aeg_mending_serum", "aeg_shield_serum", "aeg_bulwark_protocol"],
+    "aegis": ["aeg_vital_ward", "aeg_scaled_plate", "aeg_bastion_shell", "aeg_warding_core", "aeg_ironclad_frame", "aeg_mending_serum", "aeg_ward_pact", "aeg_bulwark_protocol"],
     "miasma": ["mia_plague_matriarch", "mia_toxic_barb", "mia_choking_spore", "mia_creeping_rot", "mia_wasting_husk", "mia_numbing_dart", "mia_wasting_cloud", "mia_fevered_grasp"],
     "hollow": ["hol_reaper_pact", "hol_grave_thorn", "hol_bone_ward", "hol_hollow_husk", "hol_gravekeeper", "hol_necrotic_blade", "hol_purging_rite", "hol_wraith_touch"]
   },
