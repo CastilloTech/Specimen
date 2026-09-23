@@ -472,6 +472,18 @@ Four things you asked for, in order of how much they touched.
 - **Bastion dropped to ~42% overall** (35.6% vs. Parasite) in this pass's sample, and **Aegis vs. Hollow sits at ~39%** — both newly visible now that Miasma is no longer swamping the signal. Neither investigated yet; see "What is still weak."
 - 215 tests (were 212); `npm run budget` clean across all 111 cards.
 
+### Thirteenth pass: closing the two gaps the Twelfth pass left open
+
+You asked for a general sweep — weak spots, mistakes, rebalance. Two real problems, both isolated with `npm run sim`/`npm run audit` at 5,000–9,000 matches (large enough that the 45–55% band means something) rather than guessed at.
+
+**1. Two cards were bad regardless of who played them.** `npm run audit`'s per-card breakdown showed **Bulwark Protocol** (Aegis) at 26.7–37.8% and **Brace for Impact** (Bastion) at 27.6% across every Build that happened to draw them — a signal a card is just undertuned, not that one faction handles it badly (contrast with reactive cards that merely *look* weak because they get played from behind). Both are "respond to any play: armor buff" protocols; both were undercosted for their number. `aeg_bulwark_protocol`: **+4 → +6 armor**. `bast_brace`: **+6 → +8 armor**. Also fixed **Scale Patch** (Bastion's free 0-cost graft, played in 69% of Bastion's games — its floor, effectively): integrity **1 → 2**, staying under the zero-Strain-graft weak-card cap by design.
+
+**2. Bastion was the worst Build by a wide margin, in every World Faction pairing** (38–45.6% depending on partner, confirmed at 9,000 matches) — not a one-archetype problem, a Build-level one. **Predator vs. Parasite was still the widest Build-axis gap** (44.8% / 55.2% at 6,000 matches), flagged as unresolved since the Eleventh pass. Both fixed the same way past sessions have found works when a Build is weak across the board and not just against one opponent — the evolution conditions, which cost nothing when the form is rare, or in these cases already common:
+- Bastion: **Carapace's armor bonus 3 → 5** (two steps, checked with a sim run after each: 42.2% → 44.2% → 45.6% → 46.8% overall as the two node/evolution buffs and the card fixes landed). **Juggernaut's armor-to-attack cap 2 → 3.**
+- Predator: **Frenzy Form's attack bonus 2 → 3** (already bumped once in the Twelfth pass with little effect; reached in ~70% of Predator's games, so a bonus that lands is worth more than a rare-condition tweak). This one worked: 48.2% / 51.8% afterward, inside the band.
+
+**Net effect** (`npm run sim`, 6,000 matches, random Build x World Faction x Chip x loadout): Bastion **42.2% → 46.0%** overall; Predator vs. Parasite **44.8/55.2 → 48.2/51.8**. Neither is fully centered, and Bastion vs. Parasite specifically is still the worst single matchup at **42.4%** — one more push, most likely on Bastion's own build cards rather than its evolutions a third time, is the next step. 215 tests still green; `npm run budget` clean.
+
 ### Findings from the first simulation pass, and what was changed
 
 The first pass found three problems.
@@ -499,17 +511,16 @@ Stripped Frame's "less Strain" is nearly worthless because Strain rarely limits 
 
 ### What is still weak
 
-Numbers below are from the Twelfth pass's moderate sample (2,000–3,000 matches; see that section). Everything here predates full 30,000-match tuning, and several bullets from earlier passes that named specific cards or nodes no longer exist (the Eleventh/Twelfth passes retired the 27-node tree and then rewrote the entire card pool) — removed rather than left stale.
+Numbers below are from the Thirteenth pass's sample (5,000–6,000 matches). Everything here predates full 30,000-match tuning, and several bullets from earlier passes that named specific cards or nodes no longer exist (the Eleventh/Twelfth passes retired the 27-node tree and then rewrote the entire card pool) — removed rather than left stale.
 
-- **Predator vs Parasite is the widest Build-axis gap** (~35–46% depending on the sample), and it has moved *away* from even across multiple sessions now (it was 51.0 / 49.0 as recently as the Eighth pass, pre-World-Factions). Frenzy Form's attack bonus went +1 -> +2 in the Eleventh pass with little effect. This is the single most useful thing to attack next, with a dedicated pass rather than one more speculative number.
-- **Miasma is still the weakest World Faction** even after this pass's graft-stat fix brought it up from a faction-breaking 22–28% to 43–57%. Not chased further this pass.
-- **Bastion sits around 42% overall in the Twelfth pass's sample** (35.6% vs. Parasite specifically) — newly visible now that Miasma isn't swamping the signal; not yet investigated at all.
-- **Aegis vs. Hollow is at ~39%** in the same sample. Also not yet investigated.
+- **Bastion vs Parasite is now the widest single matchup** (42.4%), and Bastion is still the weakest Build overall (46.0%, up from 42.2% pre-Thirteenth-pass) even after two rounds of evolution buffs (Carapace, Juggernaut) and three card fixes (Bulwark Protocol, Brace for Impact, Scale Patch). The next lever is most likely Bastion's own build cards (`bast_*`) rather than a third evolution tweak — evolutions are cheap to buff but clearly have diminishing returns by now.
+- **Predator vs Parasite improved a lot this pass** (44.8/55.2 → 48.2/51.8, inside the 45–55% band) via Frenzy Form's attack bonus 2 → 3 — the first attempt at this (Eleventh pass, +1 → +2) barely moved it, but a bigger step did, likely because Frenzy Form is reached in ~70% of Predator's games, so its bonus lands almost every time rather than being a rare-condition tweak.
+- **Miasma is still the weakest World Faction** (mid-40s against most others) even after the Twelfth pass's graft-stat fix brought it up from a faction-breaking 22–28%. Not chased further this pass.
+- **Aegis vs. Hollow is at ~38–39%**, unchanged across two passes now. Not yet investigated at all.
 - **The 12 Build x World Faction archetypes are not evenly tuned relative to each other** — expected at this stage (`npm run sim` is run "moderate," not exhaustive), and a full 30,000-match-per-cell pass across all 12 archetypes is the natural follow-up once the Build and World Faction axes are each closer to centered individually.
 - **Round 2 is still a plateau**: the Energy curve is 2, 2, 3, 4, 5, 6. Smoothing it (shift the whole curve up one round) broke Predator vs Parasite badly as a side effect in an earlier session and was reverted; worth retrying as its own isolated, dedicated pass.
 - **Snowballing**: a lead after round 3 still mostly decides the game; the comeback-draw mechanic helps matchup balance as a side effect but hasn't moved this specific number.
-- These numbers are all bot-vs-bot; a real playtest (see the note at the end of the Twelfth pass's "Balance" list) is the next test for all of the above.
-- These are bot-vs-bot numbers, from a heuristic bot that does not bluff, plans few Ambushes, and replaces conservatively. Human players will use Cycling, Hold, Dormant, replacement and Protocols differently, so a real playtest is the next test.
+- These are all bot-vs-bot numbers, from a heuristic bot that does not bluff, plans few Ambushes, and replaces conservatively. Human players will use Cycling, Hold, Dormant, replacement and Protocols differently, so a real playtest is the next test for all of the above.
 
 ## Assumptions
 

@@ -111,9 +111,9 @@
       {
         "id": "frenzyForm",
         "name": "Frenzy Form",
-        "text": "End a round at 6+ Strain with no rejection: the Overclocked bonus becomes +3, and +2 attack.",
+        "text": "End a round at 6+ Strain with no rejection: the Overclocked bonus becomes +3, and +3 attack.",
         "condition": { "metric": "endRoundStrain", "target": 6, "label": "Strain at round end (no rejection)" },
-        "effects": { "overclockBonus": 3, "attack": 2 }
+        "effects": { "overclockBonus": 3, "attack": 3 }
       }
     ],
     "parasite": [
@@ -136,16 +136,16 @@
       {
         "id": "carapace",
         "name": "Carapace",
-        "text": "Vent 6 total Strain: +3 armor; Fortify vents 3 instead of 2.",
+        "text": "Vent 6 total Strain: +5 armor; Fortify vents 3 instead of 2.",
         "condition": { "metric": "strainVented", "target": 6, "label": "Strain vented" },
-        "effects": { "armor": 3, "fortifyVent": 3 }
+        "effects": { "armor": 5, "fortifyVent": 3 }
       },
       {
         "id": "juggernaut",
         "name": "Juggernaut",
-        "text": "Block 16 total damage: your armor adds to your attack (up to +2).",
+        "text": "Block 16 total damage: your armor adds to your attack (up to +3).",
         "condition": { "metric": "damageBlocked", "target": 16, "label": "damage blocked" },
-        "effects": { "armorToAttack": true, "armorToAttackCap": 2 }
+        "effects": { "armorToAttack": true, "armorToAttackCap": 3 }
       }
     ]
   },
