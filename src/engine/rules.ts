@@ -558,7 +558,10 @@ export function beginRound(s: GameState): void {
     const firstRoundBonus = s.round === 1 ? sumLoadoutParam(s, pl, 'firstDrawRoundBonus') : 0;
     drawCards(s, pl.id, cfg.match.drawPerRound + late + firstRoundBonus);
     if (late > 0 && s.round === cfg.match.lateDrawFromRound) logMsg(s, 'info', pl.id, `Late game: ${pl.name} now draws ${cfg.match.drawPerRound + late} cards a round.`);
-    pl.energy = Math.max(cfg.energy.min, Math.min(s.round, cfg.energy.cap)) + (cfg.features.energyBanking ? pl.bank : 0);
+    // energyRampBonus fires exactly on the round the floor (energy.min) stops naturally binding, so round 2
+    // does not tie round 1's floored value - a one-round plateau, not a curve reshape.
+    const ramp = s.round === cfg.energy.min ? cfg.match.energyRampBonus : 0;
+    pl.energy = Math.max(cfg.energy.min, Math.min(s.round, cfg.energy.cap)) + ramp + (cfg.features.energyBanking ? pl.bank : 0);
     pl.bank = 0;
     if (!pl.attachedLastRound) {
       const v = vent(s, pl.id, cfg.strain.ventPerRound);
@@ -567,12 +570,15 @@ export function beginRound(s: GameState): void {
     const regen = sumLoadoutParam(s, pl, 'integrityRegen');
     if (regen > 0) for (const g of pl.grafts) g.integrity = Math.min((cardOf(g.cardId).integrity ?? cfg.integrity.default) + sumLoadoutParam(s, pl, 'flatIntegrity'), g.integrity + regen);
   }
-  // Comeback draw: the Specimen that is well behind on HP draws extra, so an early lead does not decide the match alone.
+  // Comeback: the Specimen that is well behind on HP draws extra and gets a little extra Energy, so an
+  // early lead does not decide the match alone.
   const [pa, pb] = s.players;
-  if (cfg.match.catchUpDraw > 0 && Math.abs(pa.hp - pb.hp) >= cfg.match.catchUpHpGap) {
+  if ((cfg.match.catchUpDraw > 0 || cfg.match.catchUpEnergy > 0) && Math.abs(pa.hp - pb.hp) >= cfg.match.catchUpHpGap) {
     const trailing = pa.hp < pb.hp ? pa : pb;
     const n = drawCards(s, trailing.id, cfg.match.catchUpDraw);
-    if (n > 0) logMsg(s, 'info', trailing.id, `Second wind: ${trailing.name} is ${Math.abs(pa.hp - pb.hp)} HP behind and draws ${n} extra card(s).`);
+    if (cfg.match.catchUpEnergy > 0) trailing.energy += cfg.match.catchUpEnergy;
+    const extraEnergy = cfg.match.catchUpEnergy > 0 ? `, +${cfg.match.catchUpEnergy} Energy` : '';
+    if (n > 0 || cfg.match.catchUpEnergy > 0) logMsg(s, 'info', trailing.id, `Second wind: ${trailing.name} is ${Math.abs(pa.hp - pb.hp)} HP behind and draws ${n} extra card(s)${extraEnergy}.`);
   }
   if (s.round >= cfg.match.meltdownFromRound) {
     for (const pl of s.players) addStrain(s, pl.id, cfg.match.meltdownStrain);

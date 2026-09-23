@@ -11,8 +11,10 @@
     "lateDraw": 1,
     "catchUpHpGap": 6,
     "catchUpDraw": 2,
+    "catchUpEnergy": 1,
     "secondMoverDraw": 0,
     "secondMoverEnergy": 0,
+    "energyRampBonus": 1,
     "koTiebreak": true
   },
   "energy": { "cap": 6, "bankMax": 2, "min": 2 },
@@ -120,9 +122,9 @@
       {
         "id": "hiveHost",
         "name": "Hive Host",
-        "text": "The opponent's Strain reaches 8+: heal 4 whenever the opponent later rejects a graft, and +1 armor, +2 attack.",
+        "text": "The opponent's Strain reaches 8+: heal 4 whenever the opponent later rejects a graft, and +1 armor, +1 attack.",
         "condition": { "metric": "oppMaxStrain", "target": 8, "label": "opponent peak Strain" },
-        "effects": { "healOnOppReject": 4, "armor": 1, "attack": 2 }
+        "effects": { "healOnOppReject": 4, "armor": 1, "attack": 1 }
       },
       {
         "id": "leechForm",

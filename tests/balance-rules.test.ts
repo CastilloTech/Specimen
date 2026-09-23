@@ -16,6 +16,17 @@ describe('Energy floor', () => {
     expect(s.round).toBe(3);
     expect(s.players[0].energy).toBe(3);
   });
+
+  it('energyRampBonus fires only on the round the floor stops naturally binding (no plateau into the next round)', () => {
+    let s = toActions(baseMatch('predator', 'predator', { energy: { min: 2 }, match: { energyRampBonus: 1 } }));
+    expect(s.players[0].energy).toBe(2); // round 1: floored, no ramp yet (round !== min)
+    s = endRound(hands(s));
+    expect(s.round).toBe(2);
+    expect(s.players[0].energy).toBe(3); // round 2 === energy.min: +1 ramp, so it no longer ties round 1
+    s = nextRound(hands(s));
+    expect(s.round).toBe(3);
+    expect(s.players[0].energy).toBe(3); // round 3: the curve's own value, no ramp (round !== min)
+  });
 });
 
 describe('Extra draws', () => {
@@ -41,6 +52,14 @@ describe('Extra draws', () => {
     s = setHp(s, 0, 27);
     s = endRound(s);
     expect(s.players[0].hand).toHaveLength(1);
+  });
+
+  it('second wind: catchUpEnergy gives the trailing Specimen extra Energy too', () => {
+    let s = arena('predator', 'predator', ['aggress', 'aggress'], { match: { catchUpDraw: 0, catchUpEnergy: 2, catchUpHpGap: 5 } });
+    s = setHp(s, 0, 20); // P1 is 10 behind
+    s = endRound(s); // both players get the same round's base Energy; only P1 (trailing) also gets the catch-up
+    expect(s.players[0].energy).toBe(s.players[1].energy + 2);
+    expect(s.log.some((l) => /Second wind/.test(l.text) && /Energy/.test(l.text))).toBe(true);
   });
 
   it('second mover draw and Energy: whoever acts second in round 1 gets a small head start', () => {
