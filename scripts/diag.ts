@@ -1,6 +1,6 @@
 // Diagnostic: average board state by round for one matchup.  npx tsx scripts/diag.ts --a predator --b parasite --n 300
-import { botAction, computeStats, createMatch, makeRng, pendingPlayers, reduce, STARTER_DECKS, treeRows } from '../src/engine';
-import type { Faction } from '../src/engine';
+import { botAction, chipRows, chipsFor, computeStats, createMatch, makeRng, pendingPlayers, reduce, starterDeck } from '../src/engine';
+import type { Faction, WorldFactionId } from '../src/engine';
 
 const arg = (n: string, d: string) => {
   const i = process.argv.indexOf(`--${n}`);
@@ -8,6 +8,8 @@ const arg = (n: string, d: string) => {
 };
 const A = arg('a', 'predator') as Faction;
 const B = arg('b', 'parasite') as Faction;
+const WA = arg('wa', 'corrosion') as WorldFactionId;
+const WB = arg('wb', 'aegis') as WorldFactionId;
 const N = parseInt(arg('n', '300'), 10);
 const rng = makeRng(99);
 type Acc = { n: number; atk: number; arm: number; grafts: number; strain: number; hp: number; unspent: number };
@@ -15,8 +17,19 @@ const acc: Acc[][] = [[], []];
 const koRound: number[] = [];
 let wins = [0, 0, 0];
 for (let g = 0; g < N; g++) {
-  const load = (f: Faction) => treeRows(f).map((r) => rng.pick(r.nodes).id);
-  let s = createMatch({ seed: g + 1, players: [{ name: 'A', faction: A, deck: STARTER_DECKS[A], loadout: load(A) }, { name: 'B', faction: B, deck: STARTER_DECKS[B], loadout: load(B) }] });
+  const load = (wf: WorldFactionId) => {
+    const chip = rng.pick(chipsFor(wf)).id;
+    return { chip, loadout: chipRows(chip).map((r) => rng.pick(r.nodes).id) };
+  };
+  const la = load(WA);
+  const lb = load(WB);
+  let s = createMatch({
+    seed: g + 1,
+    players: [
+      { name: 'A', faction: A, worldFaction: WA, chip: la.chip, deck: starterDeck(A, WA), loadout: la.loadout },
+      { name: 'B', faction: B, worldFaction: WB, chip: lb.chip, deck: starterDeck(B, WB), loadout: lb.loadout },
+    ],
+  });
   const r = [makeRng(g * 2 + 1), makeRng(g * 2 + 2)];
   while (s.phase !== 'over') {
     const [p] = pendingPlayers(s);

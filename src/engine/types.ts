@@ -8,6 +8,10 @@ export const other = (p: PlayerId): PlayerId => (p === 0 ? 1 : 0);
 
 export type Faction = 'predator' | 'parasite' | 'bastion';
 export const FACTIONS: Faction[] = ['predator', 'parasite', 'bastion'];
+/** The second, orthogonal build axis: a World Faction defines a card pool built around Integrity and the
+ * five status effects (never Strain, which is the Build's own domain) plus three selectable Chips. */
+export type WorldFactionId = 'corrosion' | 'aegis' | 'miasma' | 'hollow';
+export const WORLD_FACTIONS: WorldFactionId[] = ['corrosion', 'aegis', 'miasma', 'hollow'];
 export type Stance = 'aggress' | 'adapt' | 'fortify';
 export const STANCES: Stance[] = ['aggress', 'adapt', 'fortify'];
 export type SlotId = 'head' | 'limbA' | 'limbB' | 'organ' | 'organB' | 'nerve';
@@ -25,7 +29,12 @@ export type Cond = {
   oppStrainAtLeast?: number;
   hpAtMost?: number;
   minRound?: number;
+  /** Only true once the player has evolved into this specific form id. */
+  evolution?: string;
 };
+
+/** A round-timed debuff on the player rather than a specific graft: see PlayerState. */
+export type StatusKind = 'bleed' | 'numb' | 'fever';
 
 export type Op =
   | { op: 'heal'; amount: number }
@@ -37,11 +46,15 @@ export type Op =
   | { op: 'energy'; amount: number }
   | { op: 'drain'; amount: number }
   | { op: 'buff'; stat: 'attack' | 'armor'; who?: 'self' | 'opp'; amount: number }
-  | { op: 'sabotage'; mode: 'sever' | 'poison' | 'disable'; rounds?: number; pick?: 'chosen' | 'random' | 'best' }
+  | { op: 'sabotage'; mode: 'sever' | 'poison' | 'disable' | 'necrosis'; rounds?: number; pick?: 'chosen' | 'random' | 'best' }
   | { op: 'reveal' }
   | { op: 'negate' }
   | { op: 'reflect' }
-  | { op: 'mod'; stat: 'attack' | 'armor'; amount: number; per?: { what: 'grafts' | 'strain' | 'oppStrain' | 'missingHp'; div: number } };
+  | { op: 'mod'; stat: 'attack' | 'armor'; amount: number; per?: { what: 'grafts' | 'strain' | 'oppStrain' | 'missingHp'; div: number } }
+  | { op: 'graftDamage'; amount: number }
+  | { op: 'status'; kind: StatusKind; who?: 'self' | 'opp'; rounds?: number }
+  | { op: 'purge'; who?: 'self' | 'opp' }
+  | { op: 'integrityHeal'; amount: number };
 
 export type Trigger = 'passive' | 'onAttach' | 'onRoundStart' | 'onStrainCheck' | 'onDealDamage' | 'onTakeDamage' | 'onReject';
 
@@ -57,13 +70,16 @@ export interface CardEffect {
 export interface CardDef {
   id: string;
   name: string;
-  faction: Faction | 'tech';
+  faction: Faction | 'tech' | WorldFactionId;
   type: CardType;
   cost: number;
   strain: number;
   slot?: SlotType;
   attack: number;
   armor: number;
+  /** Grafts only: a small HP pool of its own (roughly 2-4), chipped by `graftDamage` ops. A graft with
+   * integrity reduced to 0 is destroyed, independent of the Specimen's own Strain/rejection. */
+  integrity?: number;
   text: string;
   signature: boolean;
   effect: CardEffect;
@@ -75,6 +91,22 @@ export interface TreeNode {
   name: string;
   text: string;
   params: Record<string, number | string | boolean>;
+}
+
+export interface TreeRow {
+  id: string;
+  name: string;
+  nodes: TreeNode[];
+}
+
+/** A loadout item: pick one Chip from your chosen World Faction before a match. Its tree is the *only*
+ * source of skill nodes in the game now - Builds carry no tree of their own. */
+export interface ChipDef {
+  id: string;
+  name: string;
+  text: string;
+  worldFaction: WorldFactionId;
+  tree: TreeRow[]; // exactly 3 rows of exactly 2 nodes each
 }
 
 export interface EvolutionDef {
@@ -104,6 +136,11 @@ export interface AttachedGraft {
   dormantStrain?: number;
   /** The round it was attached, so a graft that has slept through a round can ambush when woken. */
   sleptSince?: number;
+  /** Strain checks this graft has survived unrejected. Only Signature grafts turn this into a stat bonus
+   * (see `veterancy` in config), so it is tracked for every graft but only spent by the ones that use it. */
+  roundsSurvived: number;
+  /** Current integrity (its own small HP pool). Reaching 0 destroys the graft. */
+  integrity: number;
 }
 
 export interface PlayerStats {
@@ -121,6 +158,8 @@ export interface PlayerState {
   id: PlayerId;
   name: string;
   faction: Faction;
+  worldFaction: WorldFactionId;
+  chip: string;
   isBot: boolean;
   loadout: string[];
   hp: number;
@@ -134,6 +173,9 @@ export interface PlayerState {
   grafts: AttachedGraft[];
   stance: Stance | null;
   stanceHistory: Stance[];
+  /** An optional prediction of the opponent's stance, made at the same time as your own pick: right pays
+   * off with attack this round, wrong costs Strain, and no call is always safe. Cleared every round. */
+  stanceGuess: Stance | null;
   hold: boolean;
   cycledThisRound: number;
   attachedThisRound: number;
@@ -149,6 +191,14 @@ export interface PlayerState {
   evolution: string | null;
   evolutionOptions: string[];
   stats: PlayerStats;
+  /** Rounds remaining of a 1-damage-per-round bleed-out. */
+  bleed: number;
+  /** Rounds remaining during which this player's Protocols cannot be played. */
+  numb: number;
+  /** Rounds remaining during which this player's grafts cost 1 more Energy. */
+  fever: number;
+  /** Slots that cannot be refilled yet, each with the rounds remaining before they heal over. */
+  necrosis: Partial<Record<SlotId, number>>;
 }
 
 export interface PendingPlay {
@@ -159,6 +209,9 @@ export interface PendingPlay {
   faceDown?: boolean;
   negated: boolean;
   reflected: boolean;
+  /** Set only when this is a Protocol played via REACT: the play (or earlier Protocol) it answers, so its
+   * own ops (negate, reflect, a target-slot lookup) act on the thing being answered, not on itself. */
+  against?: PendingPlay;
 }
 
 export interface ReactionWindow {
@@ -222,6 +275,9 @@ export interface GameState {
   passStreak: number;
   actionCount: number;
   window: ReactionWindow | null;
+  /** LIFO chain of not-yet-resolved plays: index 0 is the original play, later entries are Protocols
+   * reacting to the one below them. The top (last) entry is always what `window` currently asks about. */
+  stack: PendingPlay[];
   feintQueue: PlayerId[];
   evoQueue: PlayerId[];
   result: MatchResult | null;
@@ -238,6 +294,8 @@ export interface GameState {
 export interface PlayerSetup {
   name: string;
   faction: Faction;
+  worldFaction: WorldFactionId;
+  chip: string;
   deck: string[];
   loadout: string[];
   isBot?: boolean;
@@ -252,7 +310,7 @@ export interface MatchSetup {
 // ---------- Actions ----------
 export type Action =
   | { type: 'MULLIGAN'; player: PlayerId; mulligan: boolean }
-  | { type: 'PICK_STANCE'; player: PlayerId; stance: Stance }
+  | { type: 'PICK_STANCE'; player: PlayerId; stance: Stance; guess?: Stance | null }
   | { type: 'AUTO_STANCE'; player: PlayerId }
   | { type: 'FEINT'; player: PlayerId; stance: Stance | null }
   | { type: 'PLAY_CARD'; player: PlayerId; uid: string; slot?: SlotId; target?: SlotId; faceDown?: boolean }

@@ -1,5 +1,11 @@
 import type { CardDef } from '../../engine';
-import { FACTION_META, TYPE_META } from '../meta';
+import { FACTION_META, TYPE_META, WORLD_FACTION_META } from '../meta';
+
+function accentFor(faction: CardDef['faction']): string {
+  if (faction === 'tech') return '#8a948f';
+  if (faction in FACTION_META) return FACTION_META[faction as keyof typeof FACTION_META].color;
+  return WORLD_FACTION_META[faction as keyof typeof WORLD_FACTION_META].color;
+}
 
 interface Props {
   def: CardDef;
@@ -19,7 +25,7 @@ interface Props {
 export function CardView({ def, cost, size = 'md', selected, dim, onClick, onDoubleClick, count, reason, hotkey }: Props) {
   const t = TYPE_META[def.type];
   const shownCost = cost ?? def.cost;
-  const accent = def.faction === 'tech' ? '#8a948f' : FACTION_META[def.faction].color;
+  const accent = accentFor(def.faction);
   // A selected card always shows its full text, even in a shrunk "sm" hand, so picking it up never hides what it does.
   const sm = size === 'sm' && !selected;
   const tooltip = reason ? `${def.name}: ${reason}` : def.text;
@@ -51,6 +57,11 @@ export function CardView({ def, cost, size = 'md', selected, dim, onClick, onDou
           <>
             <span className="rounded bg-red-900/60 px-1 text-red-200">ATK {def.attack}</span>
             <span className="rounded bg-sky-900/60 px-1 text-sky-200">ARM {def.armor}</span>
+            {!!def.integrity && (
+              <span className="rounded bg-emerald-900/60 px-1 text-emerald-200" title="Integrity: its own small HP pool">
+                INT {def.integrity}
+              </span>
+            )}
           </>
         )}
         {def.strain > 0 && <span className="rounded bg-amber-900/60 px-1 text-amber-200">STR {def.strain}</span>}

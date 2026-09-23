@@ -65,6 +65,16 @@ export function HelpSheet({ state, onClose }: { state: GameState; onClose: () =>
           <li>Face-down grafts are asleep: no stats or text, {c.dormant.quietStrain} less Strain until they wake. Waking one on purpose after it has slept a round gives an Ambush for that round: Predator {ambushText(c, 'predator')}; Parasite {ambushText(c, 'parasite')}; Bastion {ambushText(c, 'bastion')}. Scanner Probe and Sabotage wake them by force, with no Ambush.</li>
         </ul>
 
+        <h3 className="mt-3 text-xs font-bold uppercase tracking-wide text-accent">Integrity and statuses</h3>
+        <ul className="mt-1 list-disc space-y-0.5 pl-5 text-xs text-ink2">
+          <li>Every graft also has its own small Integrity pool (usually {c.integrity.default}), separate from your own HP and Strain. Some cards chip a specific graft's Integrity directly (bypassing armor); at 0 it is destroyed, which is not a rejection.</li>
+          <li>Bleed: {c.status.bleedDamage} damage at the start of each round while it lasts.</li>
+          <li>Numb: Protocols cannot be played while it lasts.</li>
+          <li>Fever: grafts cost {c.status.feverCostIncrease} more Energy while it lasts.</li>
+          <li>Necrosis: the slot a destroyed graft was in cannot be refilled for a few rounds.</li>
+          <li>A Purge-style effect clears your own Bleed, Numb, Fever and Necrosis at once.</li>
+        </ul>
+
         <h3 className="mt-3 text-xs font-bold uppercase tracking-wide text-accent">Evolution</h3>
         <p className="mt-1 text-xs text-ink2">
           Each Specimen evolves once, permanently, into one of its two forms. Meeting a form's condition always offers a choice: evolve now, or hold off — you'll be offered again at the next Strain check if it (or the other form) still qualifies. The bars under each player show progress, and a banner announces the form and what it gives when someone evolves.

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { evolutionBoosts, evolutionDefs, evolutionNotes, evolutionProgress } from '../../engine';
+import { evolutionBoosts, evolutionDefs, evolutionProgress } from '../../engine';
 import type { GameState, PlayerId } from '../../engine';
 import { FACTION_META, PLAYER_COLORS } from '../meta';
 
@@ -47,7 +47,6 @@ function Banner({ state, event, me, onDismiss }: { state: GameState; event: EvoE
   const p = state.players[event.player];
   const def = evolutionDefs(state, p).find((d) => d.id === event.id);
   const boosts = evolutionBoosts(state, p, event.id);
-  const notes = evolutionNotes(p);
   const color = FACTION_META[p.faction].color;
   const who = event.player === me ? 'YOU EVOLVED' : `${p.name.toUpperCase()} EVOLVED`;
   return (
@@ -77,7 +76,6 @@ function Banner({ state, event, me, onDismiss }: { state: GameState; event: EvoE
           ))}
         </ul>
       )}
-      {notes.length > 0 && <div className="mt-1.5 space-y-0.5 text-[10px] text-mute">{notes.map((n) => <div key={n}>{n}</div>)}</div>}
     </div>
   );
 }

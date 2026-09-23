@@ -17,7 +17,6 @@ import {
   resolvePlay,
   revealGraft,
   resolveStances,
-  runOps,
   strainCheck,
   vent,
   SLOT_LABEL,
@@ -57,10 +56,12 @@ export function reactionOptions(s: GameState, reactor: PlayerId, play: PendingPl
   const pl = s.players[reactor];
   const kind = cardOf(play.card.cardId).type;
   const out: Action[] = [];
-  for (const c of pl.hand) {
-    const def = cardOf(c.cardId);
-    if (def.type !== 'protocol' || !protocolMatches(def.effect.reactsTo, kind)) continue;
-    if (cardCost(s, pl, def) <= pl.energy) out.push({ type: 'REACT', player: reactor, uid: c.uid });
+  if (pl.numb <= 0) {
+    for (const c of pl.hand) {
+      const def = cardOf(c.cardId);
+      if (def.type !== 'protocol' || !protocolMatches(def.effect.reactsTo, kind)) continue;
+      if (cardCost(s, pl, def) <= pl.energy) out.push({ type: 'REACT', player: reactor, uid: c.uid });
+    }
   }
   if (hasNode(pl, 'pressureValve') && !pl.valveUsed && pl.strain > 0) out.push({ type: 'REACT', player: reactor, ability: 'pressureValve' });
   return out;
@@ -105,7 +106,10 @@ export function validateAction(s: GameState, a: Action): string | null {
     case 'AUTO_STANCE':
       if (s.phase !== 'stance') return 'Not the stance phase.';
       if (pl.stance !== null) return 'Stance already chosen.';
-      if (a.type === 'PICK_STANCE' && !STANCES.includes(a.stance)) return 'Unknown stance.';
+      if (a.type === 'PICK_STANCE') {
+        if (!STANCES.includes(a.stance)) return 'Unknown stance.';
+        if (a.guess != null && !STANCES.includes(a.guess)) return 'Unknown guess.';
+      }
       return null;
     case 'FEINT':
       if (s.phase !== 'feint' || s.feintQueue[0] !== a.player) return 'Feint is not available.';
@@ -127,6 +131,7 @@ export function validateAction(s: GameState, a: Action): string | null {
         if (!c) return 'Card not in hand.';
         const def = cardOf(c.cardId);
         if (def.type !== 'protocol') return 'Only Protocols can react.';
+        if (pl.numb > 0) return 'Numb: Protocols are disabled.';
         if (!protocolMatches(def.effect.reactsTo, cardOf(s.window.play.card.cardId).type)) return 'That Protocol does not answer this play.';
         if (cardCost(s, pl, def) > pl.energy) return 'Not enough Energy.';
       }
@@ -163,6 +168,7 @@ export function validateAction(s: GameState, a: Action): string | null {
       if (def.type === 'graft') {
         if (!a.slot || !pl.slots.includes(a.slot)) return 'Choose one of your slots.';
         if (s.config.slotTypes[a.slot] !== def.slot) return `${def.name} fits a ${def.slot} slot.`;
+        if ((pl.necrosis[a.slot] ?? 0) > 0) return `That slot is necrotic for ${pl.necrosis[a.slot]} more round(s).`;
         if (pl.grafts.some((g) => g.slot === a.slot) && !s.config.replace.enabled) return 'That slot is occupied.';
         if (a.faceDown && (!s.config.features.dormant || !canBeDormant(def))) return 'This graft cannot be Dormant.';
         return null;
@@ -197,19 +203,39 @@ function afterAction(s: GameState, actor: PlayerId): void {
 
 function endActions(s: GameState): void {
   s.window = null;
+  s.stack = [];
   clash(s);
   if (s.phase === 'over') return;
   strainCheck(s);
 }
 
 function openWindowOrResolve(s: GameState, play: PendingPlay): void {
-  const reactor = other(play.player);
-  if (reactionOptions(s, reactor, play).length) {
-    s.window = { reactor, play };
+  s.stack.push(play);
+  offerOrResolve(s, play);
+}
+
+/** A freshly-pushed stack entry gets exactly one look: open a window if the other player can answer it
+ * (a Protocol can itself be answered by another Protocol this way), otherwise resolve it right away. Only
+ * called for an entry that has not been offered yet - once decided (React or Decline), it never gets a
+ * second window, even after the reaction it produced finishes resolving above it. */
+function offerOrResolve(s: GameState, entry: PendingPlay): void {
+  const reactor = other(entry.player);
+  if (reactionOptions(s, reactor, entry).length) {
+    s.window = { reactor, play: entry };
     return;
   }
-  resolvePlay(s, play);
-  afterAction(s, play.player);
+  resolveAndUnwind(s);
+}
+
+/** Pops and resolves the top of the stack - already decided, so no window - then keeps resolving
+ * downward the same way, since every entry still under it was already decided when it was pushed. */
+function resolveAndUnwind(s: GameState): void {
+  const top = s.stack.pop()!;
+  resolvePlay(s, top);
+  s.window = null;
+  if (endIfDead(s)) return;
+  if (s.stack.length) resolveAndUnwind(s);
+  else afterAction(s, top.player);
 }
 
 function apply(s: GameState, a: Action): void {
@@ -231,6 +257,7 @@ function apply(s: GameState, a: Action): void {
     case 'PICK_STANCE':
     case 'AUTO_STANCE': {
       pl.stance = a.type === 'PICK_STANCE' ? a.stance : (STANCES[nextInt(s, 3)] as Stance);
+      pl.stanceGuess = a.type === 'PICK_STANCE' ? (a.guess ?? null) : null;
       if (s.players.every((p) => p.stance !== null)) afterStancesPicked(s);
       return;
     }
@@ -277,13 +304,18 @@ function apply(s: GameState, a: Action): void {
       return;
     }
     case 'REACT': {
-      const w = s.window!;
+      const against = s.stack[s.stack.length - 1];
       if (a.ability === 'pressureValve') {
         pl.valveUsed = true;
         recordPlay(s, { player: a.player, kind: 'valve', uid: 'valve' });
         const v = vent(s, a.player, nodeParam(pl, 'pressureValve', 'vent'));
         logMsg(s, 'strain', a.player, `${pl.name} uses Pressure Valve and vents ${v} Strain.`, -v);
+        s.window = null;
+        if (endIfDead(s)) return;
+        resolveAndUnwind(s);
       } else {
+        // The Protocol itself goes on the stack instead of resolving right away, so a matching Protocol in
+        // the other hand (most "respond to any play" ones qualify) gets a chance to answer it in turn.
         const idx = pl.hand.findIndex((c) => c.uid === a.uid);
         const card = pl.hand.splice(idx, 1)[0];
         const def = cardOf(card.cardId);
@@ -291,21 +323,16 @@ function apply(s: GameState, a: Action): void {
         pl.stats.cardsPlayed++;
         recordPlay(s, { player: a.player, kind: 'react', uid: card.uid, cardId: card.cardId });
         logMsg(s, 'play', a.player, `${pl.name} responds with ${def.name}.`);
-        addStrain(s, a.player, def.strain);
-        runOps(s, def.effect.ops ?? [], { caster: a.player, victim: other(a.player), play: w.play, source: def.name });
-        pl.discard.push(card);
+        const entry: PendingPlay = { player: a.player, card, negated: false, reflected: false, against };
+        s.stack.push(entry);
+        s.window = null;
+        offerOrResolve(s, entry);
       }
-      s.window = null;
-      if (endIfDead(s)) return;
-      resolvePlay(s, w.play);
-      afterAction(s, w.play.player);
       return;
     }
     case 'DECLINE_REACTION': {
-      const w = s.window!;
       s.window = null;
-      resolvePlay(s, w.play);
-      afterAction(s, w.play.player);
+      resolveAndUnwind(s);
       return;
     }
     case 'CYCLE': {

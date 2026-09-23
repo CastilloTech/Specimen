@@ -1,18 +1,27 @@
 import { produce } from 'immer';
 import { expect } from 'vitest';
-import { CARD_MAP, cardOf, createMatch, reduce, slotsFor, STARTER_DECKS, treeRows } from '../src/engine';
-import type { Action, AttachedGraft, CardDef, Config, DeepPartial, Faction, GameState, PlayerId, SlotId, Stance } from '../src/engine';
+import { CARD_MAP, cardOf, CHIP_MAP, createMatch, NODE_MAP, reduce, slotsFor, starterDeck } from '../src/engine';
+import type { Action, AttachedGraft, CardDef, ChipDef, Config, DeepPartial, Faction, GameState, PlayerId, SlotId, Stance, WorldFactionId } from '../src/engine';
 import fixtureCards from './fixtures/cards.json';
+import fixtureChips from './fixtures/chips.json';
 import evolutionFixture from './fixtures/evolutions.json';
 
 // Rule tests use frozen copies of cards (ids prefixed "t_") so that tuning cards.json
 // for balance can never break a rule test.
 for (const c of fixtureCards as unknown as CardDef[]) CARD_MAP[c.id] = c;
 
+// Same idea for chips: a frozen fixture chip (id "t_chip") so tuning chips.json can never break a rule test.
+for (const c of fixtureChips as unknown as ChipDef[]) {
+  CHIP_MAP[c.id] = c;
+  for (const row of c.tree) for (const n of row.nodes) NODE_MAP[n.id] = n;
+}
+export const FIXTURE_CHIP = 't_chip';
+export const FIXTURE_WORLD_FACTION: WorldFactionId = (fixtureChips as unknown as ChipDef[])[0].worldFaction;
+
 export const edit = (s: GameState, fn: (d: GameState) => void): GameState => produce(s, (d) => void fn(d as GameState));
 
-export function defaultLoadout(f: Faction): string[] {
-  return treeRows(f).map((r) => r.nodes[0].id);
+export function defaultLoadout(chipId: string = FIXTURE_CHIP): string[] {
+  return (CHIP_MAP[chipId]?.tree ?? []).map((r) => r.nodes[0].id);
 }
 
 /** A fresh match with NO skill-tree nodes, so base rules can be tested in isolation. */
@@ -28,7 +37,7 @@ export function baseMatch(f0: Faction = 'predator', f1: Faction = 'predator', co
       match: { lateDraw: 0, catchUpDraw: 0, secondMoverDraw: 0, secondMoverEnergy: 0, koTiebreak: false, ...config?.match, meltdownStrain: 2 },
       energy: { min: 1, ...config?.energy },
       replace: { enabled: false, extraCost: 1, ...config?.replace },
-      stances: { aggressBeatsAdaptBonus: 2, fortifyCounterDamage: 1, ...config?.stances },
+      stances: { aggressBeatsAdaptBonus: 2, fortifyCounterDamage: 1, callBonus: 2, callPenalty: 2, ...config?.stances },
       dormant: {
         quietStrain: 1,
         ...config?.dormant,
@@ -42,8 +51,8 @@ export function baseMatch(f0: Faction = 'predator', f1: Faction = 'predator', co
       evolutions: evolutionFixture as unknown as Config['evolutions'],
     },
     players: [
-      { name: 'P1', faction: f0, deck: STARTER_DECKS[f0], loadout: defaultLoadout(f0) },
-      { name: 'P2', faction: f1, deck: STARTER_DECKS[f1], loadout: defaultLoadout(f1) },
+      { name: 'P1', faction: f0, worldFaction: FIXTURE_WORLD_FACTION, chip: FIXTURE_CHIP, deck: starterDeck(f0, FIXTURE_WORLD_FACTION), loadout: defaultLoadout() },
+      { name: 'P2', faction: f1, worldFaction: FIXTURE_WORLD_FACTION, chip: FIXTURE_CHIP, deck: starterDeck(f1, FIXTURE_WORLD_FACTION), loadout: defaultLoadout() },
     ],
   });
   return edit(s, (d) => {
@@ -118,7 +127,7 @@ export const setEnergy = (s: GameState, p: PlayerId, n: number) =>
 export function attached(s: GameState, p: PlayerId, cardId: string, slot: SlotId, extra: Partial<AttachedGraft> = {}, addStrain = false): GameState {
   return edit(s, (d) => {
     const def = cardOf(cardId);
-    const g: AttachedGraft = { uid: `g:${uidN++}`, cardId, slot, strain: def.strain, seq: ++d.graftSeq, faceDown: false, poisoned: 0, disabled: 0, ...extra };
+    const g: AttachedGraft = { uid: `g:${uidN++}`, cardId, slot, strain: def.strain, seq: ++d.graftSeq, faceDown: false, poisoned: 0, disabled: 0, roundsSurvived: 0, integrity: def.integrity ?? 3, ...extra };
     d.players[p].grafts.push(g);
     if (addStrain) {
       d.players[p].strain += g.strain;

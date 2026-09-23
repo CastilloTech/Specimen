@@ -1,13 +1,13 @@
 import cardsJson from '../data/cards.json';
+import chipsJson from '../data/chips.json';
 import configJson from '../data/config.json';
 import decksJson from '../data/decks.json';
-import treesJson from '../data/trees.json';
-import type { CardDef, Config, DeepPartial, Faction, TreeNode } from './types';
+import type { CardDef, ChipDef, Config, DeepPartial, Faction, TreeNode, WorldFactionId } from './types';
+import { FACTIONS } from './types';
 
 export const defaultConfig: Config = configJson as Config;
 export const CARDS: CardDef[] = cardsJson as unknown as CardDef[];
 export const CARD_MAP: Record<string, CardDef> = Object.fromEntries(CARDS.map((c) => [c.id, c]));
-export const STARTER_DECKS = decksJson as unknown as Record<Faction, string[]>;
 
 export function cardOf(id: string): CardDef {
   const c = CARD_MAP[id];
@@ -15,24 +15,48 @@ export function cardOf(id: string): CardDef {
   return c;
 }
 
-export interface TreeRow {
-  id: string;
-  name: string;
-  nodes: TreeNode[];
+// ---------- Starter decks: a Build seed + a World Faction seed + a shared Tech seed. ----------
+interface DecksJson {
+  build: Record<Faction, string[]>;
+  world: Record<WorldFactionId, string[]>;
+  tech: string[];
+}
+const DECKS = decksJson as unknown as DecksJson;
+
+/** The default deck for a Build x World Faction pairing (used to seed the deck builder and quick-start setup). */
+export function starterDeck(faction: Faction, worldFaction: WorldFactionId): string[] {
+  return [...DECKS.build[faction], ...DECKS.world[worldFaction], ...DECKS.tech];
 }
 
-const ROWS = treesJson.rows as { id: string; name: string }[];
-
-export function treeRows(faction: Faction): TreeRow[] {
-  const f = (treesJson.factions as unknown as Record<string, Record<string, TreeNode[]>>)[faction];
-  const shared = treesJson.shared as unknown as Record<string, TreeNode[]>;
-  return ROWS.map((r) => ({ ...r, nodes: f[r.id] ?? shared[r.id] ?? [] }));
+/** How many copies of a card its own seed (Build, World Faction, or the shared Tech list) carries -
+ * independent of which pairing was used, since each seed is self-contained. Balance-audit tooling only. */
+export function starterCopies(id: string): number {
+  const c = CARD_MAP[id];
+  if (!c) return 0;
+  if (c.faction === 'tech') return DECKS.tech.filter((x) => x === id).length;
+  if ((FACTIONS as readonly string[]).includes(c.faction)) return DECKS.build[c.faction as Faction].filter((x) => x === id).length;
+  return DECKS.world[c.faction as WorldFactionId].filter((x) => x === id).length;
 }
 
-const NODE_MAP: Record<string, TreeNode> = {};
-for (const f of Object.values(treesJson.factions as unknown as Record<string, Record<string, TreeNode[]>>))
-  for (const nodes of Object.values(f)) for (const n of nodes) NODE_MAP[n.id] = n;
-for (const nodes of Object.values(treesJson.shared as unknown as Record<string, TreeNode[]>)) for (const n of nodes) NODE_MAP[n.id] = n;
+// ---------- Chips: the only source of skill nodes. Builds carry no tree of their own. ----------
+const CHIPS_BY_WORLD_FACTION = chipsJson as unknown as Record<WorldFactionId, ChipDef[]>;
+export const CHIPS: ChipDef[] = Object.values(CHIPS_BY_WORLD_FACTION).flat();
+export const CHIP_MAP: Record<string, ChipDef> = Object.fromEntries(CHIPS.map((c) => [c.id, c]));
+
+export function chipOf(id: string): ChipDef | undefined {
+  return CHIP_MAP[id];
+}
+
+export function chipsFor(worldFaction: WorldFactionId): ChipDef[] {
+  return CHIPS_BY_WORLD_FACTION[worldFaction] ?? [];
+}
+
+export function chipRows(chipId: string) {
+  return chipOf(chipId)?.tree ?? [];
+}
+
+export const NODE_MAP: Record<string, TreeNode> = {};
+for (const chip of CHIPS) for (const row of chip.tree) for (const n of row.nodes) NODE_MAP[n.id] = n;
 
 export function findNode(id: string): TreeNode | undefined {
   return NODE_MAP[id];

@@ -28,11 +28,27 @@
     "holdArmor": 2,
     "severRemovesStrain": false
   },
+  "veterancy": {
+    "signatureThreshold": 2,
+    "signatureAttackBonus": 1
+  },
+  "integrity": {
+    "default": 3
+  },
+  "status": {
+    "bleedRounds": 2,
+    "bleedDamage": 1,
+    "numbRounds": 2,
+    "feverRounds": 2,
+    "feverCostIncrease": 2
+  },
   "stances": {
     "aggressBeatsAdaptBonus": 3,
     "fortifyDamageDivisor": 2,
     "fortifyCounterDamage": 0,
-    "momentumBonus": 1
+    "momentumBonus": 1,
+    "callBonus": 2,
+    "callPenalty": 2
   },
   "slots": ["head", "limbA", "limbB", "organ", "nerve"],
   "slotTypes": {
@@ -63,15 +79,16 @@
     "ambush": {
       "predator": { "attack": 5, "armor": 0, "heal": 0, "oppStrain": 0, "draw": 0 },
       "parasite": { "attack": 1, "armor": 0, "heal": 0, "oppStrain": 1, "draw": 0 },
-      "bastion": { "attack": 1, "armor": 3, "heal": 1, "oppStrain": 0, "draw": 0 }
+      "bastion": { "attack": 1, "armor": 4, "heal": 1, "oppStrain": 0, "draw": 0 }
     }
   },
   "cycle": { "perRound": 1, "ventAmount": 1, "drawAmount": 1 },
   "neuralLinks": { "attackBonus": 1 },
-  "sabotage": { "poisonRounds": 2, "disableRounds": 1 },
+  "sabotage": { "poisonRounds": 2, "disableRounds": 1, "necrosisRounds": 2 },
   "deck": {
     "size": 25,
-    "minFaction": 20,
+    "minBuild": 12,
+    "minWorldFaction": 8,
     "maxTech": 5,
     "maxCopies": 2,
     "signatureCopies": 1
@@ -95,9 +112,9 @@
       {
         "id": "frenzyForm",
         "name": "Frenzy Form",
-        "text": "End a round at 6+ Strain with no rejection: the Overclocked bonus becomes +3, and +1 attack.",
+        "text": "End a round at 6+ Strain with no rejection: the Overclocked bonus becomes +3, and +2 attack.",
         "condition": { "metric": "endRoundStrain", "target": 6, "label": "Strain at round end (no rejection)" },
-        "effects": { "overclockBonus": 3, "attack": 1 }
+        "effects": { "overclockBonus": 3, "attack": 2 }
       }
     ],
     "parasite": [
@@ -120,16 +137,16 @@
       {
         "id": "carapace",
         "name": "Carapace",
-        "text": "Vent 6 total Strain: +2 armor; Fortify vents 3 instead of 2.",
+        "text": "Vent 6 total Strain: +3 armor; Fortify vents 3 instead of 2.",
         "condition": { "metric": "strainVented", "target": 6, "label": "Strain vented" },
-        "effects": { "armor": 2, "fortifyVent": 3 }
+        "effects": { "armor": 3, "fortifyVent": 3 }
       },
       {
         "id": "juggernaut",
         "name": "Juggernaut",
-        "text": "Block 16 total damage: your armor adds to your attack (up to +1).",
+        "text": "Block 16 total damage: your armor adds to your attack (up to +2).",
         "condition": { "metric": "damageBlocked", "target": 16, "label": "damage blocked" },
-        "effects": { "armorToAttack": true, "armorToAttackCap": 1 }
+        "effects": { "armorToAttack": true, "armorToAttackCap": 2 }
       }
     ]
   },
@@ -157,9 +174,17 @@
       "sever": 4,
       "poison": 3,
       "disable": 2,
+      "necrosis": 5.5,
       "reveal": 0.5,
       "negate": 4,
-      "reflect": 5
+      "reflect": 5,
+      "graftDamage": 1.3,
+      "bleed": 2.5,
+      "numb": 3,
+      "fever": 2,
+      "purge": 2,
+      "integrity": 0.5,
+      "integrityHeal": 0.6
     },
     "triggerMultipliers": {
       "onAttach": 1,

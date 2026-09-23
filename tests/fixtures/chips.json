@@ -1,0 +1,34 @@
+[
+  {
+    "id": "t_chip",
+    "name": "Test Chip",
+    "text": "A frozen test fixture chip covering every generic loadout-param hook.",
+    "worldFaction": "corrosion",
+    "tree": [
+      {
+        "id": "carapace",
+        "name": "Carapace",
+        "nodes": [
+          { "id": "t_flat", "name": "Test Flat Stats", "text": "+2 attack, +1 armor, +2 integrity.", "params": { "flatAttack": 2, "flatArmor": 1, "flatIntegrity": 2 } },
+          { "id": "t_conditional", "name": "Test Conditional Stats", "text": "+2 attack vs an afflicted opponent; +1 armor while you have no status.", "params": { "attackVsAfflicted": 2, "armorVsHealthy": 1 } }
+        ]
+      },
+      {
+        "id": "assault",
+        "name": "Assault",
+        "nodes": [
+          { "id": "t_dmg", "name": "Test Integrity Damage", "text": "+2 graft damage dealt, -1 graft damage taken.", "params": { "graftDamageBonus": 2, "graftDamageReduction": 1 } },
+          { "id": "t_status", "name": "Test Status Duration", "text": "Bleed/Numb/Fever/Necrosis you inflict last 1 round longer.", "params": { "bleedRoundsBonus": 1, "numbRoundsBonus": 1, "feverRoundsBonus": 1, "necrosisRoundsBonus": 1 } }
+        ]
+      },
+      {
+        "id": "ritual",
+        "name": "Ritual",
+        "nodes": [
+          { "id": "t_kill", "name": "Test Kill Trigger", "text": "Heal 2 and deal 1 Strain to the opponent whenever you destroy one of their grafts.", "params": { "killHeal": 2, "killStrain": 1 } },
+          { "id": "t_cleanse", "name": "Test Cleanse", "text": "Purging heals 2 and vents 1; your grafts regenerate 1 integrity each round; your World Faction cards cost 1 less.", "params": { "purgeHeal": 2, "purgeVent": 1, "integrityRegen": 1, "worldCardDiscount": 1 } }
+        ]
+      }
+    ]
+  }
+]

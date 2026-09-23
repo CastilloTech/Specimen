@@ -42,6 +42,14 @@ export function pickStance(s: GameState, p: PlayerId, rng: Rng): Stance {
   return weightedPick(rng, STANCES, weights);
 }
 
+/** The bot never calls the opponent's stance: a real read needs pattern-spotting the heuristic bot does
+ * not attempt (an early version that guessed "repeat their last pick" every round proved to be a bad bet
+ * far more often than a good one, and skewed bot-vs-bot Strain and evolution balance badly as a result).
+ * This keeps the call a human-only skill lever, the same way the bot never bluffs with face-down grafts. */
+export function guessStance(_s: GameState, _p: PlayerId): Stance | null {
+  return null;
+}
+
 /** How far below the Rejection threshold the bot keeps its Strain when grafting (per-faction override). */
 function strainMargin(s: GameState, p: PlayerId): number {
   const byFaction = s.config.bot.graftStrainMarginByFaction as Record<string, number | undefined>;
@@ -74,14 +82,21 @@ function scorePlay(s: GameState, p: PlayerId, a: Extract<Action, { type: 'PLAY_C
     }
     case 'toxin': {
       const amt = (def.effect.ops ?? []).reduce((n, o) => n + (o.op === 'strain' && o.who !== 'self' ? o.amount : 0), 0);
+      if ((def.effect.ops ?? []).some((o) => o.op === 'status' && o.who !== 'self')) return 5; // Bleed/Fever: worth it on its own
       if (opp.strain >= cfg.bot.toxinOppStrain || opp.strain + amt > T) return 6 + amt;
       return -1;
     }
     case 'sabotage': {
       const g = opp.grafts.find((x) => x.slot === a.target);
       if (!g) return -1;
+      if ((def.effect.ops ?? []).some((o) => o.op === 'graftDamage')) {
+        const dmg = (def.effect.ops ?? []).reduce((n, o) => n + (o.op === 'graftDamage' ? o.amount : 0), 0);
+        // A face-down graft's true integrity isn't public information; only a revealed graft's is used to judge a kill.
+        const kill = !g.faceDown && dmg >= g.integrity;
+        return kill ? 2 + visibleGraftValue(s, g) : 1 + dmg * 0.6;
+      }
       const mode = (def.effect.ops ?? []).find((o) => o.op === 'sabotage');
-      const mult = mode && mode.op === 'sabotage' ? (mode.mode === 'sever' ? 1 : mode.mode === 'poison' ? 0.85 : 0.7) : 0.5;
+      const mult = mode && mode.op === 'sabotage' ? (mode.mode === 'sever' || mode.mode === 'necrosis' ? 1 : mode.mode === 'poison' ? 0.85 : 0.7) : 0.5;
       const v = visibleGraftValue(s, g) * mult;
       return v >= 3 ? 2 + v : -1;
     }
@@ -116,6 +131,9 @@ function scorePlay(s: GameState, p: PlayerId, a: Extract<Action, { type: 'PLAY_C
             break;
           case 'reveal':
             score += 3.5; // only offered against a face-down graft: it wakes early and pays the Strain it saved
+            break;
+          case 'purge':
+            if (op.who !== 'opp' && (pl.bleed > 0 || pl.numb > 0 || pl.fever > 0 || Object.keys(pl.necrosis).length > 0)) score += 3;
             break;
           default:
             break;
@@ -229,6 +247,9 @@ export function botReaction(s: GameState, p: PlayerId): Action {
           case 'vent':
             score += pl.strain >= 7 ? op.amount * 1.4 : 0;
             break;
+          case 'status':
+            if (op.who !== 'self') score += op.kind === 'numb' ? 3 : op.kind === 'bleed' ? 2.5 : 2;
+            break;
           default:
             break;
         }
@@ -254,7 +275,7 @@ export function botAction(s: GameState, p: PlayerId, rng: Rng): Action {
       return { type: 'MULLIGAN', player: p, mulligan: playable < s.config.bot.mulliganIfPlayableGraftsBelow };
     }
     case 'stance':
-      return { type: 'PICK_STANCE', player: p, stance: pickStance(s, p, rng) };
+      return { type: 'PICK_STANCE', player: p, stance: pickStance(s, p, rng), guess: guessStance(s, p) };
     case 'feint': {
       const opp = s.players[other(p)];
       return { type: 'FEINT', player: p, stance: COUNTER[opp.stance!] };

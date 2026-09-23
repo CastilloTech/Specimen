@@ -1,7 +1,7 @@
 // Energy diagnostic: how much Energy is available, spent and stranded, by round and faction.
 //   npm run energy -- --matches 3000
-import { botAction, cardCost, cardOf, graftStrain, createMatch, legalPlays, makeRng, pendingPlayers, reduce, STARTER_DECKS, treeRows } from '../src/engine';
-import type { Faction, GameState, PlayerId } from '../src/engine';
+import { botAction, cardCost, cardOf, chipRows, chipsFor, graftStrain, createMatch, legalPlays, makeRng, pendingPlayers, reduce, starterDeck, WORLD_FACTIONS } from '../src/engine';
+import type { Faction, GameState, PlayerId, WorldFactionId } from '../src/engine';
 
 const arg = (n: string, d: string) => {
   const i = process.argv.indexOf(`--${n}`);
@@ -32,8 +32,21 @@ const why: number[][] = [];
 for (let g = 0; g < N; g++) {
   const fa = FACTIONS[g % 3];
   const fb = FACTIONS[Math.floor(g / 3) % 3];
-  const load = (f: Faction) => treeRows(f).map((r) => rng.pick(r.nodes).id);
-  let s: GameState = createMatch({ seed: 1000 + g, players: [{ name: 'A', faction: fa, deck: STARTER_DECKS[fa], loadout: load(fa) }, { name: 'B', faction: fb, deck: STARTER_DECKS[fb], loadout: load(fb) }] });
+  const wa = WORLD_FACTIONS[g % WORLD_FACTIONS.length];
+  const wb = WORLD_FACTIONS[(g + 1) % WORLD_FACTIONS.length];
+  const load = (wf: WorldFactionId) => {
+    const chip = rng.pick(chipsFor(wf)).id;
+    return { chip, loadout: chipRows(chip).map((r) => rng.pick(r.nodes).id) };
+  };
+  const la = load(wa);
+  const lb = load(wb);
+  let s: GameState = createMatch({
+    seed: 1000 + g,
+    players: [
+      { name: 'A', faction: fa, worldFaction: wa, chip: la.chip, deck: starterDeck(fa, wa), loadout: la.loadout },
+      { name: 'B', faction: fb, worldFaction: wb, chip: lb.chip, deck: starterDeck(fb, wb), loadout: lb.loadout },
+    ],
+  });
   const r = [makeRng(g * 2 + 1), makeRng(g * 2 + 2)];
   const startEnergy: number[] = [0, 0];
   const spentTotal: number[] = [0, 0];

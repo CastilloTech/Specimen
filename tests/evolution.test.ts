@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { botAction, computeStats, evoEffects, evolutionProgress, findNode, makeRng, metricValue, overclockBonus, pendingPlayers } from '../src/engine';
+import { botAction, computeStats, evoEffects, evolutionProgress, makeRng, metricValue, overclockBonus, pendingPlayers } from '../src/engine';
 import { arena, attached, edit, endRound, go, hands, nextRound, pass, pickStances, play, rawStrain, setEnergy, setStrain, tryGo, withNodes } from './kit';
 
 const stats = (s: ReturnType<typeof arena>, p: 0 | 1, fn: (st: (typeof s.players)[0]['stats']) => void) =>
@@ -223,56 +223,16 @@ describe('Bastion evolutions', () => {
   });
 });
 
-describe('Evolution row nodes', () => {
-  // The multipliers are node parameters (trees.json), so these tests read them live. The evolution
-  // conditions themselves are pinned to the original spec numbers (12 damage / 9 Strain) by the test kit.
-  const mult = (id: string) => Number(findNode(id)!.params.conditionMult);
-  const scaled = (base: number, m: number) => Math.max(1, Math.ceil(base * m - 1e-9));
-
-  const hairTriggered = (v: number) => {
-    const { bonusDelta, bonusFloor } = findNode('hairTrigger')!.params as Record<string, number>;
-    return Math.max(v + bonusDelta, Math.min(v, bonusFloor ?? 1));
-  };
-
-  it('Hair Trigger: conditions scaled (rounded up), evolved numeric bonuses reduced', () => {
-    const m = mult('hairTrigger');
-    const apex = scaled(12, m);
-    let s = withNodes(arena('predator', 'predator'), 0, ['hairTrigger']);
-    expect(evolutionProgress(s, 0).map((p) => p.target)).toEqual([apex, scaled(9, m)]);
-    s = stats(s, 0, (st) => void (st.damageDealt = apex - 2 - 1)); // one short after this round's 2 damage
-    s = endRound(s);
-    expect(s.players[0].evolution).toBeNull();
-    s = stats(s, 0, (st) => void (st.damageDealt = apex - 2));
-    s = nextRound(s); // reaches exactly the target
-    expect(s.players[0].evolution).toBe('apexStalker');
-    expect(computeStats(s, s.players[0]).attack).toBe(2 + hairTriggered(2)); // Apex +2, reduced (but not below the floor)
-  });
-
-  it('Late Bloomer: conditions scaled (rounded up), evolved numeric bonuses increased', () => {
-    const m = mult('lateBloomer');
-    const apex = scaled(12, m);
-    let s = withNodes(arena('predator', 'predator'), 0, ['lateBloomer']);
-    expect(evolutionProgress(s, 0).map((p) => p.target)).toEqual([apex, scaled(9, m)]);
-    s = stats(s, 0, (st) => void (st.damageDealt = apex - 3)); // 2 more this round: still one short
-    s = endRound(s);
-    expect(s.players[0].evolution).toBeNull();
-    s = stats(s, 0, (st) => void (st.damageDealt = apex - 2));
-    s = nextRound(s);
-    expect(s.players[0].evolution).toBe('apexStalker');
-    expect(computeStats(s, s.players[0]).attack).toBe(2 + (2 + Number(findNode('lateBloomer')!.params.bonusDelta)));
-  });
-
-  it('Hair Trigger reduces bonuses by its delta but never below its floor (small bonuses stay as they are)', () => {
+describe('Evolution edge cases', () => {
+  // Evolutions are fixed per Build now: no Chip node scales a condition or an evolved numeric bonus.
+  it('is unaffected by any Chip node (evoEffects reads the config definition directly)', () => {
     const effects = (evo: string, faction: 'predator' | 'parasite' | 'bastion', nodes: string[]) => {
       let s = withNodes(arena(faction, 'predator'), 0, nodes);
       s = edit(s, (d) => void (d.players[0].evolution = evo));
       return evoEffects(s, s.players[0]);
     };
     expect(effects('leechForm', 'parasite', [])).toMatchObject({ toxinDrain: 1 });
-    expect(effects('leechForm', 'parasite', ['hairTrigger'])).toMatchObject({ toxinDrain: hairTriggered(1) }); // a +1 stays +1
-    expect(effects('carapace', 'bastion', ['hairTrigger'])).toMatchObject({ armor: hairTriggered(3), fortifyVent: hairTriggered(3) });
-    expect(hairTriggered(0)).toBe(0);
-    expect(effects('carapace', 'bastion', ['lateBloomer'])).toMatchObject({ armor: 4, fortifyVent: 4 }); // +1
+    expect(effects('leechForm', 'parasite', ['t_flat', 't_dmg', 't_kill'])).toMatchObject({ toxinDrain: 1 });
   });
 
   it('Juggernaut adds armor to attack, up to armorToAttackCap when one is set', () => {
@@ -288,15 +248,6 @@ describe('Evolution row nodes', () => {
     expect(board()).toEqual({ attack: 2 + 1 + 5, armor: 5 }); // uncapped
     expect(board(3)).toEqual({ attack: 2 + 1 + 3, armor: 5 }); // capped at +3
     expect(board(9)).toEqual({ attack: 2 + 1 + 5, armor: 5 }); // cap above the armor: no effect
-  });
-
-  it('Surge: evolving lowers your Strain to `setTo`', () => {
-    const setTo = findNode('surge')!.params.setTo as number;
-    let s = withNodes(arena('predator', 'predator'), 0, ['surge']);
-    s = rawStrain(s, 0, 9);
-    s = endRound(s);
-    expect(s.players[0].evolution).toBe('frenzyForm');
-    expect(s.players[0].strain).toBe(setTo);
   });
 
   it("the 'round' metric reads the current round number", () => {

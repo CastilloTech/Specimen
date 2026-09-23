@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ambushText, cardCost, cardOf, evolutionBoosts, findNode, legalPlays, other, reactionOptions, SLOT_LABEL, STANCES } from '../../engine';
+import { ambushText, cardCost, cardOf, chipOf, evolutionBoosts, findNode, legalPlays, other, reactionOptions, SLOT_LABEL, STANCES } from '../../engine';
 import type { Action, CardDef, GameState, MatchSetup, PlayerId, PlayRecord, SlotId, Stance } from '../../engine';
 import { CardView } from '../components/CardView';
 import { EvolutionBanners, FormList, useEvolutionEvents } from '../components/Evolution';
@@ -8,7 +8,7 @@ import { LogPanel } from '../components/LogPanel';
 import { PlayHistory, PlaySheet, PlaysStrip, PlayToast } from '../components/Plays';
 import { PlayerPanel } from '../components/PlayerPanel';
 import { Specimen } from '../components/Specimen';
-import { FACTION_META, PLAYER_COLORS, STANCE_META } from '../meta';
+import { FACTION_META, PLAYER_COLORS, STANCE_META, WORLD_FACTION_META } from '../meta';
 import type { Settings } from '../storage';
 import { configPatch } from '../storage';
 import { useMatch } from '../useMatch';
@@ -306,7 +306,7 @@ export function MatchScreen({ setup, mode, settings, onExit, onFinish }: Props) 
         ) : state.phase === 'mulligan' ? (
           <MulliganPrompt hand={mine.hand} onKeep={() => send({ type: 'MULLIGAN', player: me, mulligan: false })} onMull={() => send({ type: 'MULLIGAN', player: me, mulligan: true })} state={state} me={me} seconds={settings.timers ? state.config.timers.mulliganSeconds : null} />
         ) : state.phase === 'stance' ? (
-          <StancePrompt state={state} me={me} onPick={(st) => send({ type: 'PICK_STANCE', player: me, stance: st })} />
+          <StancePrompt state={state} me={me} onPick={(st, guess) => send({ type: 'PICK_STANCE', player: me, stance: st, guess })} />
         ) : state.phase === 'feint' ? (
           <FeintPrompt state={state} me={me} onPick={(st) => send({ type: 'FEINT', player: me, stance: st })} />
         ) : state.phase === 'evolve' ? (
@@ -525,12 +525,36 @@ function StanceButtons({ onPick, disabledStance }: { onPick: (s: Stance) => void
   );
 }
 
-function StancePrompt({ state, me, onPick }: { state: GameState; me: PlayerId; onPick: (s: Stance) => void }) {
+function StancePrompt({ state, me, onPick }: { state: GameState; me: PlayerId; onPick: (s: Stance, guess: Stance | null) => void }) {
   const last = state.players[other(me)].stanceHistory.at(-1);
+  const [guess, setGuess] = useState<Stance | null>(null);
+  const cfg = state.config.stances;
   return (
     <PromptBox title="Pick your stance (secret until both players have chosen)">
       {last && <div className="mb-2 text-[11px] text-mute">Opponent's last stance: {STANCE_META[last].name}</div>}
-      <StanceButtons onPick={onPick} />
+      <div className="mb-3 rounded-lg bg-black/25 p-2">
+        <div className="mb-1 text-[11px] font-semibold text-ink2">
+          Call their stance? Right: +{cfg.callBonus} attack this round. Wrong: +{cfg.callPenalty} Strain. No call is safe.
+        </div>
+        <div className="grid grid-cols-4 gap-1.5">
+          {STANCES.map((st) => (
+            <button
+              key={st}
+              onClick={() => setGuess(guess === st ? null : st)}
+              className={`rounded-md border px-1 py-1 text-[11px] font-semibold ${guess === st ? 'border-accent bg-accent/20 text-accent' : 'border-line bg-panel2 text-ink2'}`}
+            >
+              {STANCE_META[st].glyph} {STANCE_META[st].name}
+            </button>
+          ))}
+          <button
+            onClick={() => setGuess(null)}
+            className={`rounded-md border px-1 py-1 text-[11px] font-semibold ${guess === null ? 'border-accent bg-accent/20 text-accent' : 'border-line bg-panel2 text-ink2'}`}
+          >
+            No call
+          </button>
+        </div>
+      </div>
+      <StanceButtons onPick={(st) => onPick(st, guess)} />
     </PromptBox>
   );
 }
@@ -664,7 +688,7 @@ function Intro({ state, onGo, onExit }: { state: GameState; onGo: () => void; on
   return (
     <div className="mx-auto flex min-h-dvh max-w-3xl flex-col gap-3 p-3">
       <h1 className="text-xl font-bold">Match start — loadouts</h1>
-      <p className="text-xs text-ink2">Both players see both skill-tree loadouts. Seed {state.seed}.</p>
+      <p className="text-xs text-ink2">Both players see both Chip loadouts. Seed {state.seed}.</p>
       <div className="grid gap-3 sm:grid-cols-2">
         {state.players.map((p) => (
           <section key={p.id} className="rounded-xl border border-line bg-panel p-3">
@@ -674,12 +698,15 @@ function Intro({ state, onGo, onExit }: { state: GameState; onGo: () => void; on
               <span className="text-xs" style={{ color: FACTION_META[p.faction].color }}>
                 {FACTION_META[p.faction].name}
               </span>
+              <span className="text-xs" style={{ color: WORLD_FACTION_META[p.worldFaction].color }}>
+                {WORLD_FACTION_META[p.worldFaction].name}
+              </span>
             </div>
             <div className="mt-2 text-[10px] font-bold uppercase tracking-wide text-mute">Evolutions (with their boosts)</div>
             <div className="mt-1">
               <FormList state={state} player={p.id} />
             </div>
-            <div className="mt-2 text-[10px] font-bold uppercase tracking-wide text-mute">Skill tree</div>
+            <div className="mt-2 text-[10px] font-bold uppercase tracking-wide text-mute">{chipOf(p.chip)?.name ?? 'Chip'} loadout</div>
             <ul className="mt-1 space-y-1.5">
               {p.loadout.map((id) => {
                 const n = findNode(id);

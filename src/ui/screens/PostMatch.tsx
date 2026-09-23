@@ -1,7 +1,7 @@
 import { findNode } from '../../engine';
 import type { GameState, MatchSetup } from '../../engine';
 import { LineChart } from '../components/LineChart';
-import { FACTION_META, PLAYER_COLORS } from '../meta';
+import { FACTION_META, PLAYER_COLORS, WORLD_FACTION_META } from '../meta';
 
 interface Props {
   state: GameState;
@@ -22,7 +22,7 @@ export function exportMatchJson(state: GameState, setup: MatchSetup): string {
       actions: state.history,
       log: state.log.map(({ n, round, kind, player, text }) => ({ n, round, kind, player, text })),
       snapshots: state.snapshots,
-      players: state.players.map((p) => ({ name: p.name, faction: p.faction, loadout: p.loadout, evolution: p.evolution, finalHp: p.hp, finalStrain: p.strain, stats: p.stats })),
+      players: state.players.map((p) => ({ name: p.name, faction: p.faction, worldFaction: p.worldFaction, chip: p.chip, loadout: p.loadout, evolution: p.evolution, finalHp: p.hp, finalStrain: p.strain, stats: p.stats })),
     },
     null,
     2,
@@ -60,7 +60,7 @@ export function PostMatch({ state, setup, onRematch, onMenu }: Props) {
             <div key={p.id} className="rounded-lg bg-black/30 p-2">
               <div className="flex items-center gap-1.5 font-bold">
                 <span className="h-2.5 w-2.5 rounded-full" style={{ background: PLAYER_COLORS[p.id] }} />
-                {p.name} <span style={{ color: FACTION_META[p.faction].color }}>{FACTION_META[p.faction].name}</span>
+                {p.name} <span style={{ color: FACTION_META[p.faction].color }}>{FACTION_META[p.faction].name}</span> <span style={{ color: WORLD_FACTION_META[p.worldFaction].color }}>{WORLD_FACTION_META[p.worldFaction].name}</span>
               </div>
               <div className="mt-1 text-ink2">
                 HP {p.hp} · Strain {p.strain}

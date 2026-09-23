@@ -2,7 +2,7 @@
 // graft replacement, and the evolution description helpers the UI uses. The test kit switches all of
 // these off, so each test turns on exactly the one it covers.
 import { describe, expect, it } from 'vitest';
-import { ambushText, cardOf, defaultConfig, evolutionBoosts, evolutionNotes, STARTER_DECKS } from '../src/engine';
+import { ambushText, CARDS, defaultConfig, evolutionBoosts, FACTIONS } from '../src/engine';
 import { arena, attached, baseMatch, edit, endRound, go, hands, nextRound, play, playErr, setEnergy, setHp, setStrain, start, toActions, withNodes } from './kit';
 
 describe('Energy floor', () => {
@@ -121,23 +121,15 @@ describe('Evolution descriptions (what the banners show)', () => {
     expect(evolutionBoosts(s, p, 'apexStalker')).toEqual(['+2 attack', "Your attacks ignore Fortify's damage halving"]);
   });
 
-  it('applies Hair Trigger and Late Bloomer to the numbers shown', () => {
-    const late = player(['lateBloomer']);
-    expect(evolutionBoosts(late.s, late.p, 'apexStalker')[0]).toBe('+3 attack');
-    const hair = player(['hairTrigger']);
-    const floor = defaultConfig.evolutions.predator[0].effects.attack; // 2 stays 2 under the bonus floor
-    expect(evolutionBoosts(hair.s, hair.p, 'apexStalker')[0]).toBe(`+${floor} attack`);
-  });
-
   it('describes a boolean effect and a capped one', () => {
     const { s, p } = player([], 'bastion');
     expect(evolutionBoosts(s, p, 'juggernaut')).toEqual(['Your armor adds to your attack']);
   });
 
-  it('explains what the chosen node changed', () => {
-    const { p } = player(['surge']);
-    expect(evolutionNotes(p).join(' ')).toMatch(/Surge/);
-    expect(evolutionNotes(player([]).p)).toEqual([]);
+  it('is fixed per Build: no chip node changes the numbers shown', () => {
+    const plain = player([]);
+    const withSomeChip = player(['t_flat', 't_dmg', 't_kill']);
+    expect(evolutionBoosts(withSomeChip.s, withSomeChip.p, 'apexStalker')).toEqual(evolutionBoosts(plain.s, plain.p, 'apexStalker'));
   });
 });
 
@@ -174,9 +166,9 @@ describe('Ambush is per faction', () => {
 });
 
 describe('Signature cards', () => {
-  it('each faction has exactly one and it costs at most 4, so it can be cast (and replace a graft) well before the cap', () => {
-    for (const f of ['predator', 'parasite', 'bastion'] as const) {
-      const sigs = STARTER_DECKS[f].map((id) => cardOf(id)).filter((c) => c.signature);
+  it('each Build has exactly one and it costs at most 4, so it can be cast (and replace a graft) well before the cap', () => {
+    for (const f of FACTIONS) {
+      const sigs = CARDS.filter((c) => c.faction === f && c.signature);
       expect(sigs, f).toHaveLength(1);
       expect(sigs[0].cost, sigs[0].id).toBeLessThanOrEqual(4);
     }

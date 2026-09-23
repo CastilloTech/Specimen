@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { computeStats } from '../src/engine';
-import { arena, attached, endRound, go, hands, nextRound, pass, play, playErr, setEnergy, setHp, setStrain, tryGo } from './kit';
+import type { GameState } from '../src/engine';
+import { arena, attached, edit, endRound, go, hands, nextRound, pass, play, playErr, setEnergy, setHp, setStrain, tryGo } from './kit';
 
 describe('Graft cards', () => {
   it('attach to a matching slot, cost Energy and add their Strain', () => {
@@ -35,6 +36,45 @@ describe('Graft cards', () => {
     s = play(s, 0, 't_pred_maw_crown', { slot: 'head' });
     s = endRound(s);
     expect(s.players[0].hp).toBe(19); // 20 - 2 clash + 1 heal
+  });
+});
+
+describe('Graft veterancy (Signature grafts only)', () => {
+  // Several rounds of real Clash damage can incidentally satisfy the (deliberately easy) frozen test
+  // evolution conditions; strip any evolution before reading stats so only veterancy is under test here.
+  const atk = (st: GameState) => {
+    const clean = edit(st, (d) => void (d.players[0].evolution = null));
+    return computeStats(clean, clean.players[0]).attack;
+  };
+
+  it('a Signature graft gains attack after surviving the strain-check threshold', () => {
+    let s = attached(hands(arena(), []), 0, 't_pred_sig_graft', 'organ');
+    const threshold = s.config.veterancy.signatureThreshold;
+    const bonus = s.config.veterancy.signatureAttackBonus;
+    const before = atk(s);
+    s = endRound(s); // 1st Strain check survived
+    for (let i = 1; i < threshold; i++) {
+      expect(atk(s)).toBe(before); // not there yet
+      s = nextRound(s);
+    }
+    expect(atk(s)).toBe(before + bonus);
+  });
+
+  it('a non-Signature graft never gets the bonus, no matter how long it survives', () => {
+    let s = attached(hands(arena(), []), 0, 't_pred_bone_spur', 'limbA');
+    const before = atk(s);
+    s = endRound(s);
+    for (let i = 0; i < 4; i++) s = nextRound(s);
+    expect(atk(s)).toBe(before);
+  });
+
+  it('a fresh graft in a new slot starts at zero, even if another one on the board is a veteran', () => {
+    let s = attached(hands(arena(), []), 0, 't_pred_sig_graft', 'organ');
+    const threshold = s.config.veterancy.signatureThreshold;
+    for (let i = 0; i < threshold; i++) s = i === 0 ? endRound(s) : nextRound(s);
+    const veteranAttack = atk(s);
+    s = attached(s, 0, 't_pred_sig_graft', 'organB');
+    expect(atk(s)).toBe(veteranAttack + 4); // +4 base attack, no veterancy bonus yet
   });
 });
 
@@ -113,6 +153,49 @@ describe('Protocol', () => {
     s = play(s, 0, 't_pred_twitch_nerve', { slot: 'nerve' });
     s = go(s, { type: 'REACT', player: 1, uid: s.players[1].hand[0].uid });
     expect(s.players[0].energy).toBe(1); // 3 - 2
+  });
+
+  describe('answering a Protocol with a Protocol', () => {
+    it('a "respond to any play" Protocol can itself be answered, and both effects apply', () => {
+      let s = setEnergy(hands(arena(), ['t_pred_bile_spit', 't_para_static_jam'], ['t_pred_blood_scent']), 0, 5);
+      s = setEnergy(s, 1, 5);
+      s = play(s, 0, 't_pred_bile_spit'); // opens a window for player 1
+      expect(s.window?.reactor).toBe(1);
+      s = go(s, { type: 'REACT', player: 1, uid: s.players[1].hand[0].uid }); // Blood Scent
+      expect(s.window?.reactor).toBe(0); // player 0 now gets to answer the Protocol itself
+      expect(s.players[1].hand).toHaveLength(0);
+      s = go(s, { type: 'REACT', player: 0, uid: s.players[0].hand[0].uid }); // Static Jam answers Blood Scent
+      expect(s.window).toBeNull();
+      expect(s.players[0].strain).toBe(2); // Blood Scent's own effect still landed on player 0
+      expect(s.players[1].strain).toBe(2); // and Bile Spit's original effect still landed on player 1
+      expect(s.players[1].energy).toBe(2); // 5 - 1 (Blood Scent's own cost) - 2 (Static Jam's drain)
+      expect(s.turn).toBe(1); // turn still passes based on the ORIGINAL play's player, not the reaction chain
+    });
+
+    it('declining to answer a Protocol just lets it resolve, and only offers the window once', () => {
+      let s = setEnergy(hands(arena(), ['t_pred_bile_spit', 't_para_static_jam'], ['t_pred_blood_scent', 't_pred_blood_scent']), 0, 5);
+      s = setEnergy(s, 1, 5);
+      s = play(s, 0, 't_pred_bile_spit');
+      s = go(s, { type: 'REACT', player: 1, uid: s.players[1].hand[0].uid }); // Blood Scent #1
+      expect(s.window?.reactor).toBe(0); // player 0 could answer with Static Jam, but declines instead
+      s = go(s, { type: 'DECLINE_REACTION', player: 0 });
+      expect(s.window).toBeNull(); // resolved straight through, no second window for player 1's remaining Blood Scent
+      expect(s.players[0].strain).toBe(2); // Blood Scent landed
+      expect(s.players[1].strain).toBe(2); // Bile Spit landed too
+      expect(s.players[1].hand).toHaveLength(1); // the second Blood Scent was never used
+    });
+
+    it('negating a Protocol stops only that Protocol, not the play it was answering', () => {
+      let s = setEnergy(hands(arena(), ['t_pred_bile_spit', 't_tech_universal_negate'], ['t_pred_blood_scent']), 0, 5);
+      s = setEnergy(s, 1, 5);
+      s = play(s, 0, 't_pred_bile_spit');
+      s = go(s, { type: 'REACT', player: 1, uid: s.players[1].hand[0].uid }); // Blood Scent
+      expect(s.window?.reactor).toBe(0);
+      s = go(s, { type: 'REACT', player: 0, uid: s.players[0].hand[0].uid }); // Universal Negate answers Blood Scent
+      expect(s.window).toBeNull();
+      expect(s.players[0].strain).toBe(0); // Blood Scent was negated: never landed
+      expect(s.players[1].strain).toBe(2); // Bile Spit, the play Blood Scent was answering, still landed
+    });
   });
 });
 

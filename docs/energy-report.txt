@@ -1,31 +1,31 @@
 ENERGY DIAGNOSTIC  |  4000 bot matches, random loadouts
 
 By round (both players):
-  round 1    n=  8000  avail 2.00  spent 1.80 (90%)  hand 4.8  stopped-with-play 4%  too-expensive 100%  no-cards 0%
-  round 2    n=  8000  avail 2.00  spent 1.51 (76%)  hand 4.9  stopped-with-play 8%  too-expensive 100%  no-cards 0%
-  round 3    n=  8000  avail 3.00  spent 2.75 (92%)  hand 4.7  stopped-with-play 4%  too-expensive 98%  no-cards 0%
-  round 4    n=  7966  avail 4.00  spent 3.33 (83%)  hand 4.1  stopped-with-play 12%  too-expensive 89%  no-cards 2%
-  round 5    n=  7192  avail 4.95  spent 4.04 (82%)  hand 4.4  stopped-with-play 12%  too-expensive 79%  no-cards 3%
-  round 6    n=  5654  avail 5.94  spent 4.35 (73%)  hand 4.6  stopped-with-play 19%  too-expensive 65%  no-cards 4%
-  round 7    n=  4354  avail 5.93  spent 4.21 (71%)  hand 4.8  stopped-with-play 17%  too-expensive 60%  no-cards 7%
-  round 8    n=  3280  avail 5.92  spent 3.87 (65%)  hand 5.0  stopped-with-play 17%  too-expensive 53%  no-cards 10%
+  round 1    n=  8000  avail 2.00  spent 1.86 (93%)  hand 4.7  stopped-with-play 3%  too-expensive 100%  no-cards 0%
+  round 2    n=  8000  avail 2.00  spent 1.63 (82%)  hand 4.7  stopped-with-play 5%  too-expensive 100%  no-cards 0%
+  round 3    n=  8000  avail 3.00  spent 2.77 (92%)  hand 4.6  stopped-with-play 4%  too-expensive 99%  no-cards 0%
+  round 4    n=  7990  avail 4.00  spent 3.43 (86%)  hand 4.1  stopped-with-play 11%  too-expensive 93%  no-cards 1%
+  round 5    n=  7406  avail 4.96  spent 4.35 (88%)  hand 4.3  stopped-with-play 10%  too-expensive 87%  no-cards 2%
+  round 6    n=  6030  avail 5.95  spent 4.69 (79%)  hand 4.5  stopped-with-play 18%  too-expensive 76%  no-cards 3%
+  round 7    n=  4556  avail 5.95  spent 4.63 (78%)  hand 4.5  stopped-with-play 13%  too-expensive 73%  no-cards 4%
+  round 8    n=  3442  avail 5.95  spent 4.45 (75%)  hand 4.5  stopped-with-play 13%  too-expensive 69%  no-cards 6%
 
 By faction:
-  predator   n= 14466  avail 3.46  spent 2.86 (83%)  hand 3.9  stopped-with-play 11%  too-expensive 85%  no-cards 2%
-  parasite   n= 17959  avail 3.92  spent 3.15 (81%)  hand 4.4  stopped-with-play 9%  too-expensive 86%  no-cards 3%
-  bastion    n= 20021  avail 4.09  spent 3.08 (75%)  hand 5.3  stopped-with-play 11%  too-expensive 84%  no-cards 2%
+  predator   n= 14949  avail 3.52  spent 3.06 (87%)  hand 4.1  stopped-with-play 9%  too-expensive 89%  no-cards 2%
+  parasite   n= 18345  avail 3.96  spent 3.24 (82%)  hand 4.0  stopped-with-play 8%  too-expensive 88%  no-cards 3%
+  bastion    n= 20130  avail 4.12  spent 3.44 (83%)  hand 5.3  stopped-with-play 9%  too-expensive 93%  no-cards 1%
 
 Why non-Protocol cards are still in hand when the round ends (share of those cards):
-  round 1  non-Protocol cards per player 3.9 | graft with no free slot   2% | graft blocked by Strain margin   0% | too expensive  92% | held by choice (serums, toxins, sabotage)   5%
-  round 2  non-Protocol cards per player 3.8 | graft with no free slot   3% | graft blocked by Strain margin   0% | too expensive  86% | held by choice (serums, toxins, sabotage)  11%
-  round 3  non-Protocol cards per player 3.5 | graft with no free slot   4% | graft blocked by Strain margin   0% | too expensive  88% | held by choice (serums, toxins, sabotage)   9%
-  round 4  non-Protocol cards per player 2.9 | graft with no free slot   5% | graft blocked by Strain margin   1% | too expensive  75% | held by choice (serums, toxins, sabotage)  20%
-  round 5  non-Protocol cards per player 2.9 | graft with no free slot   7% | graft blocked by Strain margin   1% | too expensive  68% | held by choice (serums, toxins, sabotage)  24%
-  round 6  non-Protocol cards per player 2.9 | graft with no free slot  10% | graft blocked by Strain margin   2% | too expensive  51% | held by choice (serums, toxins, sabotage)  37%
-  round 7  non-Protocol cards per player 2.7 | graft with no free slot  12% | graft blocked by Strain margin   3% | too expensive  48% | held by choice (serums, toxins, sabotage)  37%
-  round 8  non-Protocol cards per player 2.6 | graft with no free slot  14% | graft blocked by Strain margin   6% | too expensive  41% | held by choice (serums, toxins, sabotage)  39%
+  round 1  non-Protocol cards per player 4.0 | graft with no free slot   2% | graft blocked by Strain margin   0% | too expensive  94% | held by choice (serums, toxins, sabotage)   4%
+  round 2  non-Protocol cards per player 3.9 | graft with no free slot   3% | graft blocked by Strain margin   0% | too expensive  89% | held by choice (serums, toxins, sabotage)   8%
+  round 3  non-Protocol cards per player 3.7 | graft with no free slot   4% | graft blocked by Strain margin   0% | too expensive  89% | held by choice (serums, toxins, sabotage)   7%
+  round 4  non-Protocol cards per player 3.2 | graft with no free slot   4% | graft blocked by Strain margin   0% | too expensive  79% | held by choice (serums, toxins, sabotage)  17%
+  round 5  non-Protocol cards per player 3.4 | graft with no free slot   7% | graft blocked by Strain margin   1% | too expensive  76% | held by choice (serums, toxins, sabotage)  16%
+  round 6  non-Protocol cards per player 3.4 | graft with no free slot   8% | graft blocked by Strain margin   1% | too expensive  61% | held by choice (serums, toxins, sabotage)  29%
+  round 7  non-Protocol cards per player 3.3 | graft with no free slot   9% | graft blocked by Strain margin   3% | too expensive  61% | held by choice (serums, toxins, sabotage)  27%
+  round 8  non-Protocol cards per player 3.2 | graft with no free slot   9% | graft blocked by Strain margin   4% | too expensive  58% | held by choice (serums, toxins, sabotage)  28%
 
-Cost of every card played: 0: 5%  1: 28%  2: 32%  3: 28%  4: 8%
+Cost of every card played: 0: 4%  1: 27%  2: 33%  3: 25%  4: 7%  5: 3%
 
-The player who spent more Energy over the match won 59.6% of decided games (3515 games).
+The player who spent more Energy over the match won 58.5% of decided games (3474 games).
 "stopped-with-play" = ended the round with Energy left and a legal card play available (the bot chose not to). "too-expensive" = a card in hand costs more than the Energy left.

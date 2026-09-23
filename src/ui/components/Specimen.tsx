@@ -44,29 +44,46 @@ export function Specimen({ state, player, viewer, flip, highlight, onSlot, color
         const g = p.grafts.find((gr) => gr.slot === slot);
         const pg = g ? publicGraft(g, viewer === player) : null;
         const def = pg?.cardId ? CARD_MAP[pg.cardId] : null;
+        const veteranAt = state.config.veterancy.signatureThreshold;
+        const veteran = !!def?.signature && !!pg && pg.roundsSurvived >= veteranAt;
         const lit = highlight?.has(slot);
+        const necrotic = p.necrosis[slot] ?? 0;
         return (
           <button
             key={slot}
             type="button"
             onClick={() => onSlot?.(slot)}
             className={`absolute grid w-[31%] -translate-x-1/2 -translate-y-1/2 place-items-center rounded-md border px-0.5 py-0.5 text-center leading-[1.05] ${
-              lit ? 'target-glow border-accent bg-accent/15' : pg ? 'border-line bg-panel2' : 'border-dashed border-line/80 bg-black/30'
+              lit ? 'target-glow border-accent bg-accent/15' : pg ? 'border-line bg-panel2' : necrotic > 0 ? 'border-fuchsia-800 bg-fuchsia-950/40' : 'border-dashed border-line/80 bg-black/30'
             } ${pg?.poisoned ? 'ring-1 ring-fuchsia-500' : ''} ${pg?.disabled ? 'grayscale' : ''}`}
             style={{ left: `${x}%`, top: `${pos.y}%`, minHeight: '16%' }}
-            title={def ? `${def.name}${pg?.faceDown ? ' (asleep)' : ''}: ${def.text}` : pg ? 'Face-down graft (asleep)' : SLOT_LABEL[slot]}
+            title={
+              def
+                ? `${def.name}${pg?.faceDown ? ' (asleep)' : ''}: ${def.text}${veteran ? ` (Veteran: +${state.config.veterancy.signatureAttackBonus} attack for surviving ${pg!.roundsSurvived} Strain checks)` : ''}`
+                : pg
+                  ? 'Face-down graft (asleep)'
+                  : necrotic > 0
+                    ? `Necrotic: cannot be refilled for ${necrotic} more round(s)`
+                    : SLOT_LABEL[slot]
+            }
           >
             <span className="text-[7px] font-semibold uppercase tracking-wider text-mute">{SLOT_LABEL[slot]}</span>
             {pg ? (
               <>
-                <span className="w-full truncate text-[9px] font-semibold">{def ? def.name : '? ? ?'}</span>
+                <span className="flex w-full items-center justify-center gap-0.5 truncate text-[9px] font-semibold">
+                  {veteran && <span className="text-amber-300">★</span>}
+                  {def ? def.name : '? ? ?'}
+                </span>
                 {def && (
                   <span className="flex gap-0.5 leading-none">
                     <span className="rounded bg-red-900/60 px-0.5 text-[7px] font-bold text-red-200" title="Attack">
-                      {def.attack}
+                      {def.attack + (veteran ? state.config.veterancy.signatureAttackBonus : 0)}
                     </span>
                     <span className="rounded bg-sky-900/60 px-0.5 text-[7px] font-bold text-sky-200" title="Armor">
                       {def.armor}
+                    </span>
+                    <span className="rounded bg-emerald-900/60 px-0.5 text-[7px] font-bold text-emerald-200" title="Integrity remaining">
+                      {pg.integrity}/{def.integrity ?? state.config.integrity.default}
                     </span>
                   </span>
                 )}
@@ -77,6 +94,8 @@ export function Specimen({ state, player, viewer, flip, highlight, onSlot, color
                   {pg.disabled > 0 && ' ⊘'}
                 </span>
               </>
+            ) : necrotic > 0 ? (
+              <span className="text-[8px] font-semibold text-fuchsia-300">necrotic ({necrotic})</span>
             ) : (
               <span className="text-[9px] text-mute/60">empty</span>
             )}

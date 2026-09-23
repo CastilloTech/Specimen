@@ -74,7 +74,7 @@ describe('Dormant grafts (asleep until woken)', () => {
   it('the opponent sees only the slot and its (reduced) Strain', () => {
     const s = darkMawCrown();
     const g = s.players[0].grafts[0];
-    expect(publicGraft(g, false)).toEqual({ uid: g.uid, slot: 'head', strain: 3 - quiet(), faceDown: true, cardId: undefined, poisoned: 0, disabled: 0 });
+    expect(publicGraft(g, false)).toEqual({ uid: g.uid, slot: 'head', strain: 3 - quiet(), faceDown: true, cardId: undefined, poisoned: 0, disabled: 0, roundsSurvived: 0, integrity: g.integrity });
     expect(publicGraft(g, true).cardId).toBe('t_pred_maw_crown');
     expect(visibleGrafts(s, 1, 0)[0].cardId).toBeUndefined();
     expect(s.log.map((l) => l.text).join()).not.toMatch(/Maw Crown/); // the log does not leak it either

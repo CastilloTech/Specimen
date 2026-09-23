@@ -14,9 +14,8 @@ import {
   hasNode,
   metricValue,
   momentum,
-  nodeParam,
   overclockBonus,
-  stableMax,
+  sumLoadoutParam,
   zoneOf,
 } from './stats';
 import type { Ability, AttachedGraft, CardInstance, GameState, LogKind, Op, PendingPlay, PlayerId, PlayRecord, SlotId, Trigger } from './types';
@@ -215,9 +214,90 @@ function sabotage(s: GameState, ctx: OpCtx, op: Extract<Op, { op: 'sabotage' }>)
   } else if (op.mode === 'poison') {
     g.poisoned = Math.max(g.poisoned, op.rounds ?? cfg.poisonRounds);
     logMsg(s, 'play', ctx.caster, `${ctx.source} poisons ${victim.name}'s ${card.name}: it gives 0 stats for ${g.poisoned} round(s).`);
-  } else {
+  } else if (op.mode === 'disable') {
     g.disabled = Math.max(g.disabled, op.rounds ?? cfg.disableRounds);
     logMsg(s, 'play', ctx.caster, `${ctx.source} disables ${victim.name}'s ${card.name}: its text is off for ${g.disabled} round(s).`);
+  } else {
+    // necrosis: sever the graft, and the empty slot itself cannot be refilled for a while.
+    victim.grafts = victim.grafts.filter((x) => x !== g);
+    victim.discard.push({ uid: g.uid, cardId: g.cardId });
+    if (s.config.strain.severRemovesStrain) victim.strain = Math.max(0, victim.strain - g.strain);
+    const caster = s.players[ctx.caster];
+    const rounds = (op.rounds ?? cfg.necrosisRounds) + sumLoadoutParam(caster, 'necrosisRoundsBonus');
+    victim.necrosis[g.slot] = Math.max(victim.necrosis[g.slot] ?? 0, rounds);
+    logMsg(s, 'play', ctx.caster, `${ctx.source} necroses ${victim.name}'s ${card.name} from ${SLOT_LABEL[g.slot]}: the slot cannot be refilled for ${rounds} round(s).`);
+    onGraftKilled(s, ctx.caster);
+  }
+}
+
+/** Chips a graft's own small integrity pool (bypasses armor); destroys it at 0, separate from rejection. */
+function graftDamage(s: GameState, ctx: OpCtx, op: Extract<Op, { op: 'graftDamage' }>): void {
+  const victim = s.players[ctx.victim];
+  const g = victim.grafts.find((x) => x.slot === ctx.play?.target);
+  if (!g) {
+    logMsg(s, 'play', ctx.caster, `${ctx.source} finds no graft to target.`);
+    return;
+  }
+  revealGraft(s, ctx.victim, g);
+  const card = cardOf(g.cardId);
+  const caster = s.players[ctx.caster];
+  const amount = Math.max(0, op.amount + sumLoadoutParam(caster, 'graftDamageBonus') - sumLoadoutParam(victim, 'graftDamageReduction'));
+  g.integrity -= amount;
+  if (g.integrity <= 0) {
+    victim.grafts = victim.grafts.filter((x) => x !== g);
+    victim.discard.push({ uid: g.uid, cardId: g.cardId });
+    if (s.config.strain.severRemovesStrain) victim.strain = Math.max(0, victim.strain - g.strain);
+    logMsg(s, 'play', ctx.caster, `${ctx.source} destroys ${victim.name}'s ${card.name} in ${SLOT_LABEL[g.slot]} (integrity depleted).`);
+    onGraftKilled(s, ctx.caster);
+  } else {
+    logMsg(s, 'play', ctx.caster, `${ctx.source} hits ${victim.name}'s ${card.name} for ${amount} integrity (${g.integrity} left).`);
+  }
+}
+
+/** Corrosion/Hollow chip nodes that pay off destroying a graft (via graftDamage or necrosis). */
+function onGraftKilled(s: GameState, casterId: PlayerId): void {
+  const caster = s.players[casterId];
+  const h = sumLoadoutParam(caster, 'killHeal');
+  if (h > 0) heal(s, casterId, h, 'a graft kill');
+  const st = sumLoadoutParam(caster, 'killStrain');
+  if (st > 0) {
+    addStrain(s, other(casterId), st);
+    logMsg(s, 'strain', other(casterId), `${name(s, other(casterId))} gains ${st} Strain (a graft kill).`, st);
+  }
+}
+
+function applyStatus(s: GameState, ctx: OpCtx, op: Extract<Op, { op: 'status' }>): void {
+  const cfg = s.config.status;
+  const caster = s.players[ctx.caster];
+  const t = s.players[(op.who ?? 'opp') === 'self' ? ctx.caster : ctx.victim];
+  if (op.kind === 'bleed') {
+    t.bleed = Math.max(t.bleed, (op.rounds ?? cfg.bleedRounds) + sumLoadoutParam(caster, 'bleedRoundsBonus'));
+    logMsg(s, 'strain', t.id, `${ctx.source}: ${t.name} is bleeding for ${t.bleed} round(s).`);
+  } else if (op.kind === 'numb') {
+    t.numb = Math.max(t.numb, (op.rounds ?? cfg.numbRounds) + sumLoadoutParam(caster, 'numbRoundsBonus'));
+    logMsg(s, 'info', t.id, `${ctx.source}: ${t.name} is numbed and cannot play Protocols for ${t.numb} round(s).`);
+  } else {
+    t.fever = Math.max(t.fever, (op.rounds ?? cfg.feverRounds) + sumLoadoutParam(caster, 'feverRoundsBonus'));
+    logMsg(s, 'info', t.id, `${ctx.source}: ${t.name}'s grafts cost 1 more Energy for ${t.fever} round(s) (Fever).`);
+  }
+}
+
+function purge(s: GameState, ctx: OpCtx, op: Extract<Op, { op: 'purge' }>): void {
+  const self = (op.who ?? 'self') === 'self';
+  const t = s.players[self ? ctx.caster : ctx.victim];
+  t.bleed = 0;
+  t.numb = 0;
+  t.fever = 0;
+  t.necrosis = {};
+  logMsg(s, 'info', t.id, `${ctx.source}: ${t.name}'s statuses are purged.`);
+  if (self) {
+    const h = sumLoadoutParam(t, 'purgeHeal');
+    if (h > 0) heal(s, t.id, h, 'Purge');
+    const v = sumLoadoutParam(t, 'purgeVent');
+    if (v > 0) {
+      const vented = vent(s, t.id, v);
+      if (vented > 0) logMsg(s, 'strain', t.id, `${t.name} vents ${vented} Strain (Purge).`, -vented);
+    }
   }
 }
 
@@ -290,6 +370,15 @@ export function runOps(s: GameState, ops: Op[], ctx: OpCtx): void {
         break;
       case 'mod':
         break; // passive only, evaluated in computeStats
+      case 'graftDamage':
+        graftDamage(s, ctx, op);
+        break;
+      case 'status':
+        applyStatus(s, ctx, op);
+        break;
+      case 'purge':
+        purge(s, ctx, op);
+        break;
     }
   }
 }
@@ -316,18 +405,26 @@ export function attachGraft(s: GameState, p: PlayerId, card: CardInstance, slot:
   const def = cardOf(card.cardId);
   const strain = graftStrain(pl, def);
   const quiet = faceDown ? Math.min(strain, s.config.dormant.quietStrain) : 0; // a sleeping graft is quieter; the rest comes on waking
-  const g: AttachedGraft = { uid: card.uid, cardId: card.cardId, slot, strain: strain - quiet, seq: ++s.graftSeq, faceDown, poisoned: 0, disabled: 0, dormantStrain: quiet, sleptSince: s.round };
+  const g: AttachedGraft = {
+    uid: card.uid,
+    cardId: card.cardId,
+    slot,
+    strain: strain - quiet,
+    seq: ++s.graftSeq,
+    faceDown,
+    poisoned: 0,
+    disabled: 0,
+    dormantStrain: quiet,
+    sleptSince: s.round,
+    roundsSurvived: 0,
+    integrity: (def.integrity ?? s.config.integrity.default) + sumLoadoutParam(pl, 'flatIntegrity'),
+  };
   pl.grafts.push(g);
   pl.firstGraftDone = true;
   pl.attachedThisRound++;
   pl.stats.graftsPlayed++;
   addStrain(s, p, g.strain);
   logMsg(s, 'play', p, faceDown ? `${pl.name} attaches a face-down graft to ${SLOT_LABEL[slot]} (+${g.strain} Strain).` : `${pl.name} attaches ${def.name} to ${SLOT_LABEL[slot]} (+${g.strain} Strain).`);
-  if (def.slot === 'Organ' && hasNode(pl, 'sporeSacs')) {
-    const n = nodeParam(pl, 'sporeSacs', 'strain');
-    addStrain(s, other(p), n);
-    logMsg(s, 'strain', other(p), `Spore Sacs: ${name(s, other(p))} gains ${n} Strain.`, n);
-  }
   fireAbilities(s, p, g, 'onAttach');
 }
 
@@ -368,7 +465,8 @@ export function resolvePlay(s: GameState, play: PendingPlay): void {
   addStrain(s, p, def.strain);
   if (def.strain > 0) logMsg(s, 'strain', p, `${pl.name} gains ${def.strain} Strain (${def.name}).`, def.strain);
   if (play.reflected) logMsg(s, 'play', p, `${def.name} is reflected back at ${pl.name}!`);
-  runOps(s, def.effect.ops ?? [], { caster: p, victim, play, source: def.name });
+  // A Protocol reacting to something (play.against set) points its ops at what it answered, not at itself.
+  runOps(s, def.effect.ops ?? [], { caster: p, victim, play: play.against ?? play, source: def.name });
   if (def.type === 'toxin') {
     const drain = evoNum(s, pl, 'toxinDrain');
     if (drain > 0) hurt(s, victim, drain, victim === p ? null : p, `${def.name} drains`);
@@ -385,6 +483,7 @@ export function beginRound(s: GameState): void {
     pl.hold = false;
     pl.cycledThisRound = 0;
     pl.stance = null;
+    pl.stanceGuess = null;
     pl.rejectedThisRound = false;
     pl.attachedThisRound = 0;
     pl.tempAttack = 0;
@@ -397,10 +496,11 @@ export function beginRound(s: GameState): void {
     pl.energy = Math.max(cfg.energy.min, Math.min(s.round, cfg.energy.cap)) + (cfg.features.energyBanking ? pl.bank : 0);
     pl.bank = 0;
     if (!pl.attachedLastRound) {
-      const reduction = nodeParam(s.players[other(pl.id)], 'contagion', 'ventReduction');
-      const v = vent(s, pl.id, Math.max(0, cfg.strain.ventPerRound - reduction));
+      const v = vent(s, pl.id, cfg.strain.ventPerRound);
       if (v > 0) logMsg(s, 'strain', pl.id, `${pl.name} vents ${v} Strain (no graft last round).`, -v);
     }
+    const regen = sumLoadoutParam(pl, 'integrityRegen');
+    if (regen > 0) for (const g of pl.grafts) g.integrity = Math.min((cardOf(g.cardId).integrity ?? cfg.integrity.default) + sumLoadoutParam(pl, 'flatIntegrity'), g.integrity + regen);
   }
   // Comeback draw: the Specimen that is well behind on HP draws extra, so an early lead does not decide the match alone.
   const [pa, pb] = s.players;
@@ -431,30 +531,19 @@ export function resolveStances(s: GameState): void {
   const winner: PlayerId | null = beats(sa, sb) ? 0 : beats(sb, sa) ? 1 : null;
   s.stanceResult = { winner };
   logMsg(s, 'stance', null, `Stances revealed: ${a.name} ${STANCE_NAME[sa]}, ${b.name} ${STANCE_NAME[sb]}. ${winner === null ? 'Tie.' : `${name(s, winner)} wins the stance.`}`);
-  if (winner !== null) {
-    const w = s.players[winner];
-    const l = other(winner);
-    if (w.stance === 'aggress' && hasNode(w, 'pounce')) {
-      const n = nodeParam(w, 'pounce', 'strain');
-      addStrain(s, l, n);
-      logMsg(s, 'strain', l, `Pounce: ${name(s, l)} gains ${n} Strain.`, n);
-    }
-    if (w.stance === 'adapt' && hasNode(w, 'latch')) {
-      const n = nodeParam(w, 'latch', 'strain');
-      addStrain(s, l, n);
-      logMsg(s, 'strain', l, `Latch: ${name(s, l)} gains ${n} Strain.`, n);
-    }
-  } else {
-    for (const pl of s.players) {
-      if (hasNode(pl, 'mirror') && s.round % Math.max(1, nodeParam(pl, 'mirror', 'period', 1)) === 0) {
-        const n = drawCards(s, pl.id, nodeParam(pl, 'mirror', 'draw'));
-        logMsg(s, 'info', pl.id, `Mirror: ${pl.name} draws ${n} card(s).`);
-      }
-      if (hasNode(pl, 'brace')) {
-        const n = nodeParam(pl, 'brace', 'armor');
-        pl.tempArmor += n;
-        logMsg(s, 'info', pl.id, `Brace: ${pl.name} gets +${n} armor this round.`);
-      }
+  // A stance call: predicting the opponent's stance alongside your own pick. Right pays off in attack,
+  // wrong costs Strain, and not calling is always safe - so it is a bet, not a free read.
+  for (const pl of s.players) {
+    if (pl.stanceGuess === null) continue;
+    const opp = s.players[other(pl.id)];
+    if (pl.stanceGuess === opp.stance) {
+      const n = s.config.stances.callBonus;
+      pl.tempAttack += n;
+      logMsg(s, 'info', pl.id, `Call: ${pl.name} correctly calls ${STANCE_NAME[opp.stance!]} and gets +${n} attack this round.`);
+    } else {
+      const n = s.config.stances.callPenalty;
+      addStrain(s, pl.id, n);
+      logMsg(s, 'strain', pl.id, `Call: ${pl.name} calls ${STANCE_NAME[pl.stanceGuess]} but ${opp.name} picked ${STANCE_NAME[opp.stance!]} - ${pl.name} gains ${n} Strain.`, n);
     }
   }
   s.initiative = winner ?? other(s.lastInitiative);
@@ -525,20 +614,10 @@ function clashDamage(s: GameState, atk: PlayerId): ClashResult {
     mods += mom;
     notes.push(`+${mom} momentum`);
   }
-  if (sa === 'aggress' && sd === 'aggress' && hasNode(A, 'bloodlust')) {
-    const b = nodeParam(A, 'bloodlust', 'damage');
-    mods += b;
-    notes.push(`+${b} Bloodlust`);
-  }
   let armor = stD.armor;
   if (aWins && sa === 'adapt') {
-    if (hasNode(D, 'unshakable')) {
-      armor = Math.floor(armor / Math.max(1, nodeParam(D, 'unshakable', 'armorDivisor', 2)));
-      notes.push('armor halved');
-    } else {
-      armor = 0;
-      notes.push('ignores armor');
-    }
+    armor = 0;
+    notes.push('ignores armor');
   }
   const raw = Math.max(0, stA.attack + mods);
   let dmg = Math.max(0, raw - armor);
@@ -564,8 +643,7 @@ export function clash(s: GameState): void {
     const A = s.players[other(i)];
     // D fortifies against A's Aggress: block succeeds
     if (D.stance === 'fortify' && A.stance === 'aggress') {
-      counters[i] = Math.max(cfg.stances.fortifyCounterDamage, nodeParam(D, 'counterweight', 'counter', 0)) + (momentum(s, D) ? cfg.stances.momentumBonus : 0);
-      if (hasNode(D, 'siphon')) heals[i] = nodeParam(D, 'siphon', 'heal');
+      counters[i] = cfg.stances.fortifyCounterDamage + (momentum(s, D) ? cfg.stances.momentumBonus : 0);
     }
   }
   const dealt: [number, number] = [0, 0];
@@ -605,30 +683,21 @@ export function rejectGraft(s: GameState, p: PlayerId): boolean {
     logMsg(s, 'reject', p, `REJECTION: ${pl.name} has no graft to eject, but the Specimen still rejects.`);
     return false;
   }
-  const hardened = hasNode(pl, 'hardened');
-  const g = [...pl.grafts].sort((a, b) => (hardened ? a.strain - b.strain : b.strain - a.strain) || b.seq - a.seq)[0];
+  const g = [...pl.grafts].sort((a, b) => b.strain - a.strain || b.seq - a.seq)[0];
   const card = cardOf(g.cardId);
   pl.grafts = pl.grafts.filter((x) => x !== g);
   pl.discard.push({ uid: g.uid, cardId: g.cardId });
   markRevealed(s, g.uid); // an ejected graft is shown to everyone
-  let ventTotal = g.strain;
-  if (hardened) ventTotal += nodeParam(pl, 'hardened', 'ventBonus'); // makes up for ejecting the low-Strain graft it kept for
-  pl.strain = Math.max(0, pl.strain - ventTotal);
+  pl.strain = Math.max(0, pl.strain - g.strain);
   pl.stats.rejectionsSuffered++;
   pl.rejectedThisRound = true;
-  logMsg(s, 'reject', p, `REJECTION: ${pl.name} ejects ${card.name} from ${SLOT_LABEL[g.slot]} (-${ventTotal} Strain).`, ventTotal);
+  logMsg(s, 'reject', p, `REJECTION: ${pl.name} ejects ${card.name} from ${SLOT_LABEL[g.slot]} (-${g.strain} Strain).`, g.strain);
   if (g.disabled <= 0 && !g.faceDown) {
     for (const ab of card.effect.abilities ?? []) {
       if (ab.trigger === 'onReject' && condOk(s, pl, ab.cond)) runOps(s, ab.ops, { caster: p, victim: other(p), source: card.name });
     }
   }
   const opp = s.players[other(p)];
-  if (hasNode(pl, 'burnout')) hurt(s, other(p), nodeParam(pl, 'burnout', 'damage'), p, 'Burnout');
-  if (hasNode(pl, 'feedback')) {
-    const n = nodeParam(pl, 'feedback', 'strain');
-    addStrain(s, other(p), n);
-    logMsg(s, 'strain', other(p), `Feedback: ${opp.name} gains ${n} Strain.`, n);
-  }
   const hh = evoNum(s, opp, 'healOnOppReject');
   if (hh > 0) heal(s, other(p), hh, 'Hive Host');
   return true;
@@ -640,11 +709,6 @@ export function evolve(s: GameState, p: PlayerId, id: string): void {
   pl.evolution = id;
   pl.evolutionOptions = [];
   logMsg(s, 'evolve', p, `EVOLUTION: ${pl.name} evolves into ${def.name}!`);
-  if (hasNode(pl, 'surge')) {
-    const to = nodeParam(pl, 'surge', 'setTo', 0); // Strain drops to this level (never rises)
-    pl.strain = Math.min(pl.strain, to);
-    logMsg(s, 'strain', p, `Surge: ${pl.name}'s Strain is set to ${pl.strain}.`);
-  }
 }
 
 export function finishRound(s: GameState): void {
@@ -652,6 +716,13 @@ export function finishRound(s: GameState): void {
     for (const g of pl.grafts) {
       if (g.poisoned > 0) g.poisoned--;
       if (g.disabled > 0) g.disabled--;
+    }
+    if (pl.numb > 0) pl.numb--;
+    if (pl.fever > 0) pl.fever--;
+    for (const slot of Object.keys(pl.necrosis) as SlotId[]) {
+      const left = (pl.necrosis[slot] ?? 0) - 1;
+      if (left > 0) pl.necrosis[slot] = left;
+      else delete pl.necrosis[slot];
     }
     pl.tempAttack = 0;
     pl.tempArmor = 0;
@@ -673,12 +744,18 @@ export function strainCheck(s: GameState): void {
   const cfg = s.config;
   const T = cfg.strain.threshold;
   const ids: PlayerId[] = [0, 1];
+  // Bleed: 1 damage per round while it lasts, ticking down independent of Strain.
+  for (const p of ids) {
+    const pl = s.players[p];
+    if (pl.bleed <= 0) continue;
+    hurt(s, p, cfg.status.bleedDamage, null, 'Bleed');
+    pl.bleed--;
+  }
+  if (endIfDead(s)) return;
   // 1. Overclock self-damage
   for (const p of ids) {
     const pl = s.players[p];
     if (zoneOf(s, pl) !== 'overclocked') continue;
-    const period = nodeParam(pl, 'painTolerance', 'period', 1);
-    if (s.round % period !== 0) continue;
     hurt(s, p, cfg.strain.overclockSelfDamage, null, 'Overclocked');
   }
   if (endIfDead(s)) return;
@@ -687,8 +764,7 @@ export function strainCheck(s: GameState): void {
     const pl = s.players[p];
     let amount = 0;
     if (pl.stance === 'fortify') amount += Math.max(cfg.strain.fortifyVent, evoNum(s, pl, 'fortifyVent')) + (momentum(s, pl) ? cfg.stances.momentumBonus : 0);
-    if (s.round % Math.max(1, nodeParam(pl, 'heatSink', 'period', 1)) === 0) amount += nodeParam(pl, 'heatSink', 'ventAlways'); // Heat Sink vents a little, every period-th round
-    if (pl.hold) amount += cfg.strain.holdVent + nodeParam(pl, 'heatSink', 'vent');
+    if (pl.hold) amount += cfg.strain.holdVent;
     if (amount > 0) {
       const v = vent(s, p, amount);
       if (v > 0) logMsg(s, 'strain', p, `${pl.name} vents ${v} Strain.`, -v);
@@ -698,11 +774,19 @@ export function strainCheck(s: GameState): void {
   const rejecting = ids.filter((p) => s.players[p].strain > T);
   for (const p of rejecting) rejectGraft(s, p);
   if (endIfDead(s)) return;
-  // 3b. End-of-check text (Regenerator, graft "Strain check" abilities)
+  // 3b. End-of-check text (graft "Strain check" abilities)
   for (const p of ids) {
     const pl = s.players[p];
-    if (hasNode(pl, 'regenerator') && pl.strain <= stableMax(s, pl) && s.round % Math.max(1, nodeParam(pl, 'regenerator', 'period', 1)) === 0) heal(s, p, nodeParam(pl, 'regenerator', 'heal'), 'Regenerator');
     fireTrigger(s, p, 'onStrainCheck');
+    // Veterancy: any graft still attached survived this check. Only Signature grafts spend it (see computeStats),
+    // but every graft counts so a graft that starts as a tech slot and gets replaced never confuses the count.
+    for (const g of pl.grafts) {
+      g.roundsSurvived++;
+      const def = cardOf(g.cardId);
+      if (def.signature && g.roundsSurvived === cfg.veterancy.signatureThreshold) {
+        logMsg(s, 'info', p, `Veterancy: ${def.name} has held on through ${g.roundsSurvived} Strain checks and hardens (+${cfg.veterancy.signatureAttackBonus} attack).`);
+      }
+    }
   }
   if (endIfDead(s)) return;
   // 4. Evolution triggers (decided simultaneously). Meeting a condition is always offered as a choice: evolve

@@ -15,8 +15,8 @@ import { fork } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { cpus } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { defaultConfig, FACTIONS, makeRng, playBotMatch, STANCES, STARTER_DECKS, treeRows } from '../src/engine';
-import type { Config, DeepPartial, Faction, Stance } from '../src/engine';
+import { chipRows, chipsFor, defaultConfig, FACTIONS, makeRng, playBotMatch, STANCES, starterDeck, WORLD_FACTIONS } from '../src/engine';
+import type { Config, DeepPartial, Faction, Stance, WorldFactionId } from '../src/engine';
 
 function arg(name: string, def: string): string {
   const i = process.argv.indexOf(`--${name}`);
@@ -57,7 +57,8 @@ interface Cell {
   draws: number;
 }
 interface NodeStat {
-  faction: string;
+  chip: string;
+  worldFaction: string;
   row: string;
   picks: number;
   games: number;
@@ -67,21 +68,20 @@ interface ScoreCell {
   n: number;
   score: number;
 }
-interface EvoNodeCell {
-  games: number;
-  score: number;
-  evolved: number;
-}
 interface Agg {
   n: number;
-  matchup: Record<string, Record<string, Cell>>;
+  /** Build x Build (3x3): does the Strain/cards/evolution axis alone stay balanced? */
+  buildMatchup: Record<string, Record<string, Cell>>;
+  /** World Faction x World Faction (4x4): does the Integrity/status axis alone stay balanced? */
+  worldMatchup: Record<string, Record<string, Cell>>;
+  /** "faction/worldFaction" -> aggregate score across all opponents: does every one of the 12 combos hold up? */
+  archScore: Record<string, ScoreCell>;
   evo: Record<string, Record<string, number>>;
   /** faction -> evolution id ('none' if it never evolved) -> games and score of those players */
   evoScore: Record<string, Record<string, ScoreCell>>;
-  /** faction -> Evolution-row node id -> games, score, and how often that player evolved */
-  evoNode: Record<string, Record<string, EvoNodeCell>>;
   evoGames: Record<string, number>;
   stanceCount: Record<string, Record<Stance, number>>;
+  /** every Chip node across all 4 World Factions (this is the only place skill-tree picks live now) */
   nodeStats: Record<string, NodeStat>;
   totalRounds: number;
   rejectionGames: number;
@@ -91,17 +91,20 @@ interface Agg {
 }
 
 function emptyAgg(): Agg {
-  const a: Agg = { n: 0, matchup: {}, evo: {}, evoScore: {}, evoNode: {}, evoGames: {}, stanceCount: {}, nodeStats: {}, totalRounds: 0, rejectionGames: 0, koGames: 0, draws: 0, lenHist: {} };
+  const a: Agg = { n: 0, buildMatchup: {}, worldMatchup: {}, archScore: {}, evo: {}, evoScore: {}, evoGames: {}, stanceCount: {}, nodeStats: {}, totalRounds: 0, rejectionGames: 0, koGames: 0, draws: 0, lenHist: {} };
   for (const f of FACTIONS) {
-    a.evoScore[f] = {};
-    a.evoNode[f] = {};
-    for (const n of treeRows(f).find((r) => r.id === 'evolution')!.nodes) a.evoNode[f][n.id] = { games: 0, score: 0, evolved: 0 };
-    a.matchup[f] = {};
-    for (const g of FACTIONS) a.matchup[f][g] = { games: 0, wins: 0, draws: 0 };
+    a.buildMatchup[f] = {};
+    for (const g of FACTIONS) a.buildMatchup[f][g] = { games: 0, wins: 0, draws: 0 };
     a.evo[f] = {};
+    a.evoScore[f] = {};
     a.evoGames[f] = 0;
     a.stanceCount[f] = { aggress: 0, adapt: 0, fortify: 0 };
-    for (const row of treeRows(f)) for (const n of row.nodes) if (!a.nodeStats[n.id]) a.nodeStats[n.id] = { faction: row.id === 'evolution' ? 'all' : f, row: row.id, picks: 0, games: 0, score: 0 };
+    for (const w of WORLD_FACTIONS) a.archScore[`${f}/${w}`] = { n: 0, score: 0 };
+  }
+  for (const w of WORLD_FACTIONS) {
+    a.worldMatchup[w] = {};
+    for (const x of WORLD_FACTIONS) a.worldMatchup[w][x] = { games: 0, wins: 0, draws: 0 };
+    for (const c of chipsFor(w)) for (const row of c.tree) for (const n of row.nodes) a.nodeStats[n.id] = { chip: c.id, worldFaction: w, row: row.id, picks: 0, games: 0, score: 0 };
   }
   return a;
 }
@@ -114,16 +117,21 @@ function mergeInto(a: Agg, b: Agg): void {
   a.draws += b.draws;
   for (const [k, v] of Object.entries(b.lenHist)) a.lenHist[+k] = (a.lenHist[+k] ?? 0) + v;
   for (const f of FACTIONS) {
-    for (const g of FACTIONS) for (const k of ['games', 'wins', 'draws'] as const) a.matchup[f][g][k] += b.matchup[f][g][k];
+    for (const g of FACTIONS) for (const k of ['games', 'wins', 'draws'] as const) a.buildMatchup[f][g][k] += b.buildMatchup[f][g][k];
     for (const [k, v] of Object.entries(b.evo[f])) a.evo[f][k] = (a.evo[f][k] ?? 0) + v;
     for (const [k, v] of Object.entries(b.evoScore[f])) {
       const c = (a.evoScore[f][k] ??= { n: 0, score: 0 });
       c.n += v.n;
       c.score += v.score;
     }
-    for (const [k, v] of Object.entries(b.evoNode[f])) for (const q of ['games', 'score', 'evolved'] as const) a.evoNode[f][k][q] += v[q];
     a.evoGames[f] += b.evoGames[f];
     for (const st of STANCES) a.stanceCount[f][st] += b.stanceCount[f][st];
+  }
+  for (const w of WORLD_FACTIONS) for (const x of WORLD_FACTIONS) for (const k of ['games', 'wins', 'draws'] as const) a.worldMatchup[w][x][k] += b.worldMatchup[w][x][k];
+  for (const [k, v] of Object.entries(b.archScore)) {
+    const c = (a.archScore[k] ??= { n: 0, score: 0 });
+    c.n += v.n;
+    c.score += v.score;
   }
   for (const id of Object.keys(b.nodeStats)) for (const k of ['picks', 'games', 'score'] as const) a.nodeStats[id][k] += b.nodeStats[id][k];
 }
@@ -131,10 +139,12 @@ function mergeInto(a: Agg, b: Agg): void {
 // ---------- One slice of matches ----------
 function runSlice(from: number, to: number): Agg {
   const agg = emptyAgg();
-  const pairs: [Faction, Faction][] = FACTIONS.flatMap((a) => FACTIONS.map((b) => [a, b] as [Faction, Faction]));
+  const archetypes: [Faction, WorldFactionId][] = FACTIONS.flatMap((f) => WORLD_FACTIONS.map((w) => [f, w] as [Faction, WorldFactionId]));
+  const pairs = archetypes.flatMap((x) => archetypes.map((y) => [x, y] as [[Faction, WorldFactionId], [Faction, WorldFactionId]]));
 
-  const pickLoadout = (f: Faction, rng: ReturnType<typeof makeRng>): string[] =>
-    treeRows(f).map((row) => {
+  const pickChip = (wf: WorldFactionId, rng: ReturnType<typeof makeRng>): { chip: string; loadout: string[] } => {
+    const chip = rng.pick(chipsFor(wf)).id;
+    const loadout = chipRows(chip).map((row) => {
       if (POLICY !== 'adaptive') return rng.pick(row.nodes).id;
       const w = row.nodes.map((n) => {
         const st = agg.nodeStats[n.id];
@@ -147,16 +157,20 @@ function runSlice(from: number, to: number): Agg {
       }
       return row.nodes[row.nodes.length - 1].id;
     });
+    return { chip, loadout };
+  };
 
   for (let i = from; i < to; i++) {
-    const [f0, f1] = pairs[i % pairs.length];
+    const [[f0, w0], [f1, w1]] = pairs[i % pairs.length];
     const rng = makeRng((BASE_SEED + i) * 7919 + 13);
+    const p0 = pickChip(w0, rng);
+    const p1 = pickChip(w1, rng);
     const s = playBotMatch({
       seed: BASE_SEED + i,
       config: CONFIG_OVERRIDE,
       players: [
-        { name: 'Bot A', faction: f0, deck: STARTER_DECKS[f0], loadout: pickLoadout(f0, rng), isBot: true },
-        { name: 'Bot B', faction: f1, deck: STARTER_DECKS[f1], loadout: pickLoadout(f1, rng), isBot: true },
+        { name: 'Bot A', faction: f0, worldFaction: w0, chip: p0.chip, deck: starterDeck(f0, w0), loadout: p0.loadout, isBot: true },
+        { name: 'Bot B', faction: f1, worldFaction: w1, chip: p1.chip, deck: starterDeck(f1, w1), loadout: p1.loadout, isBot: true },
       ],
     });
     const w = s.result!.winner;
@@ -167,28 +181,29 @@ function runSlice(from: number, to: number): Agg {
     if (s.players.some((p) => p.hp <= 0)) agg.koGames++;
     if (w === null) agg.draws++;
     for (const p of s.players) {
-      const c = agg.matchup[p.faction][s.players[p.id === 0 ? 1 : 0].faction];
-      c.games++;
-      if (w === p.id) c.wins++;
-      else if (w === null) c.draws++;
+      const opp = s.players[p.id === 0 ? 1 : 0];
+      const bc = agg.buildMatchup[p.faction][opp.faction];
+      bc.games++;
+      if (w === p.id) bc.wins++;
+      else if (w === null) bc.draws++;
+      const wc = agg.worldMatchup[p.worldFaction][opp.worldFaction];
+      wc.games++;
+      if (w === p.id) wc.wins++;
+      else if (w === null) wc.draws++;
       const score = w === p.id ? 1 : w === null ? 0.5 : 0;
+      const arch = agg.archScore[`${p.faction}/${p.worldFaction}`];
+      arch.n++;
+      arch.score += score;
       agg.evoGames[p.faction]++;
       const key = p.evolution ?? 'none';
       agg.evo[p.faction][key] = (agg.evo[p.faction][key] ?? 0) + 1;
       const es = (agg.evoScore[p.faction][key] ??= { n: 0, score: 0 });
       es.n++;
       es.score += score;
-      for (const id of p.loadout) {
-        const en = agg.evoNode[p.faction][id];
-        if (en) {
-          en.games++;
-          en.score += score;
-          if (p.evolution) en.evolved++;
-        }
-      }
       for (const st of p.stanceHistory) agg.stanceCount[p.faction][st]++;
       for (const id of p.loadout) {
         const ns = agg.nodeStats[id];
+        if (!ns) continue;
         ns.picks++;
         ns.games++;
         ns.score += score;
@@ -209,14 +224,14 @@ function report(a: Agg, secs: string): void {
   console.log(`\nSPECIMEN SIMULATION  |  ${a.n} matches  |  seed ${BASE_SEED}  |  loadout policy: ${POLICY}  |  ${secs}s`);
   console.log(line);
 
-  console.log('\n1. FACTION MATCHUPS  (row faction vs column faction; score = wins + 0.5 x draws)');
+  console.log('\n1. BUILD MATCHUPS  (row Build vs column Build; score = wins + 0.5 x draws)');
   console.log(padR('', 10) + FACTIONS.map((f) => pad(f, 22)).join(''));
   let worst = 0.5;
   let allInBand = true;
   for (const f of FACTIONS) {
     let row = padR(f, 10);
     for (const g of FACTIONS) {
-      const c = a.matchup[f][g];
+      const c = a.buildMatchup[f][g];
       const score = c.games ? (c.wins + c.draws * 0.5) / c.games : 0;
       if (f !== g && c.games) {
         if (Math.abs(score - 0.5) > Math.abs(worst - 0.5)) worst = score;
@@ -226,16 +241,36 @@ function report(a: Agg, secs: string): void {
     }
     console.log(row);
   }
-  console.log(`   Cross-faction matchups within 45-55%: ${allInBand ? 'YES' : 'NO'}  (most lopsided: ${pct(worst)})`);
-  console.log('   Overall faction score:');
+  console.log(`   Cross-Build matchups within 45-55%: ${allInBand ? 'YES' : 'NO'}  (most lopsided: ${pct(worst)})`);
+  console.log('   Overall Build score:');
   for (const f of FACTIONS) {
     let g = 0;
     let sc = 0;
     for (const h of FACTIONS) {
-      g += a.matchup[f][h].games;
-      sc += a.matchup[f][h].wins + a.matchup[f][h].draws * 0.5;
+      g += a.buildMatchup[f][h].games;
+      sc += a.buildMatchup[f][h].wins + a.buildMatchup[f][h].draws * 0.5;
     }
     console.log(`     ${padR(f, 10)} ${pct(sc / g)}  (${g} games)`);
+  }
+
+  console.log('\n1b. WORLD FACTION MATCHUPS  (row World Faction vs column World Faction)');
+  console.log(padR('', 10) + WORLD_FACTIONS.map((w) => pad(w, 22)).join(''));
+  for (const w of WORLD_FACTIONS) {
+    let row = padR(w, 10);
+    for (const x of WORLD_FACTIONS) {
+      const c = a.worldMatchup[w][x];
+      const score = c.games ? (c.wins + c.draws * 0.5) / c.games : 0;
+      row += pad(c.games ? `${pct(score)} (${pct(c.wins / c.games, 0)}W ${pct(c.draws / c.games, 0)}D)` : '-', 22);
+    }
+    console.log(row);
+  }
+
+  console.log('\n1c. ARCHETYPES (Build/World Faction, aggregate score across all opponents)');
+  for (const f of FACTIONS) {
+    for (const w of WORLD_FACTIONS) {
+      const c = a.archScore[`${f}/${w}`];
+      console.log(`   ${padR(`${f}/${w}`, 20)} ${c.n ? pct(c.score / c.n) : '-'}  (${c.n} games)`);
+    }
   }
 
   console.log('\n2. MATCH LENGTH');
@@ -259,36 +294,29 @@ function report(a: Agg, secs: string): void {
     console.log(`   ${padR(f, 10)} ${STANCES.map((st) => `${st} ${pct(a.stanceCount[f][st] / tot)}`).join('   ')}`);
   }
 
-  console.log("\n6. SKILL-TREE NODES (pick rate = share of that faction's appearances; win rate = score of players who took it)");
-  const rows = treeRows('predator').map((r) => r.id);
-  for (const f of FACTIONS) {
-    console.log(`   ${f.toUpperCase()}`);
-    for (const rowId of rows) {
-      if (rowId === 'evolution') continue;
-      for (const n of treeRows(f).find((r) => r.id === rowId)!.nodes) {
-        const st = a.nodeStats[n.id];
-        console.log(`     ${padR(rowId, 10)} ${padR(n.name, 18)} pick ${pad(pct(st.picks / (a.evoGames[f] || 1)), 6)}   win ${pad(st.games ? pct(st.score / st.games) : '-', 6)}   (n=${st.picks})`);
+  console.log("\n6. CHIP NODES (pick rate = share of that Chip's appearances; win rate = score of players who took it)");
+  for (const w of WORLD_FACTIONS) {
+    console.log(`   ${w.toUpperCase()}`);
+    for (const c of chipsFor(w)) {
+      console.log(`     ${c.name}`);
+      for (const row of c.tree) {
+        for (const n of row.nodes) {
+          const st = a.nodeStats[n.id];
+          const chipGames = row.nodes.reduce((sum, m) => sum + a.nodeStats[m.id].picks, 0) || 1;
+          console.log(`       ${padR(row.id, 10)} ${padR(n.name, 22)} pick ${pad(pct(st.picks / chipGames), 6)}   win ${pad(st.games ? pct(st.score / st.games) : '-', 6)}   (n=${st.picks})`);
+        }
       }
     }
   }
-  console.log('   EVOLUTION ROW (all factions)');
-  for (const n of treeRows('predator').find((r) => r.id === 'evolution')!.nodes) {
-    const st = a.nodeStats[n.id];
-    console.log(`     ${padR('evolution', 10)} ${padR(n.name, 18)} pick ${pad(pct(st.picks / (2 * a.n)), 6)}   win ${pad(st.games ? pct(st.score / st.games) : '-', 6)}   (n=${st.picks})`);
-  }
 
-  console.log('\n7. EVOLUTIONS AND THE EVOLUTION ROW, PER FACTION');
-  console.log('   "reached" = share of that faction\'s games that ended in the form; "win" = score of those players.');
+  console.log('\n7. EVOLUTIONS, PER BUILD');
+  console.log('   "reached" = share of that Build\'s games that ended in the form; "win" = score of those players. Fixed per Build - no Chip node changes them.');
   for (const f of FACTIONS) {
     const defs = (defaultConfig.evolutions as Record<string, { id: string; name: string }[]>)[f];
     console.log(`   ${f.toUpperCase()}`);
     for (const d of [...defs, { id: 'none', name: 'no evolution' }]) {
       const c = a.evoScore[f][d.id];
       console.log(`     form  ${padR(d.name, 18)} reached ${pad(pct((c?.n ?? 0) / a.evoGames[f]), 6)}   win ${pad(c?.n ? pct(c.score / c.n) : '-', 6)}`);
-    }
-    for (const n of treeRows(f).find((r) => r.id === 'evolution')!.nodes) {
-      const c = a.evoNode[f][n.id];
-      console.log(`     node  ${padR(n.name, 18)} win ${pad(c.games ? pct(c.score / c.games) : '-', 6)}   evolved ${pad(c.games ? pct(c.evolved / c.games) : '-', 6)}   (n=${c.games})`);
     }
   }
   console.log('');

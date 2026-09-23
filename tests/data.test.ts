@@ -1,18 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { budgetOf, CARDS, defaultConfig, FACTIONS, STARTER_DECKS, treeRows } from '../src/engine';
+import { budgetOf, CARDS, CHIPS, defaultConfig, FACTIONS, starterDeck, WORLD_FACTIONS } from '../src/engine';
 
-const OPS = new Set(['heal', 'damage', 'strain', 'vent', 'draw', 'discard', 'energy', 'drain', 'buff', 'sabotage', 'reveal', 'negate', 'reflect', 'mod']);
+const OPS = new Set(['heal', 'damage', 'strain', 'vent', 'draw', 'discard', 'energy', 'drain', 'buff', 'sabotage', 'reveal', 'negate', 'reflect', 'mod', 'graftDamage', 'status', 'purge', 'integrityHeal']);
 
 describe('Card pool', () => {
-  it('has 15 tech cards', () => {
-    expect(CARDS.filter((c) => c.faction === 'tech')).toHaveLength(15);
+  it('has 18 tech cards', () => {
+    expect(CARDS.filter((c) => c.faction === 'tech')).toHaveLength(18);
   });
 
   for (const f of FACTIONS) {
     describe(f, () => {
       const pool = CARDS.filter((c) => c.faction === f);
-      it('has 11 standard cards and exactly 1 Signature', () => {
-        expect(pool.filter((c) => !c.signature)).toHaveLength(11);
+      it('has 13 standard cards and exactly 1 Signature', () => {
+        expect(pool.filter((c) => !c.signature)).toHaveLength(13);
         expect(pool.filter((c) => c.signature)).toHaveLength(1);
       });
       it('has at least 5 grafts covering every slot, 1+ Toxin and 1+ Protocol', () => {
@@ -72,7 +72,7 @@ describe('Card pool', () => {
 
   it('only references card ids that exist in starter decks', () => {
     const ids = new Set(CARDS.map((c) => c.id));
-    for (const f of FACTIONS) for (const id of STARTER_DECKS[f]) expect(ids.has(id)).toBe(true);
+    for (const f of FACTIONS) for (const w of WORLD_FACTIONS) for (const id of starterDeck(f, w)) expect(ids.has(id)).toBe(true);
   });
 });
 
@@ -98,12 +98,53 @@ describe('Evolution config (live values)', () => {
   });
 });
 
-describe('Skill trees', () => {
-  it('give every faction 3 nodes in each of Grafts / Strain / Stance plus the shared Evolution row', () => {
-    for (const f of FACTIONS) {
-      const rows = treeRows(f);
-      expect(rows.map((r) => r.id)).toEqual(['grafts', 'strain', 'stance', 'evolution']);
-      for (const r of rows) expect(r.nodes).toHaveLength(3);
+describe('Chips', () => {
+  // Most chip nodes work by summing a shared, engine-implemented param key (sumLoadoutParam) rather than
+  // each needing a bespoke hook - this pins the set of keys the engine actually reads, so a typo'd or
+  // stale key in chips.json (a silently-dead node) fails loudly instead of just never doing anything.
+  const KNOWN_PARAM_KEYS = new Set([
+    'flatAttack',
+    'flatArmor',
+    'flatIntegrity',
+    'graftDamageBonus',
+    'graftDamageReduction',
+    'bleedRoundsBonus',
+    'numbRoundsBonus',
+    'feverRoundsBonus',
+    'necrosisRoundsBonus',
+    'killHeal',
+    'killStrain',
+    'purgeHeal',
+    'purgeVent',
+    'worldCardDiscount',
+    'attackVsAfflicted',
+    'armorVsHealthy',
+    'integrityRegen',
+  ]);
+
+  it('gives every World Faction exactly 3 chips of exactly 3 rows x 2 nodes', () => {
+    for (const wf of WORLD_FACTIONS) expect(CHIPS.filter((c) => c.worldFaction === wf)).toHaveLength(3);
+    for (const c of CHIPS) {
+      expect(c.tree, c.id).toHaveLength(3);
+      for (const row of c.tree) expect(row.nodes, `${c.id}/${row.id}`).toHaveLength(2);
     }
+  });
+
+  it('only uses known, engine-implemented loadout-param keys', () => {
+    for (const c of CHIPS) for (const row of c.tree) for (const n of row.nodes) for (const key of Object.keys(n.params)) expect(KNOWN_PARAM_KEYS.has(key), `${c.id}/${n.id}: unknown param "${key}"`).toBe(true);
+  });
+
+  it('gives every node a name and non-empty text', () => {
+    for (const c of CHIPS) for (const row of c.tree) for (const n of row.nodes) {
+      expect(n.name.length, `${c.id}/${n.id}`).toBeGreaterThan(0);
+      expect(n.text.length, `${c.id}/${n.id}`).toBeGreaterThan(0);
+    }
+  });
+
+  it('has no duplicate chip or node ids', () => {
+    const chipIds = CHIPS.map((c) => c.id);
+    expect(new Set(chipIds).size).toBe(chipIds.length);
+    const nodeIds = CHIPS.flatMap((c) => c.tree.flatMap((r) => r.nodes.map((n) => n.id)));
+    expect(new Set(nodeIds).size).toBe(nodeIds.length);
   });
 });

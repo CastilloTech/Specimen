@@ -1,7 +1,7 @@
 // Signature check: the causal value of each faction's one-of signature card, measured as the faction's score with it vs the same deck
 // with it swapped for a weak card, on the same seeds and loadouts.   npm run signatures -- 6000 [faction]
-import { playBotMatch, STARTER_DECKS, treeRows, makeRng } from '../src/engine';
-import type { MatchSetup } from '../src/engine';
+import { chipRows, chipsFor, makeRng, playBotMatch, starterDeck, WORLD_FACTIONS } from '../src/engine';
+import type { MatchSetup, WorldFactionId } from '../src/engine';
 
 const F = ['predator', 'parasite', 'bastion'] as const;
 const SIG: Record<string, string> = { predator: 'pred_apex_maw', parasite: 'para_queen_cyst', bastion: 'bast_bulwark_heart' };
@@ -17,15 +17,21 @@ for (const f of F) {
   let n = 0;
   for (let g = 0; g < N; g++) {
     const o = others[g % 2];
-    const load = (x: (typeof F)[number]) => treeRows(x).map((r) => rng.pick(r.nodes).id);
-    const la = load(f);
-    const lo = load(o);
+    const wf = WORLD_FACTIONS[g % WORLD_FACTIONS.length];
+    const wo = WORLD_FACTIONS[(g + 1) % WORLD_FACTIONS.length];
+    const load = (wid: WorldFactionId) => {
+      const chip = rng.pick(chipsFor(wid)).id;
+      return { chip, loadout: chipRows(chip).map((r) => rng.pick(r.nodes).id) };
+    };
+    const la = load(wf);
+    const lo = load(wo);
     for (const variant of ['with', 'without'] as const) {
-      const deck = variant === 'with' ? STARTER_DECKS[f] : STARTER_DECKS[f].map((c) => (c === SIG[f] ? SWAP[f] : c));
+      const base = starterDeck(f, wf);
+      const deck = variant === 'with' ? base : base.map((c) => (c === SIG[f] ? SWAP[f] : c));
       const flip = g % 4 >= 2;
       const me = flip ? 1 : 0;
-      const mine = { name: 'F', faction: f, deck, loadout: la };
-      const theirs = { name: 'O', faction: o, deck: STARTER_DECKS[o], loadout: lo };
+      const mine = { name: 'F', faction: f, worldFaction: wf, chip: la.chip, deck, loadout: la.loadout };
+      const theirs = { name: 'O', faction: o, worldFaction: wo, chip: lo.chip, deck: starterDeck(o, wo), loadout: lo.loadout };
       const players = (flip ? [theirs, mine] : [mine, theirs]) as MatchSetup['players'];
       const s = playBotMatch({ seed: 700000 + g, players });
       const w = s.result!.winner;

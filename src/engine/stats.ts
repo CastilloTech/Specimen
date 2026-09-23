@@ -14,6 +14,23 @@ export function nodeParam(p: PlayerState, id: string, key: string, def = 0): num
   return typeof v === 'number' ? v : def;
 }
 
+/** Sums a numeric param across every node in a player's loadout (their chip's 3 picks) that carries it.
+ * This is how most chip nodes work: many different nodes can share the same param key (e.g. `flatAttack`)
+ * without each needing its own hardcoded check - only genuinely new mechanics need a dedicated hook. */
+export function sumLoadoutParam(p: PlayerState, key: string): number {
+  let total = 0;
+  for (const id of p.loadout) {
+    const v = findNode(id)?.params[key];
+    if (typeof v === 'number') total += v;
+  }
+  return total;
+}
+
+/** True while the player has any of the four status effects active on themselves. */
+export function hasAnyStatus(p: PlayerState): boolean {
+  return p.bleed > 0 || p.numb > 0 || p.fever > 0 || Object.keys(p.necrosis).length > 0;
+}
+
 /** String-valued node parameter (e.g. a slot type a penalty applies to). */
 export function nodeText(p: PlayerState, id: string, key: string): string | undefined {
   if (!p.loadout.includes(id)) return undefined;
@@ -35,8 +52,8 @@ export function graftAt(p: PlayerState, slot: SlotId): AttachedGraft | undefined
 
 // ---------- Strain zones ----------
 export function stableMax(s: GameState, p: PlayerState): number {
-  const base = Math.floor(s.config.strain.threshold * s.config.strain.stableMaxRatio);
-  return Math.max(base, nodeParam(p, 'redline', 'stableMax', 0), nodeParam(p, 'dormancy', 'stableMax', 0));
+  void p; // no chip node currently touches the Stable zone; kept as a function so that could change without callers noticing
+  return Math.floor(s.config.strain.threshold * s.config.strain.stableMaxRatio);
 }
 
 export function zoneOf(s: GameState, p: PlayerState): Zone {
@@ -51,10 +68,8 @@ export function evolutionDefs(s: GameState, p: PlayerState): EvolutionDef[] {
 }
 
 export function evolutionTarget(p: PlayerState, def: EvolutionDef): number {
-  let m = 1;
-  if (hasNode(p, 'hairTrigger')) m = nodeParam(p, 'hairTrigger', 'conditionMult', 1);
-  else if (hasNode(p, 'lateBloomer')) m = nodeParam(p, 'lateBloomer', 'conditionMult', 1);
-  return Math.max(1, Math.ceil(def.condition.target * m - 1e-9));
+  void p; // evolutions are fixed per Build now: no skill node modifies their condition or bonuses any more
+  return def.condition.target;
 }
 
 export function metricValue(s: GameState, p: PlayerState, metric: string): number {
@@ -99,31 +114,18 @@ export function evolutionProgress(s: GameState, playerId: PlayerId): EvolutionPr
   });
 }
 
-/** A form's numeric bonuses for this player, with Hair Trigger / Late Bloomer applied. */
-function scaledEffects(p: PlayerState, def: EvolutionDef): Record<string, number | boolean> {
-  let delta = 0;
-  if (hasNode(p, 'hairTrigger')) delta = nodeParam(p, 'hairTrigger', 'bonusDelta', 0);
-  else if (hasNode(p, 'lateBloomer')) delta = nodeParam(p, 'lateBloomer', 'bonusDelta', 0);
-  const out: Record<string, number | boolean> = {};
-  // A reduction never cuts a bonus below `bonusFloor` (default 1): small bonuses stay as they are, larger ones lose `delta`.
-  // A boost is not floored.
-  const floor = hasNode(p, 'hairTrigger') ? nodeParam(p, 'hairTrigger', 'bonusFloor', 1) : 1;
-  for (const [k, v] of Object.entries(def.effects)) out[k] = typeof v === 'number' ? Math.max(0, delta < 0 ? Math.max(v + delta, Math.min(v, floor)) : v + delta) : v;
-  return out;
-}
-
-/** Numeric bonuses of the evolved form, adjusted by Hair Trigger / Late Bloomer. */
+/** Numeric bonuses of the evolved form. Fixed per Build: no skill node scales them any more. */
 export function evoEffects(s: GameState, p: PlayerState): Record<string, number | boolean> {
   if (!p.evolution) return {};
   const def = evolutionDefs(s, p).find((d) => d.id === p.evolution);
-  return def ? scaledEffects(p, def) : {};
+  return def?.effects ?? {};
 }
 
 /** What a form would give this player (the form they are in, or one they could choose), as readable lines. */
 export function evolutionBoosts(s: GameState, p: PlayerState, id: string): string[] {
   const def = evolutionDefs(s, p).find((d) => d.id === id);
   if (!def) return [];
-  const e = scaledEffects(p, def);
+  const e = def.effects;
   const n = (k: string) => (typeof e[k] === 'number' ? (e[k] as number) : 0);
   const out: string[] = [];
   if (n('attack')) out.push(`+${n('attack')} attack`);
@@ -137,14 +139,6 @@ export function evolutionBoosts(s: GameState, p: PlayerState, id: string): strin
   return out;
 }
 
-/** Skill-tree nodes that changed how this player's form works, as readable lines. */
-export function evolutionNotes(p: PlayerState): string[] {
-  const out: string[] = [];
-  if (hasNode(p, 'hairTrigger')) out.push('Hair Trigger: the form comes earlier and its bonuses are 1 smaller.');
-  if (hasNode(p, 'lateBloomer')) out.push('Late Bloomer: the form comes later and its bonuses are 1 bigger.');
-  if (hasNode(p, 'surge')) out.push(`Surge: evolving drops your Strain to ${nodeParam(p, 'surge', 'setTo', 0)} if it is higher.`);
-  return out;
-}
 
 export function evoNum(s: GameState, p: PlayerState, key: string): number {
   const v = evoEffects(s, p)[key];
@@ -166,6 +160,7 @@ export function condOk(s: GameState, p: PlayerState, cond?: Cond): boolean {
   if (cond.oppStrainAtLeast !== undefined && opp.strain < cond.oppStrainAtLeast) return false;
   if (cond.hpAtMost !== undefined && p.hp > cond.hpAtMost) return false;
   if (cond.minRound !== undefined && s.round < cond.minRound) return false;
+  if (cond.evolution !== undefined && p.evolution !== cond.evolution) return false;
   return true;
 }
 
@@ -185,8 +180,8 @@ export function computeStats(s: GameState, p: PlayerState): DerivedStats {
     if (g.poisoned <= 0) {
       attack += card.attack;
       armor += card.armor;
-      if (card.slot === 'Limb') attack += nodeParam(p, 'serratedLimbs', 'limbAttack');
-      if (card.slot === 'Organ') armor += nodeParam(p, 'platedHide', 'armorPerOrgan');
+      // Veterancy: a Signature graft that has survived enough Strain checks unrejected hardens in place.
+      if (card.signature && g.roundsSurvived >= cfg.veterancy.signatureThreshold) attack += cfg.veterancy.signatureAttackBonus;
     }
     if (g.disabled <= 0) {
       for (const ab of card.effect.abilities ?? []) {
@@ -210,9 +205,11 @@ export function computeStats(s: GameState, p: PlayerState): DerivedStats {
       for (const g of awake) if (g !== n && g.poisoned <= 0 && adjacent(s, n.slot, g.slot)) attack += cfg.neuralLinks.attackBonus;
     }
   }
-  // Flat bonuses some nodes carry as compensation for their drawback.
-  attack += p.tempAttack + evoNum(s, p, 'attack') + nodeParam(p, 'strippedFrame', 'attack');
-  armor += p.tempArmor + evoNum(s, p, 'armor') + nodeParam(p, 'fortressFrame', 'armor');
+  // Flat bonuses from the evolved form and the equipped chip's nodes.
+  attack += p.tempAttack + evoNum(s, p, 'attack') + sumLoadoutParam(p, 'flatAttack');
+  armor += p.tempArmor + evoNum(s, p, 'armor') + sumLoadoutParam(p, 'flatArmor');
+  if (hasAnyStatus(opp)) attack += sumLoadoutParam(p, 'attackVsAfflicted');
+  if (!hasAnyStatus(p)) armor += sumLoadoutParam(p, 'armorVsHealthy');
   armor = Math.max(0, armor);
   if (evoFlag(s, p, 'armorToAttack')) {
     // Juggernaut: armor adds to attack, optionally capped (armorToAttackCap; no cap when absent).
@@ -223,9 +220,7 @@ export function computeStats(s: GameState, p: PlayerState): DerivedStats {
 }
 
 export function overclockBonus(s: GameState, p: PlayerState): number {
-  const base = s.config.strain.overclockClashBonus;
-  const evo = evoNum(s, p, 'overclockBonus');
-  return Math.max(base, evo) + nodeParam(p, 'redline', 'overclockBonus');
+  return Math.max(s.config.strain.overclockClashBonus, evoNum(s, p, 'overclockBonus'));
 }
 
 export function momentum(s: GameState, p: PlayerState): boolean {
@@ -237,26 +232,14 @@ export function momentum(s: GameState, p: PlayerState): boolean {
 // ---------- Costs ----------
 export function cardCost(s: GameState, p: PlayerState, card: CardDef): number {
   let c = card.cost;
-  if (card.type === 'graft') {
-    // Fortress Frame: grafts cost more (optionally only grafts of one slot type).
-    const only = nodeText(p, 'fortressFrame', 'costIncreaseSlot');
-    if (!only || card.slot === only) c += nodeParam(p, 'fortressFrame', 'costIncrease');
-    // Adrenal Gland: the first graft each round costs less, but never below `floor`.
-    if (p.attachedThisRound === 0 && s.round >= nodeParam(p, 'adrenalGland', 'fromRound', 0)) {
-      const before = c;
-      c -= nodeParam(p, 'adrenalGland', 'discount');
-      c = Math.max(c, Math.min(before, nodeParam(p, 'adrenalGland', 'floor', 0)));
-    }
-  }
-  if (card.type === 'toxin' && p.attachedThisRound > 0) c -= nodeParam(p, 'incubator', 'discount');
-  void s;
+  if (card.type === 'graft' && p.fever > 0) c += s.config.status.feverCostIncrease; // Fever: grafts cost more while it lasts.
+  if (card.faction === p.worldFaction) c -= sumLoadoutParam(p, 'worldCardDiscount'); // some chip nodes discount your World Faction's own cards.
   return Math.max(0, c);
 }
 
 export function graftStrain(p: PlayerState, card: CardDef): number {
-  let st = card.strain - nodeParam(p, 'strippedFrame', 'strainReduction');
-  if (hasNode(p, 'symbiote') && !p.firstGraftDone) st = nodeParam(p, 'symbiote', 'firstGraftStrain', 0);
-  return Math.max(0, st);
+  void p; // no chip node currently touches a graft's own Strain cost; kept as a function so that could change without callers noticing
+  return Math.max(0, card.strain);
 }
 
 /** Any graft may sleep: its text (including on-attach text) simply waits until it wakes. */
@@ -265,10 +248,6 @@ export function canBeDormant(card: CardDef): boolean {
 }
 
 export function slotsFor(config: GameState['config'], loadout: string[]): SlotId[] {
-  const slots = [...config.slots] as SlotId[];
-  const rm = loadout.includes('strippedFrame') ? findNode('strippedFrame')?.params.removeSlot : undefined;
-  const add = loadout.includes('fortressFrame') ? findNode('fortressFrame')?.params.addSlot : undefined;
-  const out = slots.filter((x) => x !== rm);
-  if (typeof add === 'string' && !out.includes(add as SlotId)) out.push(add as SlotId);
-  return out;
+  void loadout; // no current chip node changes slot layout; kept as a function so that could change without callers noticing
+  return [...config.slots] as SlotId[];
 }

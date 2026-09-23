@@ -38,6 +38,15 @@ export function opPoints(op: Op, cfg: Config): number {
       if (op.per) mult = op.per.what === 'grafts' ? 2 : op.per.what === 'missingHp' ? 1 : 6 / Math.max(1, op.per.div);
       return p.mod * op.amount * mult;
     }
+    case 'graftDamage':
+      return p.graftDamage * op.amount;
+    case 'status':
+      return (op.who === 'self' ? -1 : 1) * p[op.kind];
+    case 'purge':
+      // Purge defaults to clearing your own statuses (a benefit), unlike most ops which default to the opponent.
+      return (op.who === 'opp' ? -1 : 1) * p.purge;
+    case 'integrityHeal':
+      return p.integrityHeal * op.amount;
   }
 }
 
@@ -67,7 +76,7 @@ export interface BudgetReport {
 export function budgetOf(card: CardDef, cfg: Config): BudgetReport {
   const b = cfg.budget;
   const target = r2(b.strainPoints * card.strain + b.base + b.costPoints * card.cost + (card.signature ? b.signatureBonus : 0));
-  const stats = card.attack + card.armor;
+  const stats = card.attack + card.armor + (card.integrity ?? 0) * b.prices.integrity;
   const text = textPoints(card, cfg);
   const total = r2(stats + text);
   const diff = r2(total - target);
@@ -78,5 +87,6 @@ export function budgetNote(card: CardDef, cfg: Config): string {
   const r = budgetOf(card, cfg);
   const b = cfg.budget;
   const sig = card.signature ? ` + ${b.signatureBonus} signature` : '';
-  return `target ${r.target} (${b.strainPoints}x${card.strain} strain + ${b.base} + ${card.cost} cost${sig}); stats ${r.stats} (${card.attack} atk, ${card.armor} armor) + text ~${r.text} = ${r.total} (${r.diff >= 0 ? '+' : ''}${r.diff})`;
+  const integrity = card.integrity ? `, ${card.integrity} integrity` : '';
+  return `target ${r.target} (${b.strainPoints}x${card.strain} strain + ${b.base} + ${card.cost} cost${sig}); stats ${r.stats} (${card.attack} atk, ${card.armor} armor${integrity}) + text ~${r.text} = ${r.total} (${r.diff >= 0 ? '+' : ''}${r.diff})`;
 }

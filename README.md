@@ -5,7 +5,7 @@ A 2D digital prototype of a two-player card game where both players control the 
 ```
 npm install
 npm run dev          # play at http://localhost:5173
-npm test             # 217 unit tests
+npm test             # 212 unit tests
 npm run sim -- --matches 1000
 ```
 
@@ -19,8 +19,13 @@ TypeScript, React, Vite, Tailwind. No backend. Node 20+.
 |---|---|
 | **Vs Bot** | You are Player 1. The bot plays grafts while staying 2 below the Rejection threshold, uses Toxins when you are at 7+ Strain, and weights its stance toward countering your last stance. |
 | **Hotseat** | Two players, one device. A "pass the device" screen appears before **every** private decision (mulligan, stance, each action, each reaction). While it shows, the hand is not even in the page. |
-| **Decks & skill trees** | Build a 25-card deck (live validation) and pick a loadout (one node per row). Saved in `localStorage`, usable in match setup. |
+| **Decks & Chips** | Build a 25-card deck (live validation, a Build's own cards + your chosen World Faction's cards + up to 5 tech) and pick a Chip loadout (one node per row). Saved in `localStorage`, usable in match setup. |
 | **Settings** | Timers, Cycling, Dormant, Neural links, Energy banking, Stance momentum. |
+
+**Two independent axes, not one pick.** A Specimen is built from a **Build** (Predator / Parasite / Bastion — unchanged since the prototype's start) and a **World Faction** (Corrosion / Aegis / Miasma / Hollow — new), and the two answer completely different questions:
+- **Build** governs your relationship with **Strain**: it decides your card pool, and your two possible evolutions. It carries no skill tree of its own any more (see the Eleventh pass).
+- **World Faction** governs your relationship with **graft Integrity and the four status effects** (Bleed, Necrosis, Numb, Fever) — an axis deliberately orthogonal to Strain, so a Predator/Corrosion Specimen and a Bastion/Corrosion Specimen play very differently even though they share a World Faction, and a Predator/Corrosion Specimen and a Predator/Aegis Specimen play very differently even though they share a Build. It brings its own ~10-card pool (min 8 copies in a legal deck) and offers exactly **3 Chips** to choose from.
+- A **Chip** is the loadout item you actually equip: pick one of your World Faction's 3 Chips before a match, and it carries a **3-row x 2-node skill tree** — this is the only place node-picking happens now. Any Build pairs with any World Faction (12 combinations total), and each Chip's tree is independent of both.
 
 **Layout.** On a phone (portrait) the match is one stacked column. On desktop (window at least 1024 px wide) it becomes a single-screen board: your panel, the two Specimens facing each other, and the opponent's panel on one row; your hand next to the selected-card detail and the Pass / Hold / Cycle buttons underneath; the match log in a fixed column on the right. It fits without page scrolling at 1280×720, 1366×768 and 1920×1080 in every phase (mulligan, stance, actions, reaction, evolution choice).
 
@@ -41,7 +46,7 @@ It wakes when you choose (the **Wake** button on the graft, a free action that u
 
 So it is a real choice: you give up a graft's stats for a round or more, in exchange for Strain relief, a hidden card the opponent has to respect (or spend a Scanner / Sabotage on), and a burst when you flip it. It pays most for **cheap grafts** (cost 2 or less), because a sleeping cheap graft gives up little while it waits; see the Seventh pass for the measurements per faction.
 
-**Evolution is announced, and you can turn it down.** Meeting a form's condition never evolves you automatically: it always offers a choice, **evolve now or hold off** (the same or a newly-met condition is offered again at the next Strain check, so declining is never a dead end — it is "not yet", not "no"). Evolving is permanent and irreversible, so this matters: you might want to wait for the other, possibly better, form to also become available before you commit. When either Specimen evolves, a banner drops in for both players: who evolved, the form's name, the condition that was met, and every boost as a plain-language line with the numbers already adjusted for Hair Trigger / Late Bloomer ("+2 attack", "Your attacks ignore Fortify's damage halving", ...), plus a note if a skill node changed it (Surge, Hair Trigger, Late Bloomer). It stays about 14 seconds or until dismissed, and it lets clicks through to the board underneath except for its own dismiss button (so it never blocks play while it is up). Afterwards the evolved player's panel shows a glowing "★ form · boosts" badge instead of the progress bars, and the ATK / ARM chips get a ▲ when part of the number is the form's bonus. Before the match, the loadout screen lists both players' two possible forms with what each needs and gives, and the "choose your form" prompt shows the boosts of each option plus a "Hold off" button. The bot always accepts the first form it becomes eligible for and never declines.
+**Evolution is announced, and you can turn it down.** Meeting a form's condition never evolves you automatically: it always offers a choice, **evolve now or hold off** (the same or a newly-met condition is offered again at the next Strain check, so declining is never a dead end — it is "not yet", not "no"). Evolving is permanent and irreversible, so this matters: you might want to wait for the other, possibly better, form to also become available before you commit. When either Specimen evolves, a banner drops in for both players: who evolved, the form's name, the condition that was met, and every boost as a plain-language line ("+2 attack", "Your attacks ignore Fortify's damage halving", ...) — the numbers are fixed per Build, since no Chip node touches them. It stays about 14 seconds or until dismissed, and it lets clicks through to the board underneath except for its own dismiss button (so it never blocks play while it is up). Afterwards the evolved player's panel shows a glowing "★ form · boosts" badge instead of the progress bars, and the ATK / ARM chips get a ▲ when part of the number is the form's bonus. Before the match, the loadout screen lists both players' two possible forms with what each needs and gives, and the "choose your form" prompt shows the boosts of each option plus a "Hold off" button. The bot always accepts the first form it becomes eligible for and never declines.
 
 **Quality of life.**
 - **Help sheet** (`?` button or the `?` key): stances, Strain zones, Energy and draws, replacement, face-down and the shortcut list, all read from the live config so the numbers are right.
@@ -73,10 +78,10 @@ src/engine/    pure TypeScript rules engine: no UI imports, no Math.random, no c
   bot.ts       heuristic bot         runner.ts   playBotMatch / replay
   rng.ts       seeded mulberry32 (the RNG state lives in the game state)
   budget.ts    card power-budget estimator
-src/data/      config.json, cards.json, trees.json, decks.json   <- everything tunable
+src/data/      config.json, cards.json, chips.json, decks.json   <- everything tunable
 src/ui/        React screens and components
 scripts/       sim.ts (simulator), audit.ts (cards, stances, first mover, snowball, face-down), energy.ts, budget.ts, match-log.ts, diag.ts
-tests/         Vitest (rules, cards, nodes, evolutions, determinism, data integrity)
+tests/         Vitest (rules, cards, chips, evolutions, determinism, data integrity)
 docs/          balance-report*.txt: current numbers (random and adaptive loadouts, plus -forced-first/second/none), balance-audit.txt, energy-report.txt, and the *-before-*.txt earlier versions
 ```
 
@@ -97,7 +102,7 @@ Everything tunable is JSON.
 | `slots`, `slotTypes`, `adjacency` | slot layout and which slots touch |
 | `features` | `cycling`, `dormant`, `neuralLinks`, `energyBanking`, `stanceMomentum` toggles |
 | `dormant` | `quietStrain` (Strain a sleeping graft saves, 1) and `ambush` (per faction: `attack`, `armor`, `heal`, `oppStrain`, `draw` given for waking on purpose after a round asleep) |
-| `deck` | 25 cards, min 20 faction, max 5 tech, 2 copies, 1 signature |
+| `deck` | 25 cards, min 12 Build cards, min 8 World Faction cards, max 5 tech, 2 copies, 1 signature |
 | `timers` | stance / mulligan / action / reserve seconds |
 | `evolutions` | each evolution's condition metric and target, and its numeric effects |
 | `budget` | the card power-budget formula and price list |
@@ -105,9 +110,9 @@ Everything tunable is JSON.
 
 Config can also be overridden per match: `createMatch({ seed, players, config: { strain: { threshold: 12 } } })`.
 
-**`src/data/trees.json`** — each skill node has `params` (numbers the engine reads, e.g. Serrated Limbs `limbAttack`, Pressure Valve `vent`). Edit the number and, if you like, the `text`. A few nodes have optional balance params: Adrenal Gland `floor` (the discount never takes a graft below this cost), Fortress Frame `costIncreaseSlot` (the cost penalty only applies to grafts of that slot type) and `armor`, Stripped Frame `removeSlot`, `strainReduction` and `attack`, Regenerator and Mirror `period` (act only on rounds divisible by it), Feint `strain` and `damage` (its price), Surge `setTo` (Strain after evolving). The Evolution-row nodes take `conditionMult` and `bonusDelta` (Hair Trigger also `bonusFloor`). In `config.evolutions`, a `condition.metric` is one of `damageDealt`, `endRoundStrain`, `oppRejections`, `oppMaxStrain`, `strainVented`, `damageBlocked` or `round`, and an evolution's `effects` may include `attack`, `armor`, `overclockBonus`, `fortifyVent`, `healOnOppReject`, `toxinDrain`, `ignoreFortifyHalving` and `armorToAttack` (with an optional `armorToAttackCap`).
+**`src/data/chips.json`** — the only source of skill nodes now (Builds carry no tree of their own). Shape: `{ [worldFaction]: ChipDef[] }`, 3 Chips per World Faction, each with a `tree` of exactly 3 rows of exactly 2 nodes. Every node has `params` (numbers the engine reads). Almost all of the 72 nodes work by summing one of about 17 **shared, engine-implemented param keys** across a player's 3 equipped nodes (`sumLoadoutParam` in `src/engine/stats.ts`) rather than each needing its own bespoke hook: `flatAttack`, `flatArmor`, `flatIntegrity`, `graftDamageBonus`, `graftDamageReduction`, `bleedRoundsBonus`, `numbRoundsBonus`, `feverRoundsBonus`, `necrosisRoundsBonus`, `killHeal`, `killStrain` (on destroying an enemy graft), `purgeHeal`, `purgeVent` (only when Purge targets yourself), `worldCardDiscount` (only your own World Faction's cards), `attackVsAfflicted`, `armorVsHealthy` and `integrityRegen` (heals your grafts' integrity every round). `tests/data.test.ts` pins this exact key list, so a typo'd or stale param key in `chips.json` fails a test instead of silently doing nothing. In `config.evolutions`, a `condition.metric` is one of `damageDealt`, `endRoundStrain`, `oppRejections`, `oppMaxStrain`, `strainVented`, `damageBlocked` or `round`, and an evolution's `effects` may include `attack`, `armor`, `overclockBonus`, `fortifyVent`, `healOnOppReject`, `toxinDrain`, `ignoreFortifyHalving` and `armorToAttack` (with an optional `armorToAttackCap`) — these are now fixed per Build; no Chip node scales them (see the Eleventh pass).
 
-**`src/data/decks.json`** — the three starter decks (validated by tests).
+**`src/data/decks.json`** — shape `{ build: {predator, parasite, bastion}, world: {corrosion, aegis, miasma, hollow}, tech: [...] }`. A starter deck for a given Build/World Faction pairing is `build[faction] (12) + world[worldFaction] (8) + tech (5)` (`starterDeck()` in `src/engine/data.ts`), validated by tests across all 12 combinations.
 
 After changing anything, run `npm test` and `npm run sim -- --matches 3000`.
 
@@ -123,7 +128,7 @@ Add an object to `src/data/cards.json`. Every card needs:
   "budgetNote": "" }
 ```
 
-- `faction`: `predator | parasite | bastion | tech`. `type`: `graft | serum | protocol | toxin | sabotage`. `slot` (grafts only): `Head | Limb | Organ | Nerve`.
+- `faction`: `predator | parasite | bastion | tech | corrosion | aegis | miasma | hollow` (the first three plus `tech` are a Build's own pool; the last four are the four World Factions' pools — same field, wider union, so nothing else about card ownership changed). `type`: `graft | serum | protocol | toxin | sabotage`. `slot` (grafts only): `Head | Limb | Organ | Nerve`.
 - For non-graft cards, `strain` is the Strain **you** gain when you play it.
 - There is no free-text-only effect: `text` is for humans, `effect` is what the engine runs.
 
@@ -134,7 +139,7 @@ Add an object to `src/data/cards.json`. Every card needs:
 - Protocol: `effect.ops` plus `"reactsTo": ["any"]` or a list of `graft | serum | toxin | sabotage`.
 - `cond` (all optional, ANDed): `zone`, `stance`, `strainAtLeast`, `strainAtMost`, `oppStrainAtLeast`, `hpAtMost`, `minRound`.
 
-**Ops** (`who` is `self` or `opp`; defaults are sensible): `heal`, `damage` (direct, ignores armor), `strain` (add), `vent`, `draw`, `discard` (random), `energy` (gain), `drain` (opponent loses Energy), `buff` (`attack|armor`, this round, negative on `opp` = debuff), `sabotage` (`sever|poison|disable`), `reveal`, `negate`, `reflect`, `mod` (passive stat, optionally `per` graft/Strain/missing HP).
+**Ops** (`who` is `self` or `opp`; defaults are sensible): `heal`, `damage` (direct, ignores armor), `strain` (add), `vent`, `draw`, `discard` (random), `energy` (gain), `drain` (opponent loses Energy), `buff` (`attack|armor`, this round, negative on `opp` = debuff), `sabotage` (`sever|poison|disable|necrosis`), `reveal`, `negate`, `reflect`, `mod` (passive stat, optionally `per` graft/Strain/missing HP), `graftDamage` (integrity damage to one targeted graft, ignores armor), `status` (`bleed|necrosis|numb|fever`), `purge` (clears your own four statuses by default), `integrityHeal` (heals integrity on every graft you control).
 
 Adding a new *kind* of op needs one `case` in `runOps` (`src/engine/rules.ts`); everything else is data.
 
@@ -145,7 +150,7 @@ npm run budget              # prints target vs actual for every card (WARN if ou
 npm run budget -- --write   # also rewrites every card's "budgetNote"
 ```
 
-`npm test` fails if a card drifts outside the tolerance. Add the card to a deck in `decks.json` (a deck needs exactly 25 cards).
+`npm test` fails if a card drifts outside the tolerance. To make a new card show up in the default starter decks, add it under the right bucket in `decks.json` (`build[faction]`, `world[worldFaction]`, or `tech`) — every starter deck is assembled from those three buckets at `12 + 8 + 5 = 25` cards.
 
 ## Simulator
 
@@ -153,47 +158,52 @@ npm run budget -- --write   # also rewrites every card's "budgetNote"
 npm run sim -- --matches 1000
 ```
 
-Options: `--seed N` (match *i* uses seed N+i), `--jobs J` (parallel processes; results do not depend on J), `--policy random|adaptive`, `--json FILE`, and `--config X` for what-if runs: `X` is inline JSON such as `'{"specimen":{"hp":40}}'` or the path of a JSON file, deep-merged over `config.json` for that run only (nothing is written). Use a file on Windows shells, which mangle inline quotes. `--force-evolution first|second|none` makes every player evolve into that form right after round 1 (or never), to measure raw form strength without selection bias (`--force-round N` moves that from round 1 to round N; round 1 is misleading because the factions reach their forms at very different times). Section 7 of the report lists, per faction, how often each form is reached and each Evolution-row node's win rate and evolve rate.
+Options: `--seed N` (match *i* uses seed N+i), `--jobs J` (parallel processes; results do not depend on J), `--policy random|adaptive`, `--json FILE`, and `--config X` for what-if runs: `X` is inline JSON such as `'{"specimen":{"hp":40}}'` or the path of a JSON file, deep-merged over `config.json` for that run only (nothing is written). Use a file on Windows shells, which mangle inline quotes. `--force-evolution first|second|none` makes every player evolve into that form right after round 1 (or never), to measure raw form strength without selection bias (`--force-round N` moves that from round 1 to round N; round 1 is misleading because the factions reach their forms at very different times). Section 7 of the report lists, per Build, how often each form is reached and its win rate.
 
 **Sample size matters.** 1,000 matches is only about 220 games per matchup, so a single cell can be 8 points off by chance (the same seed shows Parasite vs Bastion at 41.7% with 1,000 matches, 51.6% with 6,000 and 50.9% with 20,000). Use 10,000+ before trusting the 45–55% band.
 
-It plays bot-vs-bot matches over every faction pairing and prints: win rate per matchup (score = wins + ½ draws, with W/D shown), average match length and round histogram, % of games with a rejection, evolution split per faction, stance pick rates, and each skill-node's pick rate and win rate.
+It plays bot-vs-bot matches over every one of the 12 Build/World-Faction archetypes, paired against every other archetype, and prints: Build x Build matchups, World-Faction x World-Faction matchups, each archetype's aggregate score, average match length and round histogram, % of games with a rejection, evolution split per Build, stance pick rates, and every Chip node's pick rate and win rate (grouped by World Faction -> Chip -> row).
 
-- `random` (default): each bot rolls a uniformly random loadout, so pick rates are ~33% by construction and the node **win rate** is what is informative.
+- `random` (default): each bot rolls a uniformly random Chip and a uniformly random node per row, so pick rates are ~50% by construction and the node **win rate** is what is informative.
 - `adaptive`: bots drift toward nodes that have been winning, so pick rate becomes a "what a rational pool would take" signal.
 
-Other tools: `npm run log -- --a predator --b bastion --seed 5` prints one full match in plain English; `npm run diag -- --a parasite --b predator` shows average attack/armor/grafts/Strain by round.
+Other tools: `npm run log -- --a predator --b bastion --wa corrosion --wb aegis --seed 5` prints one full match in plain English; `npm run diag -- --a parasite --b predator --wa miasma --wb hollow` shows average attack/armor/grafts/Strain by round. `--wa`/`--wb` (World Faction for each side) default to `corrosion`/`aegis` if omitted.
 
 ## Final balance numbers
 
-30,000 bot-vs-bot matches per column, fresh seeds, starter decks (`docs/balance-report.txt` and `docs/balance-report-adaptive.txt`):
+Numbers below are from the **Tenth pass** (see below): 30,000 bot-vs-bot matches per column, fresh seeds, starter decks including the expanded card pool (`docs/balance-report.txt` and `docs/balance-report-adaptive.txt`). They predate the **Eleventh pass** (World Factions and Chips) and were not regenerated at 30,000-match scale afterward — the Build-axis shape they describe (cards, evolutions) is unchanged, but every match now also has a randomly-paired World Faction and Chip in the mix, and the Eleventh pass section below has the current, smaller-sample numbers for that.
 
 | Matchup (score, draws = ½) | Random loadouts | Adaptive loadouts |
 |---|---|---|
-| Predator vs Parasite | **51.0%** / 49.0% | 51.7% / 48.3% |
-| Predator vs Bastion | **50.4%** / 49.6% | 50.1% / 49.9% |
-| Parasite vs Bastion | **49.7%** / 50.3% | 49.5% / 50.5% |
+| Predator vs Parasite | **45.3%** / 54.7% | 45.6% / 54.4% |
+| Predator vs Bastion | **48.5%** / 51.5% | 49.2% / 50.8% |
+| Parasite vs Bastion | **54.0%** / 46.0% | 55.0% / 45.0% |
 
-All three cross-faction matchups are within 1.0 point of even with random loadouts and within 1.7 with adaptive ones (the spec asked for 45–55%). Overall: Predator 50.5%, Parasite 49.6%, Bastion 50.0%. Mirror matchups sit at 50% by construction. With 30,000 matches one matchup cell has about ±0.6 points of noise (one standard deviation), so differences under about a point are not real.
+Overall: **Predator 47.9%, Parasite 50.2%, Bastion 51.9%** (random); 48.3 / 49.8 / 51.9 (adaptive). All three matchups are inside the 45–55% band, but not centered on it the way earlier passes were: Parasite is now the strongest faction against both others, and Predator the weakest, a real shift introduced by this session's card-pool expansion and evolution retunes (see "What is still weak" — I traced and fixed the worst offender, an overtuned new card, but did not fully re-center the three factions afterward). With 30,000 matches one matchup cell has about ±0.6 points of noise (one standard deviation).
 
-| Other headline numbers | Now | Before the seventh pass | Before any tuning |
-|---|---|---|---|
-| Average match length | **6.45 rounds** | 6.53 | 4.97 |
-| Matches that reach round 8 (Meltdown) | **38%** | 40% | 12% |
-| Matches ended by KO | 68% | 69% | 92% |
-| Draws (simultaneous KO) | **0.4%** | 0.2% | ~13% |
-| Games with at least one rejection | **25%** | 25% | 4.5% |
-| Skill-node win rates (27 faction nodes, random loadouts) | **47.5% – 52.6%** | 47.5% – 52.2% | 26.7% – 67.5% |
-| Evolution-row nodes (Hair Trigger / Late Bloomer / Surge) | 48.7 / 49.8 / 51.5% | 49.3 / 49.0 / 51.7% | ~50% each, but 84% vs 18% evolve rates |
-| Predator evolves into Apex / Frenzy / not at all | 49% / 36% / 16% | 54% / 27% / 19% | 82% / 0.6% / 17% |
-| Parasite: Hive Host / Leech / not at all | 33% / 45% / 22% | 34% / 44% / 22% | 1.4% / 27% / 71% |
-| Bastion: Carapace / Juggernaut / not at all | 52% / 47% / 1% | 50% / 48% / 2% | 9% / 77% / 14% |
-| Stance mean HP swing (Aggress / Adapt / Fortify) | −0.02 / +0.15 / −0.13 | −0.03 / −0.06 / +0.08 | n/a |
-| Round-1 Energy spent | **90%** | 42% | n/a |
-| Energy spent in round 8 | **67%** | 63% | n/a |
-| Signature cards played (Apex Maw / Queen Cyst / Bulwark Heart, % of games) | **44 / 35 / 48** | 4 / 18 / 6 | n/a |
+| Other headline numbers | Now (Tenth pass) | Before any tuning |
+|---|---|---|
+| Average match length | **6.66 rounds** | 4.97 |
+| Matches that reach round 8 (Meltdown) | **42%** | 12% |
+| Matches ended by KO | 66% | 92% |
+| Draws (simultaneous KO) | **0.2%** | ~13% |
+| Games with at least one rejection | **23.5%** | 4.5% |
+| Skill-node win rates (27 faction nodes, random loadouts) | **46.3% – 53.9%** | 26.7% – 67.5% |
+| Evolution-row nodes (Hair Trigger / Late Bloomer / Surge) | 49.7 / 48.8 / 51.5% | ~50% each, but 84% vs 18% evolve rates |
+| Predator evolves into Apex / Frenzy / not at all | 50% / 31% / 20% | 82% / 0.6% / 17% |
+| Parasite: Hive Host / Leech / not at all | 58% / 28% / 14% | 1.4% / 27% / 71% |
+| Bastion: Carapace / Juggernaut / not at all | 25% / 72% / 2% | 9% / 77% / 14% |
+| Stance mean HP swing (Aggress / Adapt / Fortify) | −0.03 / +0.16 / −0.13 | n/a |
+| Round-1 Energy spent | **93%** | n/a |
+| Energy spent in round 8 | **75%** | n/a |
+| Signature cards played (Apex Maw / Queen Cyst / Bulwark Heart, % of games) | **44 / 31 / 51** | n/a |
+| Signature causal value (`npm run signatures`, points) | **+1.5 / −1.4 / +0.9** | n/a |
+| Snowball: a 6+ HP lead after round 3 wins | **76.0%** | n/a |
+| First mover wins (round-1 stance tie only, coin flip) | **50.2%** | n/a |
+| Round with more Energy spent wins | **58.5%** | n/a |
 
-(Predator mirrors used to be a third draws; now under 0.1%.)
+Queen Cyst's causal value going negative (**−1.4**, was +3.9) is new and unresolved this pass — see "What is still weak".
+
 ### Fourth pass: the "still weak / still uneven" list
 
 The previous version of this README listed these as unresolved. All of them are now addressed, and the changes that touch numbers you gave me are flagged as **deviations from your spec**.
@@ -250,12 +260,12 @@ Feint's problem was that it is a guaranteed stance win (you already know the opp
 
 | Forced | Predator vs Parasite | Predator vs Bastion | Parasite vs Bastion |
 |---|---|---|---|
-| No evolution | 49.7 | 52.1 | 52.0 |
-| First form (Apex / Hive Host / Carapace) | 50.0 | 54.8 | **62.5** |
-| Second form (Frenzy / Leech / Juggernaut) | 46.8 | 52.9 | **61.1** |
+| No evolution | 47.8 | 53.0 | 48.4 |
+| First form (Apex / Hive Host / Carapace) | 47.6 | 53.1 | **57.8** |
+| Second form (Frenzy / Leech / Juggernaut) | 39.3 | 46.1 | **59.6** |
 
-- **Bastion no longer depends on evolving** (no-evolution results were 37% / 25% and are now 48% / 48%).
-- **The Parasite forms are the strongest per use**: forced, Parasite beats Bastion 61–63%. This is a deliberate part of the design ("rarer forms hit harder"): the Parasite reaches a form in 78% of games against Bastion's 98%. In the natural game they land at 50%, but if you change a form's condition, re-run all the forced runs and not just the natural one.
+- **Bastion still does not depend on evolving** (no-evolution overall score is 49.5%, close to even, per `docs/balance-report-forced-none.txt`).
+- **The Parasite forms are the strongest per use**: forced, Parasite beats Bastion 58–60% and Predator 53–61%. This is a deliberate part of the design ("rarer forms hit harder"): Leech Form is reached in only 28% of Parasite's natural games. In the natural game the matchups land inside the 45–55% band (see above), but if you change a form's condition, re-run all the forced runs and not just the natural one.
 
 ### Fifth pass: an audit beyond the faction matchups, and making face-down matter
 
@@ -395,6 +405,54 @@ Retuned this way, Bastion's "no evolution" share rises from **0.7% to about 4%**
 
 **Also this pass:** the action timer (once stances are revealed, where you actually read the board and play cards) is now **30 seconds** (was 20); the stance pick itself stays at **10 seconds**, since it is a fast, secret three-way pick, not the point where you need to sit and plan. `npm test`: 217 (was 209).
 
+### Ninth pass: protocols answering protocols, calling the opponent's stance, and graft veterancy
+
+Three new mechanics, plus the rebalance they required.
+
+**1. A Protocol can now answer a Protocol.** Reactions used to resolve exactly one level deep (you play something, the opponent may answer with one Protocol, and that always ends it). Reactions now resolve as a real stack: whoever did **not** just act gets offered a window against the newest thing on it, all the way down, until someone declines or runs out of matching cards. In practice this means the four existing "respond to any play" Protocols (Blood Scent, Counter-Strike, Static Jam, Brace for Impact) can now counter each other, not just the original play — three new engine tests cover a full chain, a decline mid-chain, and negating a Protocol without touching the play it was answering.
+
+**2. Calling the opponent's stance.** When picking your stance you can now also predict theirs: right pays **+`stances.callBonus` attack** that round, wrong costs **+`stances.callPenalty` Strain**, and not calling is free. It is judged against the *final* stance (after any Feint re-pick), not the one first shown. I tried giving the bot a "guess they repeat their last pick" heuristic so bot-vs-bot sims would exercise it; that heuristic was wrong more often than right and it injected enough extra Strain to visibly distort faction balance (Parasite spiked to 55%, Bastion dropped to 44% in one test run), so the bot never calls — this is a human-only skill lever, the same way the bot never bluffs with face-down grafts.
+
+**3. Graft veterancy.** A Signature graft that survives `veterancy.signatureThreshold` (2) Strain checks unrejected gets **+`veterancy.signatureAttackBonus` attack** permanently, shown as a ★ badge. Bastion's Hardened node (previously the weakest node in the game at 46%) now also shortens that wait by one check for its holder, tying a genuinely weak node to the new mechanic instead of just handing it another flat number.
+
+**Rebalance this pass:** adding the Protocol stack unexpectedly hit Bastion hard (its own Protocols are more defensive and less counter-capable than Predator's/Parasite's "any"-reacting pair), dropping it to 45% overall in testing. Traced with isolated sims rather than guessed at; the fix was **Carapace +2 → +3 armor** and **Juggernaut's armor-to-attack cap 1 → 2**, which brought Bastion back to 48–52% depending on seed. `npm test`: 229.
+
+### Tenth pass: graft integrity, five status effects, and a bigger card pool
+
+The biggest single addition. Full details are in "Adding a card" and the card list; this is the balance summary.
+
+**Integrity.** Every graft now has its own small HP pool (2 for cheap grafts, up to 4 for expensive or Signature ones — the two existing Signatures, Apex Maw and Bulwark Heart, were deliberately kept at 2: big stats, fragile). A new `graftDamage` op lets a card chip a *specific* targeted graft's integrity directly, bypassing armor, reusing the same enemy-slot targeting Sabotage already had; a graft destroyed this way is not a rejection, so it does not confuse rejection-based evolution conditions.
+
+**Five status effects**, all new player- or slot-level timers: **Bleed** (1 damage a round for 2 rounds), **Necrosis** (destroys the targeted graft and blocks that slot from refilling for a while — the fourth Sabotage mode alongside sever/poison/disable), **Numb** (no Protocols while it lasts), **Fever** (grafts cost 1 more while it lasts), and a Purge-style cleanse that clears all four at once (its card is named "Purifying Balm", not "Purge", since "Purge Serum" already existed as an unrelated vent card).
+
+**Evolution-conditional cards.** The existing `cond` system that already let a graft's passive check "while Overclocked" now also accepts `cond.evolution`, so any graft's ability can read "only once you've evolved into X". One such card per faction demonstrates it (Feral Instinct / Apex Stalker, Adaptive Cyst / Hive Host, Scarring Plate / Carapace).
+
+**9 new cards**, woven into the starter decks (not just added to the pool): Predator gained Rending Claw (integrity damage) and Feral Instinct; Parasite gained Hemorrhagic Spike (Bleed) and Adaptive Cyst; Bastion gained Scarring Plate and Purifying Balm; tech gained Paralytic Dart (Numb), Toxic Miasma (Fever) and Necrotic Charge (Necrosis). Card counts: 13 standard + 1 Signature per faction (was 11 + 1), 18 tech cards (was 15).
+
+**A real bug and a real balance miss, both caught by simulation, not by inspection:**
+- The bot could be offered an already-illegal Numb-blocked Protocol reaction (`reactionOptions` did not know about Numb, only `validateAction` did), which crashed the simulator outright the first time a bot actually got numbed. Fixed by filtering Numb out where the options are generated, not just where the action is validated.
+- **Necrotic Charge** (destroy + block the slot for 2 rounds, cost 3) was badly undercosted: adding one copy to Bastion's deck swung it from ~50% to ~55–58% overall in a 12,000-match check. Isolating it (removing it, then reintroducing it alone) confirmed it was the entire cause, not a side effect of anything else this pass. Cost 3 → **5**, lockout 2 rounds → **1**; that cut the swing from +6 points to roughly +2–3, which is what shows up as Bastion's residual edge in the final numbers above.
+
+`npm test`: 241 (was 229). See "What is still weak" for what this pass left unresolved.
+
+### Eleventh pass: World Factions and Chips — a second, orthogonal build axis
+
+You asked for the single Faction pick (Strain, cards, evolutions, and a 4-row skill tree of 27 nodes) to split into two independent choices: keep the Strain/cards/evolutions bundle as a renamed-in-spirit **Build**, and add a second axis — **World Faction** — built on something Strain is not, with its own loadout item. Full design is under "Two independent axes, not one pick" in Modes above; this is the implementation and balance summary.
+
+**What changed, mechanically:**
+- The 27 Build-tree nodes and the 3 shared evolution-modifier nodes (Hair Trigger, Late Bloomer, Surge) are **retired, not ported**. Builds are now exactly cards + two fixed evolutions; `evolutionTarget`/`evoEffects` read the config definition directly, with no multiplier or bonus-delta layer. `trees.json` is deleted.
+- **World Faction is built on graft Integrity and the four status effects** (Bleed, Necrosis, Numb, Fever — added last pass) rather than a new Strain-like mechanic, so it is orthogonal to a Build by construction: Strain pressure and graft durability are different resources, and a bad Strain round does not have to mean a bad Integrity round or vice versa.
+- **Chips carry the tree.** Each World Faction offers exactly 3 Chips; you equip one before a match, and its 3-row x 2-node tree is now the *only* place a skill node lives (`chips.json`, 72 nodes total across the 4 World Factions' 12 Chips). Most nodes work through ~17 shared, engine-implemented param keys (`sumLoadoutParam`) rather than one bespoke hook per node — the same "reuse a generic mechanism" approach the four status effects already used, extended to cover 72 nodes instead of hand-writing 72 special cases.
+- **40 new cards**, ~10 per World Faction, added as entirely new cards (existing Build/tech cards are untouched — no existing card was re-tagged). Deck rules became `size 25, min 12 Build cards, min 8 World Faction cards, max 5 tech` (was `min 20 faction, max 5 tech`); every starter deck is `build[faction] (12) + world[worldFaction] (8) + tech (5)`.
+- Feint (re-pick your stance after a tie) is gated by `hasNode(pl, 'feint')`, which just checks loadout-array membership — no chip grants that id any more, so the mechanic is unreachable in real play, but the reducer code is harmless and still directly tested via the test kit's `withNodes` helper.
+
+**A moderate bot-vs-bot pass across the 12 archetypes** (3,000 matches, random Build x random World Faction x random Chip x random loadout each game — not the 30,000-match exhaustive tuning the table above uses; that is follow-up work):
+- **Miasma (Numb/Fever) launched badly underpowered**: 27–29% against Corrosion and Hollow, and every one of its 18 Chip nodes scored well under 50% regardless of which node was picked — a sign the World Faction's own card pool was undertuned, not any one node. `config.status.numbRounds` and `feverRounds` went **1 -> 2** and `feverCostIncrease` **1 -> 2** (a mechanic-level buff: since the budget formula doesn't price duration, this strengthens every Numb/Fever card and node with no change to any card's budget number). That brought Miasma to 34–51% against the other three — better, not fully centered; it is still the weakest World Faction and the next thing to attack.
+- **Four new cards were badly undercosted by their raw stats** relative to their signature-tier text (`aeg_vital_ward`, `mia_plague_matriarch`, `hol_reaper_pact`, all signatures at −3.5 to −5.5 off budget, plus the non-signature `mia_choking_spore`): brought inside tolerance by raising their stats/effect amounts, not their cost, following the same `npm run budget -- --write` loop used all session.
+- **Predator vs Parasite remains the widest Build-axis gap** (~35–37%, already flagged as unresolved before this pass — see "What is still weak"). Frenzy Form's flat attack bonus went **+1 -> +2** as a first attempt (Frenzy Form is reached in about half of Predator's games but was winning only ~35% of them); a follow-up sim run showed only a small effect, so this matchup needs a dedicated pass rather than one speculative number change.
+- **Corrosion (Bleed/graftDamage) is the strongest World Faction**, beating every other World Faction including a resurgent Miasma (57–66%); not yet investigated or retuned this pass.
+- 40 new cards, all inside power-budget tolerance (`npm run budget`); 212 tests (several rewritten rather than just patched — `tests/setup.test.ts` is now the spec for the 3-argument `validateDeck`/`validateChipChoice`/`validateLoadout`, and a new `tests/data.test.ts` "Chips" suite pins the generic param-key list so a stale key in `chips.json` fails loudly).
+
 ### Findings from the first simulation pass, and what was changed
 
 The first pass found three problems.
@@ -422,14 +480,20 @@ Stripped Frame's "less Strain" is nearly worthless because Strain rarely limits 
 
 ### What is still weak
 
-- **Round 2 is a plateau**: the Energy curve is 2, 2, 3, 4, 5, 6, so round 2 has the same Energy as round 1 and only 76% of it is spent. Smoothing it (2, 3, 4, ...) would speed everything up and needs another retune.
-- **Snowballing (77%)**: a lead after round 3 mostly decides the game. Second wind softened it, not removed it.
-- **Face-down**: sleeping blindly is worth +5 for Bastion (54.7%), and Parasite gains the most from the smart rule (about +8). If playtesters find it too strong, lower the Parasite Ambush attack or Bastion's armor by 1.
-- **Signatures**: Bulwark Heart is the weakest (+1.3 points); Queen Cyst the strongest (+3.9).
-- **Forced-early Parasite forms** (above): 61–63% against Bastion when forced. Natural play is even.
-- **Parasite's Hair Trigger** is 47.2% (47.4% adaptive) and Bastion's Hair Trigger 48.1%, because their bonuses are small and Hair Trigger shrinks them. Adrenal Gland (53.1%) and Contagion (53.4%) are the highest nodes; all faction nodes are inside 47.5–52.6%.
-- **Bastion mirrors** end in a draw 2.7% of the time (equal Strain and equal damage are common with symmetric armor).
-- These are bot-vs-bot numbers, from a heuristic bot that does not bluff, plans few Ambushes and replaces conservatively. Human players will use Cycling, Hold, Dormant, replacement and Protocols differently, so a real playtest is the next test.
+- **Predator vs Parasite is the widest gap in the game (~35–37% in the Eleventh pass's mixed-World-Faction sim, was 45.3% / 54.7% in the Build-only Tenth-pass table)**, and it has moved *away* from even across multiple sessions now (it was 51.0 / 49.0 as recently as the Eighth pass). A first attempt this pass (Frenzy Form's attack bonus +1 -> +2) barely moved it. This is the single most useful thing to attack next, with a dedicated pass rather than one speculative number.
+- **Miasma (Numb/Fever) is the weakest World Faction** even after this pass's mechanic-level buff (`numbRounds`/`feverRounds` 1 -> 2, `feverCostIncrease` 1 -> 2): still 34% against Corrosion and 39–41% against Hollow, with every one of its 18 Chip nodes scoring under 50%. The pattern (every node weak regardless of which one is picked) points at the World Faction's card pool itself, not the nodes — worth a card-by-card look next, the same way Predator's Frenzy Form got one this pass.
+- **Corrosion (Bleed / direct graft-integrity damage) is the strongest World Faction**, beating all three others including the buffed Miasma (57–66%). Not yet investigated.
+- **The 12 Build x World Faction archetypes are not evenly tuned relative to each other** (Predator/Aegis and Bastion/Miasma both sat near 33–36% in the Eleventh pass's 3,000-match sample) — expected at this stage (`npm run sim` was run at a "moderate," not exhaustive, sample per match), and the next full 30,000-match-per-cell pass across all 12 archetypes (not just the 3 Builds) is the natural follow-up once the Build and World Faction axes are each closer to centered individually.
+- **Queen Cyst's causal value flipped negative** (`npm run signatures`: **−1.4 points**, was +3.9). Trimming its round-start heal from 2 to 1 earlier this session (to fix a power-budget overshoot) was a bigger nerf than intended once combined with the rest of this session's changes. Bulwark Heart (+0.9) and Apex Maw (+1.5) are fine; Queen Cyst alone needs another look — either restore some of the heal or compensate elsewhere on the card.
+- **Two of the new evolution-conditional / status cards are underperforming**: Adaptive Cyst (Parasite) scores **39.2%** and Paralytic Dart (Predator, Numb) scores **39.1%** in `docs/balance-audit.txt`'s per-card breakdown — both well below their faction averages. Evolution-conditional grafts are inherently weak early (they carry little or no base stats until the right form is reached), which the budget system does not currently price in; Paralytic Dart's Numb effect may simply be undervalued by the bot's reaction heuristic. Neither has had a dedicated retune.
+- **Necrotic Charge remains Bastion's 6th-strongest card** (55.2%, played in 60% of its games) even after this session's nerf (cost 3→5, lockout 2→1 round). It is no longer a faction-breaking outlier, but it is still a lot of card for one slot; worth watching if Bastion drifts up again.
+- **Round 2 is still a plateau**: the Energy curve is 2, 2, 3, 4, 5, 6. I tried smoothing it (shift the whole curve up one round) this session and it broke Predator vs Parasite badly (55.2%) as a side effect of tempo shifting unevenly across factions, so it was reverted rather than shipped half-broken. Worth retrying as its own isolated, dedicated pass.
+- **Snowballing (76%)**: a lead after round 3 mostly decides the game. The comeback-draw threshold was tightened this session (8 HP → 6), which measurably helped matchup balance as a side effect, but did not move this specific number.
+- **Face-down**: sleeping blindly is now worth **+7.4 for Bastion** (57.4%, up from 54.7% before this session) and Parasite gains the most from the smart rule (up to +9). This grew rather than shrank this session, likely entangled with the rest of the card-pool changes; the README's earlier advice (lower Parasite's Ambush attack or Bastion's armor by 1) still applies and has not been re-tried since the newest changes.
+- **Bastion mirrors** improved a lot on their own: draws are down to **0.5%** (was 2.7%), not something this session touched directly.
+- The weakest and strongest faction nodes are Stripped Frame (46.3%) and Heat Sink (53.9%) — a tighter band than the raw 47.5–52.6% cited in earlier passes might suggest, since the underlying game shifted around them this session.
+- These are bot-vs-bot numbers, from a heuristic bot that does not bluff, plans few Ambushes, replaces conservatively, and — as of this session — never calls the opponent's stance. Human players will use Cycling, Hold, Dormant, replacement, Protocols and stance calls differently, so a real playtest is the next test.
+
 ## Assumptions
 
 Where the rules were ambiguous I picked the simplest reading. Change them in `config.json` where a toggle exists.
@@ -455,33 +519,33 @@ Where the rules were ambiguous I picked the simplest reading. Change them in `co
 14. The Rejection zone (11+) has no Overclock bonus and no Overclock self-damage; it just ejects a graft at the check. Rejection is judged after venting, and if you have no graft nothing is ejected, but the Specimen still counts as having rejected (log line "has no graft to eject").
 15. Strain is a pool. A graft records the Strain it added when attached; ejecting it removes exactly that. **Sever does not remove Strain** (`severRemovesStrain` toggles this). Hardened ties also break toward the most recent graft.
 16. Strain-check extras (Regenerator, graft "at the Strain check" text) run after rejection and before evolution. Death is checked after Clash and after each check step. If both Specimens reach 0 HP together, the lower Strain wins, then the player who dealt more total damage; only if both are equal is it a draw (`match.koTiebreak`).
-17. "Stable extends to 6" (Dormancy) and "Overclocked starts at 7" (Redline) are the same number. Overclock bonus stacking: Frenzy sets the base bonus to 2, then Redline adds +1.
+17. The Stable/Overclocked boundary is a fixed `floor(threshold x stableMaxRatio)`; no Chip node changes it any more (the retired Dormancy/Redline nodes used to). Overclock bonus stacking: Frenzy Form sets the base bonus to 3 and nothing stacks on top of it.
 
 **Stances and Hold**
 18. Hold is a once-per-round action: no Clash damage from you this round, but **+`strain.holdArmor` armor** (this round, so it also reduces what you take) and **`strain.holdVent` Strain vented** immediately, before Heat Sink's own bonus. It does not end your turn or the round — you can still play cards, cycle or wake a graft afterward. The bot weighs the armor saved against the attack given up (more so at low HP or high Strain) rather than only using it with Heat Sink.
 19. Stance momentum: repeating last round's stance gives +1 to that stance's winning effect (Aggress bonus, Adapt damage, Fortify counter) and +1 Fortify venting.
-20. Pounce/Latch trigger on winning the stance (Aggress / Adapt). Feint is offered on ties, in initiative order, and is skipped once the tie is broken.
+20. Feint is offered on ties, in initiative order, and is skipped once the tie is broken. (Nothing currently grants the Feint node, so in practice this never triggers — see the Eleventh pass.)
 
 **Depth features**
 21. Poison "2 rounds" = the round it lands plus the next; Disable "1 round" = the round it lands. Poison zeroes a graft's printed and node-granted stats but not its text; Disable turns off its text (including passive text bonuses) but not its stats.
 22. Dormant: a face-down graft is asleep (no stats, no text, 1 less Strain until it wakes). It wakes by its owner's Wake action, Scanner Probe, or a Sabotage that targets it; waking pays the saved Strain and fires any on-attach text. Owner-chosen wake after at least one full round asleep gives that faction's Ambush for the round (Predator +5 attack; Parasite +2 attack and 1 Strain to the opponent; Bastion +1 attack, +4 armor, heal 1). A graft with on-attach text may sleep. The match log never names a face-down graft, and an ejected face-down graft is shown to everyone.
 23. Neural links: each non-poisoned Nerve graft gives +1 attack per non-poisoned graft in an adjacent slot.
 24. Energy banking carries `min(unspent, 2)` into the next round.
-25. Stripped Frame removes the Nerve slot (`removeSlot` in `trees.json`; your spec did not say which slot). Fortress Frame's Organ B accepts Organ grafts. A Stripped Frame or Fortress Frame flat bonus is added to the Specimen's derived attack / armor.
+25. Slot layout is fixed (Head, Limb A, Limb B, Organ, Nerve) — no Chip node currently changes it, though `slotsFor()` still exists as the mechanism should a future node want to (the retired Stripped Frame/Fortress Frame nodes used to remove/add a slot).
 
 **Evolution**
 26. Conditions are checked at the Strain check. "Total damage" counts every point of damage you deal to the opponent (Clash, counters, direct; Apex Stalker and Leech Form both use it, at different targets). "End a round at 9+ Strain with no rejection" uses your Strain after the check, and is 0 on a round you rejected. Hive Host's 8+ uses the opponent's peak Strain ever, before venting. Each faction's two forms always use two **different** metrics, so they are reachable in visibly different ways (enforced by a data test).
 26b. Meeting a condition never evolves you on its own: it is always offered as a choice, **evolve now or hold off** (`CHOOSE_EVOLUTION` with `id: null`). Holding off costs nothing and is not remembered between checks — if the same or another condition is still met at the next Strain check, you are asked again. A player who meets two conditions in the same check is offered both, plus hold off. The bot always accepts the first form it becomes eligible for and never holds off; a timed-out human choice does the same.
 27. Hive Host heals on every opponent rejection **after** it evolves (it triggers on the opponent's peak Strain, so it normally evolves before the first one).
-28. Hair Trigger / Late Bloomer scale targets with ceil (for example a target of 24 becomes 18 with ×0.75) and change every numeric evolved bonus by ∓1; boolean effects are unchanged. A reduction never takes a bonus below Hair Trigger's `bonusFloor` (2), so Hair Trigger turns +4 into +3 but leaves +1 and +2 alone, and it never goes below 0.
+28. Evolution conditions and evolved bonuses are fixed per Build — no Chip node scales or modifies them (the retired Hair Trigger/Late Bloomer nodes used to).
 28b. The play history records every card played (including reactions) and each Pressure Valve use, but never the name of a **cycled** card, and it hides a face-down graft's name from the opponent until it is revealed.
 
 **Bot and UI**
-29. The bot uses only public information (a sleeping graft adds nothing to the ATK / ARM it can read). It plays the highest-value graft that keeps it 2 below the threshold, uses Toxins at 7+ opponent Strain, targets the best visible enemy graft with Sabotage (face-down grafts are valued by their Strain), uses Scanner Probe whenever the opponent has a face-down graft, replaces a graft only for a clear upgrade, and always uses Feint to beat the revealed stance. It sleeps a cheap graft (cost 2 or less) on purpose 25% of the time in rounds 1-3, sleeps any graft that would not otherwise fit under its Strain margin, and wakes each sleeper as soon as it can Ambush and the saved Strain fits. It Holds when the armor and Strain relief it would get outweigh the attack it would give up (weighted more heavily at low HP or high Strain), and it always accepts an evolution choice rather than holding off.
+29. The bot uses only public information (a sleeping graft adds nothing to the ATK / ARM it can read). It plays the highest-value graft that keeps it 2 below the threshold, uses Toxins at 7+ opponent Strain, targets the best visible enemy graft with Sabotage (face-down grafts are valued by their Strain), uses Scanner Probe whenever the opponent has a face-down graft, replaces a graft only for a clear upgrade, and would always use Feint to beat the revealed stance if it were ever offered one (nothing currently grants the node). It sleeps a cheap graft (cost 2 or less) on purpose 25% of the time in rounds 1-3, sleeps any graft that would not otherwise fit under its Strain margin, and wakes each sleeper as soon as it can Ambush and the saved Strain fits. It Holds when the armor and Strain relief it would get outweigh the attack it would give up (weighted more heavily at low HP or high Strain), and it always accepts an evolution choice rather than holding off.
 30. Timers live in the UI only. The engine has no clock.
 
 ## Known limits
 
 - The engine is deterministic and replayable, but the UI does not offer a replay viewer; use the JSON export with `replay()`.
 - Bot-vs-bot spectating exists in the simulator only.
-- Rules tests use frozen card copies (`tests/fixtures/cards.json`, ids `t_…`) and the original evolution numbers (`tests/fixtures/evolutions.json`), so tuning `cards.json` or `config.evolutions` never breaks them. Node tests read node params live from `trees.json`. The data tests (`tests/data.test.ts`) check the real pool against the structure and budget rules.
+- Rules tests use frozen card copies (`tests/fixtures/cards.json`, ids `t_…`), a frozen fixture Chip (`tests/fixtures/chips.json`, id `t_chip`, covering every generic loadout-param hook) and the original evolution numbers (`tests/fixtures/evolutions.json`), so tuning `cards.json`, `chips.json` or `config.evolutions` never breaks them. The data tests (`tests/data.test.ts`) check the real card and Chip pools against structure, budget rules, and the known set of engine-implemented param keys.

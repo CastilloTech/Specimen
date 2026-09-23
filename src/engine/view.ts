@@ -11,6 +11,8 @@ export interface PublicGraft {
   cardId?: string;
   poisoned: number;
   disabled: number;
+  roundsSurvived: number;
+  integrity: number;
 }
 
 export function publicGraft(g: AttachedGraft, viewerIsOwner: boolean): PublicGraft {
@@ -23,6 +25,8 @@ export function publicGraft(g: AttachedGraft, viewerIsOwner: boolean): PublicGra
     cardId: hidden ? undefined : g.cardId,
     poisoned: hidden ? 0 : g.poisoned,
     disabled: hidden ? 0 : g.disabled,
+    roundsSurvived: g.roundsSurvived,
+    integrity: g.integrity,
   };
 }
 

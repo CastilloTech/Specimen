@@ -1,5 +1,5 @@
 import { defaultConfig } from '../engine';
-import type { Config, DeepPartial, Faction } from '../engine';
+import type { Config, DeepPartial, Faction, WorldFactionId } from '../engine';
 
 // Everything here is a per-browser convenience: reads/writes are wrapped so a blocked
 // or full localStorage never breaks the app.
@@ -58,13 +58,16 @@ export interface SavedDeck {
   id: string;
   name: string;
   faction: Faction;
+  worldFaction: WorldFactionId;
   cards: string[];
 }
 
 export const loadDecks = (): SavedDeck[] => read<SavedDeck[]>('specimen.decks', []);
 export const saveDecks = (d: SavedDeck[]) => write('specimen.decks', d);
 
-export const loadLoadouts = (): Partial<Record<Faction, string[]>> => read('specimen.loadouts', {});
-export function saveLoadout(f: Faction, loadout: string[]): void {
-  write('specimen.loadouts', { ...loadLoadouts(), [f]: loadout });
+// Chip ids are globally unique across World Factions, so one flat dict (no nesting) is enough.
+// (Older `specimen.loadouts`, keyed by Build, predates Chips and is intentionally left unread.)
+export const loadChipLoadouts = (): Partial<Record<string, string[]>> => read('specimen.chipLoadouts', {});
+export function saveChipLoadout(chipId: string, loadout: string[]): void {
+  write('specimen.chipLoadouts', { ...loadChipLoadouts(), [chipId]: loadout });
 }

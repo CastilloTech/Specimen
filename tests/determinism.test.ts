@@ -1,16 +1,21 @@
 import { describe, expect, it } from 'vitest';
-import { createMatch, playBotMatch, reduce, replay, STARTER_DECKS, treeRows, makeRng } from '../src/engine';
-import type { Faction, MatchSetup } from '../src/engine';
+import { chipRows, chipsFor, createMatch, makeRng, playBotMatch, reduce, replay, starterDeck, WORLD_FACTIONS } from '../src/engine';
+import type { Faction, MatchSetup, WorldFactionId } from '../src/engine';
 import { baseMatch, pickStances, start } from './kit';
 
-function setup(seed: number, f0: Faction = 'predator', f1: Faction = 'bastion'): MatchSetup {
+function setup(seed: number, f0: Faction = 'predator', f1: Faction = 'bastion', w0: WorldFactionId = 'corrosion', w1: WorldFactionId = 'aegis'): MatchSetup {
   const rng = makeRng(seed);
-  const load = (f: Faction) => treeRows(f).map((r) => rng.pick(r.nodes).id);
+  const load = (wf: WorldFactionId) => {
+    const chip = rng.pick(chipsFor(wf)).id;
+    return { chip, loadout: chipRows(chip).map((r) => rng.pick(r.nodes).id) };
+  };
+  const p0 = load(w0);
+  const p1 = load(w1);
   return {
     seed,
     players: [
-      { name: 'A', faction: f0, deck: STARTER_DECKS[f0], loadout: load(f0), isBot: true },
-      { name: 'B', faction: f1, deck: STARTER_DECKS[f1], loadout: load(f1), isBot: true },
+      { name: 'A', faction: f0, worldFaction: w0, chip: p0.chip, deck: starterDeck(f0, w0), loadout: p0.loadout, isBot: true },
+      { name: 'B', faction: f1, worldFaction: w1, chip: p1.chip, deck: starterDeck(f1, w1), loadout: p1.loadout, isBot: true },
     ],
   };
 }
@@ -62,7 +67,9 @@ describe('Seeded RNG and replays', () => {
     for (let seed = 100; seed < 130; seed++) {
       const f = (['predator', 'parasite', 'bastion'] as Faction[])[seed % 3];
       const g = (['predator', 'parasite', 'bastion'] as Faction[])[(seed >> 1) % 3];
-      const s = playBotMatch(setup(seed, f, g));
+      const w = WORLD_FACTIONS[(seed >> 2) % WORLD_FACTIONS.length];
+      const x = WORLD_FACTIONS[(seed >> 3) % WORLD_FACTIONS.length];
+      const s = playBotMatch(setup(seed, f, g, w, x));
       expect(s.phase).toBe('over');
       expect(s.result).toBeTruthy();
       expect(s.round).toBeLessThanOrEqual(8);

@@ -2,8 +2,8 @@
 // stance outcomes, draws and the value of playing grafts face-down.
 //   npm run audit -- --matches 6000
 import { readFileSync } from 'node:fs';
-import { botAction, canBeDormant, cardOf, createMatch, makeRng, pendingPlayers, reduce, STARTER_DECKS, treeRows } from '../src/engine';
-import type { Action, Faction, GameState, PlayerId, Stance } from '../src/engine';
+import { botAction, canBeDormant, cardOf, chipRows, chipsFor, createMatch, makeRng, pendingPlayers, reduce, starterCopies, starterDeck, WORLD_FACTIONS } from '../src/engine';
+import type { Action, Faction, GameState, PlayerId, Stance, WorldFactionId } from '../src/engine';
 
 const arg = (n: string, d: string) => {
   const i = process.argv.indexOf(`--${n}`);
@@ -23,8 +23,22 @@ const CONFIG_ARG = arg('config', '');
 const OVERRIDE = CONFIG_ARG ? JSON.parse(CONFIG_ARG.trim().startsWith('{') ? CONFIG_ARG : readFileSync(CONFIG_ARG, 'utf8')) : undefined;
 /** Play one bot-vs-bot match; the policy overrides how a side chooses face-down for grafts. */
 function play(g: number, fa: Faction, fb: Faction, policy: [FaceDownPolicy, FaceDownPolicy], onStep?: (prev: GameState, next: GameState) => void): GameState {
-  const load = (f: Faction) => treeRows(f).map((r) => rng.pick(r.nodes).id);
-  let s = createMatch({ seed: 5000 + g, config: OVERRIDE, players: [{ name: 'A', faction: fa, deck: STARTER_DECKS[fa], loadout: load(fa) }, { name: 'B', faction: fb, deck: STARTER_DECKS[fb], loadout: load(fb) }] });
+  const wa = WORLD_FACTIONS[g % WORLD_FACTIONS.length];
+  const wb = WORLD_FACTIONS[(g + 1) % WORLD_FACTIONS.length];
+  const load = (wf: WorldFactionId) => {
+    const chip = rng.pick(chipsFor(wf)).id;
+    return { chip, loadout: chipRows(chip).map((r) => rng.pick(r.nodes).id) };
+  };
+  const la = load(wa);
+  const lb = load(wb);
+  let s = createMatch({
+    seed: 5000 + g,
+    config: OVERRIDE,
+    players: [
+      { name: 'A', faction: fa, worldFaction: wa, chip: la.chip, deck: starterDeck(fa, wa), loadout: la.loadout },
+      { name: 'B', faction: fb, worldFaction: wb, chip: lb.chip, deck: starterDeck(fb, wb), loadout: lb.loadout },
+    ],
+  });
   const r = [makeRng(g * 2 + 11), makeRng(g * 2 + 12)];
   while (s.phase !== 'over') {
     const [p] = pendingPlayers(s);
@@ -142,11 +156,13 @@ console.log('\n5. CARDS: share of the faction\'s games where it was played at le
 for (const f of FACTIONS) {
   const base = factionGames[f].wins / factionGames[f].n;
   console.log(`   ${f.toUpperCase()} (faction average ${(100 * base).toFixed(1)}%)`);
-  const ids = [...new Set(STARTER_DECKS[f])];
+  // Every id ever recorded under this Build's games (their own Build cards, whichever World Faction cards they were paired
+  // with that game, and Tech), not just one fixed deck - the pairing varies game to game now.
+  const ids = [...new Set(Object.keys(cards).filter((k) => k.startsWith(`${f}:`)).map((k) => k.slice(f.length + 1)))];
   const rows = ids.map((id) => ({ id, c: cards[`${f}:${id}`] ?? { deck: 0, playedGames: 0, wins: 0, roundSum: 0, plays: 0 } })).sort((x, y) => y.c.wins / (y.c.playedGames || 1) - x.c.wins / (x.c.playedGames || 1));
   for (const { id, c } of rows) {
     const games = factionGames[f].n;
-    const copies = STARTER_DECKS[f].filter((x) => x === id).length;
+    const copies = starterCopies(id);
     if (!copies) continue;
     console.log(`     ${cardOf(id).name.padEnd(22)} x${copies}  cost ${cardOf(id).cost}  played in ${((100 * c.playedGames) / games).toFixed(0).padStart(3)}% of games  avg round ${(c.roundSum / (c.plays || 1)).toFixed(1)}  score ${c.playedGames ? ((100 * c.wins) / c.playedGames).toFixed(1) : '-'}%`);
   }
