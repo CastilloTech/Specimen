@@ -5,7 +5,7 @@ A 2D digital prototype of a two-player card game where both players control the 
 ```
 npm install
 npm run dev          # play at http://localhost:5173
-npm test             # 218 unit tests
+npm test             # 222 unit tests
 npm run sim -- --matches 1000
 ```
 
@@ -110,7 +110,7 @@ Everything tunable is JSON.
 
 Config can also be overridden per match: `createMatch({ seed, players, config: { strain: { threshold: 12 } } })`.
 
-**`src/data/chips.json`** — the only source of skill nodes now (Builds carry no tree of their own). Shape: `{ [worldFaction]: ChipDef[] }`, 3 Chips per World Faction, each with a `tree` of exactly 2 rows of exactly 2 nodes (48 nodes total). Every node has `params` (numbers the engine reads) and an optional `cond` (the same `Cond` shape cards use — `zone`, `stance`, `strainAtLeast`/`strainAtMost`, `oppStrainAtLeast`, `hpAtMost`, `minRound`, `evolution`, plus `oppHasAnyStatus`/`selfHasAnyStatus`) that gates every param on that node. A node's *shape* is its `(param key, cond)` pair, not just the key — `flatAttack` unconditional and `flatAttack` gated on `zone: 'overclocked'` are two different nodes, which is how every node stays genuinely different from about 30 param keys instead of needing a bespoke hook each. Most nodes work by summing their key across a player's 2 equipped nodes, skipping any whose `cond` isn't currently met (`sumLoadoutParam` in `src/engine/stats.ts`): `flatAttack`, `flatArmor`, `flatIntegrity`, `graftDamageBonus`, `graftDamageReduction`, `bleedRoundsBonus`, `numbRoundsBonus`, `feverRoundsBonus`, `necrosisRoundsBonus`, `poisonRoundsBonus`, `disableRoundsBonus`, `killHeal`, `killStrain`, `killIntegrityHeal`, `killDraw`, `severHeal`, `necrosisVent`, `purgeHeal`, `purgeVent`, `purgeIntegrityHeal`, `worldCardDiscount`, `firstGraftDiscount`, `replaceCostReduction`, `cycleVentBonus`, `firstDrawRoundBonus`, `veteranThresholdReduction`, `holdVentBonus` and `integrityRegen`. Two more (`perGraftAttack`, `perGraftArmor`) scale with your graft count rather than being flat, handled as a small bespoke case in `computeStats` instead of the generic sum. `tests/data.test.ts` pins this exact key list and asserts no two nodes share a `(key, cond)` pair, so a typo'd param key or an accidental duplicate both fail a test instead of silently doing nothing. In `config.evolutions`, a `condition.metric` is one of `damageDealt`, `endRoundStrain`, `oppRejections`, `oppMaxStrain`, `strainVented`, `damageBlocked` or `round`, and an evolution's `effects` may include `attack`, `armor`, `overclockBonus`, `fortifyVent`, `healOnOppReject`, `toxinDrain`, `ignoreFortifyHalving` and `armorToAttack` (with an optional `armorToAttackCap`) — these are fixed per Build; no Chip node scales them.
+**`src/data/chips.json`** — the only source of skill nodes now (Builds carry no tree of their own). Shape: `{ [worldFaction]: ChipDef[] }`, 3 Chips per World Faction, each with a `tree` of exactly 2 rows of exactly 2 nodes (48 nodes total). Every node has `params` (numbers the engine reads) and an optional `cond` (the same `Cond` shape cards use — `zone`, `stance`, `strainAtLeast`/`strainAtMost`, `oppStrainAtLeast`, `hpAtMost`, `minRound`, `evolution`, plus `oppHasAnyStatus`/`selfHasAnyStatus`) that gates every param on that node. A node's *shape* is its `(param key, cond)` pair, not just the key — `flatAttack` unconditional and `flatAttack` gated on `zone: 'overclocked'` are two different nodes, which is how every node stays genuinely different from about 30 param keys instead of needing a bespoke hook each. Most nodes work by summing their key across a player's 2 equipped nodes, skipping any whose `cond` isn't currently met (`sumLoadoutParam` in `src/engine/stats.ts`): `flatAttack`, `flatArmor`, `flatIntegrity`, `graftDamageBonus`, `graftDamageReduction`, `bleedRoundsBonus`, `numbRoundsBonus`, `feverRoundsBonus`, `necrosisRoundsBonus`, `poisonRoundsBonus`, `disableRoundsBonus`, `killHeal`, `killStrain`, `killIntegrityHeal`, `killDraw`, `severHeal`, `necrosisVent`, `purgeHeal`, `purgeVent`, `purgeIntegrityHeal`, `worldCardDiscount`, `firstGraftDiscount`, `replaceCostReduction`, `cycleVentBonus`, `firstDrawRoundBonus`, `veteranThresholdReduction`, `holdVentBonus` and `integrityRegen`. Two more (`perGraftAttack`, `perGraftArmor`) scale with your graft count rather than being flat, handled as a small bespoke case in `computeStats` instead of the generic sum. `tests/data.test.ts` pins this exact key list and asserts no two nodes share a `(key, cond)` pair, so a typo'd param key or an accidental duplicate both fail a test instead of silently doing nothing. In `config.evolutions`, a `condition.metric` is one of `damageDealt`, `damageTaken`, `hpHealed`, `endRoundStrain`, `oppRejections`, `oppMaxStrain`, `strainVented`, `damageBlocked` or `round` (no two of the six forms may share one — `tests/data.test.ts` enforces it), and an evolution's `effects` may include `attack`, `armor`, `overclockBonus`, `fortifyVent`, `healOnOppReject`, `toxinDrain`, `ignoreFortifyHalving` and `armorToAttack` (with an optional `armorToAttackCap`) — these are fixed per Build; no Chip node scales them.
 
 **`src/data/decks.json`** — shape `{ build: {predator, parasite, bastion}, world: {corrosion, aegis, miasma, hollow}, tech: [...] }`. A starter deck for a given Build/World Faction pairing is `build[faction] (12) + world[worldFaction] (8) + tech (5)` (`starterDeck()` in `src/engine/data.ts`), validated by tests across all 12 combinations.
 
@@ -522,6 +522,40 @@ You asked to clear the Fourteenth pass's whole "what is still weak" list. Three 
 
 **Net** (`npm run sim`, 10,000 matches): Builds 50.0 / 48.5 / 51.4, all cross-Build matchups in 45-55%; World Factions all 44-56%; Aegis ~51% (was ~58% mid-pass). 218 tests, budget clean, build clean.
 
+### Seventeenth pass: Parasite x Miasma, fixed with a Build trait instead of stats
+
+Parasite/Miasma had been the worst archetype for several passes (40.7%) and survived every stat lever. A per-archetype diagnostic showed why: Parasite's engine is loading Strain onto the opponent (Hive Host needs their Strain at 8+), and Miasma's 8 cards add none — they inflict Fever/Numb instead. Parasite/Miasma reached Hive Host in 60% of games (72-86% with any other World Faction) and ended with no evolution 16% of the time.
+
+**Infect** (`status.parasiteInfectStrain`, 2): whenever a Parasite gives the opponent a Bleed, Numb or Fever they did not already have, the opponent also gains 2 Strain. Refreshing a status they already have does nothing, so round-start status grafts cannot farm it. This keeps the Build on its own axis (Strain) while letting a status-heavy World Faction feed it, so each Parasite pairing plays differently: strongest with Miasma, some with Corrosion's Bleed, nothing with Aegis (which inflicts no statuses). At 1 Strain it fixed Hive Host reach (60% -> 75%) but barely moved the score (43.4%); 2 is what converted it into wins.
+
+**Net** (`npm run sim`, 10,000 matches): Parasite/Miasma **40.7% -> 48.0%**; archetype spread tightened from 40.7-55.0% to 44.0-54.5%; Builds 48.7 / 50.8 / 50.5. Also fixed: the Fever log line said grafts cost "1 more" when Fever adds 2. 221 tests.
+
+### Eighteenth pass: even evolutions, and Predator x Aegis
+
+**Evolution reach was very uneven.** Measured with a reach-curve script (every player holds off evolving, and the round each condition is first met is recorded, over a ladder of candidate thresholds), the old conditions were met by round 5 in anywhere from ~30% (Leech Form, deal 26) to 72% (Frenzy Form) of games, and Apex Stalker and Leech Form shared the same condition (damage dealt). New conditions, each met by ~40% of games by round 4, 57-67% by round 5 and 79-98% by match end, all on different metrics:
+
+| Form | Condition (was) |
+|---|---|
+| Apex Stalker | deal 18 damage (25) |
+| Frenzy Form | end a round at 7+ Strain, no rejection (6+) |
+| Hive Host | opponent Strain reaches 8 (unchanged) |
+| Leech Form | **take 15 damage** (deal 26) — new `damageTaken` metric; Parasite's comeback form |
+| Carapace | vent 5 Strain (6) |
+| Juggernaut | block 11 damage (16) |
+
+In real play each Build now splits roughly evenly between its two forms (43-54% each). With reach evened out, the forms' *strength* was then measured with `--force-evolution first|second --force-round 4` (everyone takes the same form at the same time) and it ranged 36-60%. Retuned: Apex Stalker +2 -> +4 attack, Frenzy Form +3 -> +4 attack, Carapace +5 -> +3 armor, Leech Form +3 -> +2 attack, Juggernaut gains +2 armor (cap stays +3). Forced strength now 47-53% for all six.
+
+**Predator x Aegis (44% -> 39.6% after the reach change, now 49.3%).** Most of Predator's deficit was Frenzy Form (reached in half of Predator's games but winning ~40% of them), fixed above. What was left was Aegis-specific: Predator/Aegis beat other Predators (53-56%) but lost 36-39% to armored opponents (Bastion/Aegis, Parasite/Aegis, Bastion/Hollow), because Aegis's grafts carried almost no attack (0, 0, 1, 1). Three Aegis grafts traded 1 armor for 1 attack (Scaled Plate, Bastion Shell, Warding Core; budget-neutral), which also trims the armor stacking that fed Bastion/Aegis.
+
+**Net** (`npm run sim`, 10,000 matches): Builds 50.9 / 48.6 / 50.5; World Factions 46-54% against each other; archetypes 45.8-56.0%, only Bastion/Aegis (56.0%) outside 45-55%. 222 tests.
+
+### UI pass: containment-lab look and quality of life
+
+- **Art direction.** A dim containment-lab look: culture-plate grid background, bioluminescent accent, Chakra Petch display type (Google Fonts; falls back to system fonts offline), hazard tape for Meltdown. Every card has procedural "specimen plate" art (`src/ui/components/CardArt.tsx`), drawn from its type (and a graft's slot), tinted by faction and seeded by card id, so there are no image assets to maintain. Each Specimen is the bio-engineered creature from `src/assets/specimen.jpg` (cropped from the provided concept card art) in a containment tank, mirrored for the opponent, with graft sockets placed on its anatomy (helmet, neck cables, chest, resting hand, far forearm, hip; see `POS` in `Specimen.tsx`) and grafts shown as mini plates.
+- **Readability.** Hand cards always show their full text (they used to drop it once you held more than 6); the hand is one sideways-scrolling row. Unplayable cards say why on the card. Player names no longer truncate. Hollow's colour was lightened (it was near-invisible on the dark background). A clear YOUR TURN / RESPOND? pill in the header.
+- **Quality of life.** Quick match from the menu (your last Vs Bot picks against a random bot build); setup remembers your last picks per mode, has a sticky Start bar and a Randomize opponent button; leaving a match asks first; Rematch is the primary post-match action; Integrity destructions appear in post-match key events; deck builder adds a card on click and confirms deck deletion; keyboard hints hidden on phones.
+- **Bug fixed.** The evolution announcement never auto-dismissed during a timed turn (its 3-second timer restarted on every re-render, and the turn timer re-renders every second), so it could cover the board on phones.
+
 ### Findings from the first simulation pass, and what was changed
 
 The first pass found three problems.
@@ -551,9 +585,9 @@ Stripped Frame's "less Strain" is nearly worthless because Strain rarely limits 
 
 Numbers below are from the Sixteenth pass's sample (10,000 matches) where stated, otherwise the Fifteenth pass's (8,000 for `sim`, 6,000 for `audit`; snowball was not re-measured after Clash wear got stronger). Everything here predates full 30,000-match tuning, and bullets from earlier passes that no longer apply were removed rather than left stale.
 
-- **Miasma is the weakest World Faction again (~46%)**: 43.7% vs. Corrosion and 44.9% vs. Hollow, and Parasite/Miasma is 40.7%. Repricing Fever/Numb helped (Miasma was ~42% mid-pass), but its denial kit still converts to wins worse than raw stats.
+- **Miasma is still slightly below the others**: 46.4% vs. Corrosion and 46.8% vs. Hollow (Eighteenth pass sample); Parasite/Miasma 46.3%, Predator/Miasma 48.7%. Its denial kit still converts to wins a little worse than raw stats.
 - **Rustbite's Deep Corrosion (44.6%)** trails its row partner Rusting Strike (51.7%): extra Bleed rounds are 1 damage each, which is not much.
-- **The 12 Build x World Faction archetypes are close but not perfectly even**: outside 45-55% are Parasite/Miasma (40.7%) and, at the edges, Parasite/Aegis (55.0%) and Predator/Corrosion (54.8%). The Parasite/Miasma gap has survived every stat lever tried; it likely needs a Miasma card that specifically answers Parasite's play pattern. A full 30,000-match-per-cell pass is the natural follow-up.
+- **The 12 Build x World Faction archetypes are close but not perfectly even**: after the Eighteenth pass only Bastion/Aegis (56.0%) is outside 45-55% (Aegis armor makes Juggernaut's damage-blocked condition come early), with Bastion/Corrosion (45.8%) and Predator/Corrosion (54.9%) at the edges. Predator is also the Build most likely to finish with no evolution (7.7%, vs 0.5% Parasite and 3.3% Bastion): its forms are reached on the same curve as the others by round 5, but its conditions are slightly less likely to ever be met in games that go long. A full 30,000-match-per-cell pass is the natural follow-up.
 - **Small, cheap cards are surprisingly sensitive to flat stat buffs.** Buffing three of Hollow's low-cost grafts by +1 attack each (plus its signature) overshot its target band by ~9 points in one sim run; dialing back to two of the three landed it correctly. Worth remembering before making multiple small simultaneous changes to any one World Faction or Build — verify with a sim between each change, not after all of them.
 - These are all bot-vs-bot numbers, from a heuristic bot that does not bluff, plans few Ambushes, and replaces conservatively. Human players will use Cycling, Hold, Dormant, replacement and Protocols differently, so a real playtest is the next test for all of the above.
 

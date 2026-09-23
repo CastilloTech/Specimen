@@ -3,7 +3,7 @@ import type { CardType, Faction, Stance, WorldFactionId } from '../engine';
 
 export const FACTION_META: Record<Faction, { name: string; color: string; tagline: string }> = {
   predator: { name: 'Predator', color: '#e0563a', tagline: 'Aggro. High Strain, high attack. Lives in Overclock.' },
-  parasite: { name: 'Parasite', color: '#b06be0', tagline: 'Toxins, Sabotage and disruption.' },
+  parasite: { name: 'Parasite', color: '#b06be0', tagline: 'Toxins and disruption. Infect: fresh statuses you inflict add Strain.' },
   bastion: { name: 'Bastion', color: '#4aa3c8', tagline: 'Armor grafts, venting and defense.' },
 };
 
@@ -12,7 +12,7 @@ export const WORLD_FACTION_META: Record<WorldFactionId, { name: string; color: s
   corrosion: { name: 'Corrosion', color: '#8fbf4a', tagline: 'Aggressive integrity damage and Bleed.' },
   aegis: { name: 'Aegis', color: '#c9c9c9', tagline: 'Integrity protection and regeneration.' },
   miasma: { name: 'Miasma', color: '#7a6bd6', tagline: 'Numb and Fever: battlefield denial.' },
-  hollow: { name: 'Hollow', color: '#5a5a6a', tagline: 'Necrosis and Purge: board control.' },
+  hollow: { name: 'Hollow', color: '#a79cc0', tagline: 'Necrosis and Purge: board control.' },
 };
 
 export const STANCE_META: Record<Stance, { name: string; glyph: string; beats: string; text: string }> = {

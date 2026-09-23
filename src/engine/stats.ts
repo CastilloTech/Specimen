@@ -89,6 +89,10 @@ export function metricValue(s: GameState, p: PlayerState, metric: string): numbe
       return p.stats.strainVented;
     case 'damageBlocked':
       return p.stats.damageBlocked;
+    case 'hpHealed':
+      return p.stats.hpHealed;
+    case 'damageTaken':
+      return p.stats.damageTaken;
     case 'round':
       return s.round; // used by the simulator's --force-round to make a form arrive at a fixed time
     default:

@@ -146,7 +146,7 @@ describe('Card pool', () => {
 });
 
 describe('Evolution config (live values)', () => {
-  const METRICS = ['damageDealt', 'endRoundStrain', 'oppRejections', 'oppMaxStrain', 'strainVented', 'damageBlocked'];
+  const METRICS = ['damageDealt', 'endRoundStrain', 'oppRejections', 'oppMaxStrain', 'strainVented', 'damageBlocked', 'damageTaken', 'hpHealed'];
   it('gives every faction two evolutions with a known metric and a positive target', () => {
     for (const f of FACTIONS) {
       const defs = (defaultConfig.evolutions as Record<string, { id: string; condition: { metric: string; target: number }; effects: object }[]>)[f];
@@ -164,6 +164,11 @@ describe('Evolution config (live values)', () => {
       const defs = (defaultConfig.evolutions as Record<string, { id: string; condition: { metric: string } }[]>)[f];
       expect(defs[0].condition.metric, f).not.toBe(defs[1].condition.metric);
     }
+  });
+
+  it('never gives any two of the six forms the same trigger metric, across Builds either', () => {
+    const all = FACTIONS.flatMap((f) => (defaultConfig.evolutions as Record<string, { id: string; condition: { metric: string } }[]>)[f]);
+    expect(new Set(all.map((d) => d.condition.metric)).size, all.map((d) => `${d.id}:${d.condition.metric}`).join(', ')).toBe(all.length);
   });
 });
 

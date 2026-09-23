@@ -4,7 +4,8 @@ import type { Faction, MatchSetup, WorldFactionId } from '../../engine';
 import { ChipPicker } from '../components/ChipPicker';
 import { LoadoutPicker } from '../components/LoadoutPicker';
 import { FACTION_META, PLAYER_COLORS, WORLD_FACTION_META } from '../meta';
-import { loadChipLoadouts, loadDecks, saveChipLoadout } from '../storage';
+import { loadChipLoadouts, loadDecks, loadLastSetup, saveChipLoadout, saveLastSetup } from '../storage';
+import type { LastPlayerPick } from '../storage';
 
 interface PlayerCfg {
   name: string;
@@ -28,6 +29,39 @@ const randomLoadout = (chipId: string) => {
   return chipRows(chipId).map((r) => rng.pick(r.nodes).id);
 };
 
+/** A random Build, World Faction, Chip and loadout: the bot's "surprise me" opponent. */
+function randomCfg(name: string): PlayerCfg {
+  const rng = makeRng(Math.floor(Math.random() * 2 ** 31));
+  const faction = rng.pick([...FACTIONS]);
+  const worldFaction = rng.pick([...WORLD_FACTIONS]);
+  const chip = rng.pick(chipsFor(worldFaction)).id;
+  return { name, faction, worldFaction, chip, deckId: 'starter', loadout: randomLoadout(chip) };
+}
+
+/** Restore a remembered pick if it still fits today's data (chip in that World Faction, deck still saved). */
+function fromPick(pick: LastPlayerPick | undefined, isBot: boolean): PlayerCfg | null {
+  if (!pick || !FACTIONS.includes(pick.faction) || !WORLD_FACTIONS.includes(pick.worldFaction)) return null;
+  const chip = chipsFor(pick.worldFaction).some((c) => c.id === pick.chip) ? pick.chip : defaultChip(pick.worldFaction);
+  const deckOk = pick.deckId === 'starter' || loadDecks().some((d) => d.id === pick.deckId && d.faction === pick.faction && d.worldFaction === pick.worldFaction);
+  return { name: pick.name, faction: pick.faction, worldFaction: pick.worldFaction, chip, deckId: deckOk ? pick.deckId : 'starter', loadout: isBot ? randomLoadout(chip) : defaultLoadout(chip) };
+}
+
+const deckOf = (c: PlayerCfg) => (c.deckId === 'starter' ? starterDeck(c.faction, c.worldFaction) : (loadDecks().find((d) => d.id === c.deckId)?.cards ?? starterDeck(c.faction, c.worldFaction)));
+const toPick = ({ name, faction, worldFaction, chip, deckId }: PlayerCfg): LastPlayerPick => ({ name, faction, worldFaction, chip, deckId });
+
+/** Quick match: your remembered Vs Bot picks against a random bot build, no setup screen. */
+export function quickBotSetup(): MatchSetup {
+  const me = fromPick(loadLastSetup('bot')?.[0], false) ?? makeDefaultCfg('Player 1', 'predator', 'corrosion', false);
+  const bot = randomCfg('Bot');
+  return {
+    seed: Math.floor(Math.random() * 2 ** 31),
+    players: [
+      { name: me.name || 'Player 1', faction: me.faction, worldFaction: me.worldFaction, chip: me.chip, deck: deckOf(me), loadout: me.loadout },
+      { name: bot.name, faction: bot.faction, worldFaction: bot.worldFaction, chip: bot.chip, deck: deckOf(bot), loadout: bot.loadout, isBot: true },
+    ],
+  };
+}
+
 function PlayerSetup({ idx, cfg, onChange, isBot }: { idx: 0 | 1; cfg: PlayerCfg; onChange: (c: PlayerCfg) => void; isBot?: boolean }) {
   const decks = loadDecks().filter((d) => d.faction === cfg.faction && d.worldFaction === cfg.worldFaction);
   const set = (patch: Partial<PlayerCfg>) => onChange({ ...cfg, ...patch });
@@ -38,10 +72,15 @@ function PlayerSetup({ idx, cfg, onChange, isBot }: { idx: 0 | 1; cfg: PlayerCfg
   };
   const changeChip = (chip: string) => set({ chip, loadout: isBot ? randomLoadout(chip) : defaultLoadout(chip) });
   return (
-    <section className="rounded-xl border border-line bg-panel p-3" style={{ borderLeft: `4px solid ${PLAYER_COLORS[idx]}` }}>
+    <section className="lab-panel rounded-xl border border-line p-3" style={{ borderLeft: `4px solid ${PLAYER_COLORS[idx]}` }}>
       <div className="flex items-center gap-2">
         <input value={cfg.name} onChange={(e) => set({ name: e.target.value })} maxLength={16} aria-label="Player name" className="w-40 rounded-md border border-line bg-black/30 px-2 py-1 text-sm font-bold" />
         {isBot && <span className="rounded bg-black/40 px-1.5 py-0.5 text-[10px] text-mute">bot</span>}
+        {isBot && (
+          <button onClick={() => onChange(randomCfg(cfg.name))} className="ml-auto rounded-md bg-panel2 px-3 py-1 text-xs font-semibold hover:bg-accent/20" title="Random Build, World Faction, Chip and loadout">
+            Randomize opponent
+          </button>
+        )}
       </div>
       <div className="mt-2 text-[11px] font-semibold uppercase tracking-wide text-mute">Build (Strain, cards, evolutions)</div>
       <div className="mt-1 grid grid-cols-3 gap-2">
@@ -109,11 +148,11 @@ function makeDefaultCfg(name: string, faction: Faction, worldFaction: WorldFacti
 }
 
 export function Setup({ mode, onStart, onBack }: { mode: 'hotseat' | 'bot'; onStart: (s: MatchSetup) => void; onBack: () => void }) {
-  const [p1, setP1] = useState<PlayerCfg>(() => makeDefaultCfg('Player 1', 'predator', 'corrosion', false));
-  const [p2, setP2] = useState<PlayerCfg>(() => makeDefaultCfg(mode === 'bot' ? 'Bot' : 'Player 2', 'bastion', 'aegis', mode === 'bot'));
+  const last = loadLastSetup(mode);
+  const [p1, setP1] = useState<PlayerCfg>(() => fromPick(last?.[0], false) ?? makeDefaultCfg('Player 1', 'predator', 'corrosion', false));
+  const [p2, setP2] = useState<PlayerCfg>(() => fromPick(last?.[1], mode === 'bot') ?? makeDefaultCfg(mode === 'bot' ? 'Bot' : 'Player 2', 'bastion', 'aegis', mode === 'bot'));
   const [seedText, setSeedText] = useState('');
 
-  const deckOf = (c: PlayerCfg) => (c.deckId === 'starter' ? starterDeck(c.faction, c.worldFaction) : (loadDecks().find((d) => d.id === c.deckId)?.cards ?? starterDeck(c.faction, c.worldFaction)));
   const errors = useMemo(
     () => [
       ...validateDeck(p1.faction, p1.worldFaction, deckOf(p1)).map((e) => `${p1.name}: ${e}`),
@@ -133,6 +172,7 @@ export function Setup({ mode, onStart, onBack }: { mode: 'hotseat' | 'bot'; onSt
       saveChipLoadout(p1.chip, p1.loadout);
       saveChipLoadout(p2.chip, p2.loadout);
     } else saveChipLoadout(p1.chip, p1.loadout);
+    saveLastSetup(mode, [toPick(p1), toPick(p2)]);
     onStart({
       seed,
       players: [
@@ -143,8 +183,11 @@ export function Setup({ mode, onStart, onBack }: { mode: 'hotseat' | 'bot'; onSt
   };
 
   return (
-    <div className="mx-auto flex min-h-dvh max-w-3xl flex-col gap-3 p-3">
-      <h1 className="text-xl font-bold">{mode === 'bot' ? 'Vs Bot' : 'Hotseat'} - set up</h1>
+    <div className="mx-auto flex min-h-dvh max-w-3xl flex-col gap-3 p-3 pb-0">
+      <div>
+        <div className="lab-label">Match setup · your last picks are remembered</div>
+        <h1 className="font-display text-2xl font-bold">{mode === 'bot' ? 'Vs Bot' : 'Hotseat'}</h1>
+      </div>
       <PlayerSetup idx={0} cfg={p1} onChange={setP1} />
       <PlayerSetup idx={1} cfg={p2} onChange={setP2} isBot={mode === 'bot'} />
       <label className="text-xs text-ink2">
@@ -158,11 +201,21 @@ export function Setup({ mode, onStart, onBack }: { mode: 'hotseat' | 'bot'; onSt
           ))}
         </ul>
       )}
-      <div className="mt-auto flex gap-2">
+      {/* Sticky so Start is always one click away, however far down the loadouts go. */}
+      <div className="sticky bottom-0 z-20 -mx-3 mt-auto flex gap-2 border-t border-line bg-bg/90 px-3 py-3 backdrop-blur">
         <button onClick={onBack} className="rounded-xl bg-panel2 px-4 py-3 font-semibold">
           Back
         </button>
-        <button disabled={errors.length > 0} onClick={start} className="flex-1 rounded-xl bg-accent px-4 py-3 font-bold text-black disabled:opacity-40">
+        <div className="hidden min-w-0 flex-1 items-center gap-2 text-xs text-ink2 sm:flex">
+          <span className="truncate" style={{ color: FACTION_META[p1.faction].color }}>
+            {FACTION_META[p1.faction].name}/{WORLD_FACTION_META[p1.worldFaction].name}
+          </span>
+          <span className="text-mute">vs</span>
+          <span className="truncate" style={{ color: FACTION_META[p2.faction].color }}>
+            {FACTION_META[p2.faction].name}/{WORLD_FACTION_META[p2.worldFaction].name}
+          </span>
+        </div>
+        <button disabled={errors.length > 0} onClick={start} className="flex-1 rounded-xl bg-accent px-4 py-3 font-display font-bold text-black disabled:opacity-40 sm:flex-none sm:px-8">
           Start ({defaultConfig.match.maxRounds} rounds max)
         </button>
       </div>

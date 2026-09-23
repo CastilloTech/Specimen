@@ -56,6 +56,7 @@ export function heal(s: GameState, p: PlayerId, amount: number, source: string):
   const actual = Math.max(0, Math.min(amount, s.config.specimen.hp - pl.hp));
   if (actual > 0) {
     pl.hp += actual;
+    pl.stats.hpHealed += actual;
     logMsg(s, 'heal', p, `${pl.name} heals ${actual} (${source}).`, actual);
   }
   return actual;
@@ -315,6 +316,7 @@ function applyStatus(s: GameState, ctx: OpCtx, op: Extract<Op, { op: 'status' }>
   const cfg = s.config.status;
   const caster = s.players[ctx.caster];
   const t = s.players[(op.who ?? 'opp') === 'self' ? ctx.caster : ctx.victim];
+  const hadIt = t[op.kind] > 0;
   if (op.kind === 'bleed') {
     t.bleed = Math.max(t.bleed, (op.rounds ?? cfg.bleedRounds) + sumLoadoutParam(s, caster, 'bleedRoundsBonus'));
     logMsg(s, 'strain', t.id, `${ctx.source}: ${t.name} is bleeding for ${t.bleed} round(s).`);
@@ -323,7 +325,14 @@ function applyStatus(s: GameState, ctx: OpCtx, op: Extract<Op, { op: 'status' }>
     logMsg(s, 'info', t.id, `${ctx.source}: ${t.name} is numbed and cannot play Protocols for ${t.numb} round(s).`);
   } else {
     t.fever = Math.max(t.fever, (op.rounds ?? cfg.feverRounds) + sumLoadoutParam(s, caster, 'feverRoundsBonus'));
-    logMsg(s, 'info', t.id, `${ctx.source}: ${t.name}'s grafts cost 1 more Energy for ${t.fever} round(s) (Fever).`);
+    logMsg(s, 'info', t.id, `${ctx.source}: ${t.name}'s grafts cost ${cfg.feverCostIncrease} more Energy for ${t.fever} round(s) (Fever).`);
+  }
+  // Infect (Parasite's Build trait): a fresh affliction also loads Strain, so status-heavy World Factions feed
+  // Parasite's Strain engine instead of diluting it. Refreshing a status the opponent already has does not.
+  const infect = cfg.parasiteInfectStrain;
+  if (infect > 0 && !hadIt && t.id !== caster.id && caster.faction === 'parasite') {
+    addStrain(s, t.id, infect);
+    logMsg(s, 'strain', t.id, `Infect: ${t.name} gains ${infect} Strain from the fresh affliction.`, infect);
   }
 }
 

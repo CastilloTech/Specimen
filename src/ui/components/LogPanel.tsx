@@ -3,7 +3,7 @@ import type { LogEntry } from '../../engine';
 import { PLAYER_COLORS } from '../meta';
 
 const KIND_STYLE: Partial<Record<LogEntry['kind'], string>> = {
-  round: 'mt-2 border-t border-line pt-1 font-bold text-accent',
+  round: 'mt-2 border-t border-line pt-1 font-display font-bold tracking-wider text-accent',
   reject: 'font-semibold text-red-300',
   evolve: 'font-semibold text-violet-300',
   hit: 'font-semibold text-amber-200',
@@ -21,7 +21,7 @@ export function LogPanel({ log, className = '' }: { log: LogEntry[]; className?:
     if (el) el.scrollTop = el.scrollHeight;
   }, [log.length]);
   return (
-    <div ref={ref} className={`scroll-thin overflow-y-auto rounded-xl border border-line bg-panel p-2 text-[12px] leading-snug ${className}`} role="log" aria-label="Match log">
+    <div ref={ref} className={`scroll-thin lab-panel overflow-y-auto rounded-xl border border-line p-2 text-[12px] leading-snug ${className}`} role="log" aria-label="Match log">
       {log.map((e) => (
         <div key={e.n} className={KIND_STYLE[e.kind] ?? 'text-ink2'}>
           {e.kind === 'round' ? (

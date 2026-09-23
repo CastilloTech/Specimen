@@ -43,7 +43,8 @@
     "bleedDamage": 1,
     "numbRounds": 2,
     "feverRounds": 2,
-    "feverCostIncrease": 2
+    "feverCostIncrease": 2,
+    "parasiteInfectStrain": 2
   },
   "stances": {
     "aggressBeatsAdaptBonus": 3,
@@ -106,16 +107,16 @@
       {
         "id": "apexStalker",
         "name": "Apex Stalker",
-        "text": "Deal 25+ total damage: +2 attack; your attacks ignore Fortify's damage halving.",
-        "condition": { "metric": "damageDealt", "target": 25, "label": "total damage dealt" },
-        "effects": { "attack": 2, "ignoreFortifyHalving": true }
+        "text": "Deal 18+ total damage: +4 attack; your attacks ignore Fortify's damage halving.",
+        "condition": { "metric": "damageDealt", "target": 18, "label": "total damage dealt" },
+        "effects": { "attack": 4, "ignoreFortifyHalving": true }
       },
       {
         "id": "frenzyForm",
         "name": "Frenzy Form",
-        "text": "End a round at 6+ Strain with no rejection: the Overclocked bonus becomes +3, and +3 attack.",
-        "condition": { "metric": "endRoundStrain", "target": 6, "label": "Strain at round end (no rejection)" },
-        "effects": { "overclockBonus": 3, "attack": 3 }
+        "text": "End a round at 7+ Strain with no rejection: the Overclocked bonus becomes +3, and +4 attack.",
+        "condition": { "metric": "endRoundStrain", "target": 7, "label": "Strain at round end (no rejection)" },
+        "effects": { "overclockBonus": 3, "attack": 4 }
       }
     ],
     "parasite": [
@@ -129,25 +130,25 @@
       {
         "id": "leechForm",
         "name": "Leech Form",
-        "text": "Deal 26+ total damage: your Toxins also drain 2 HP, and +3 attack.",
-        "condition": { "metric": "damageDealt", "target": 26, "label": "total damage dealt" },
-        "effects": { "toxinDrain": 2, "attack": 3 }
+        "text": "Take 15+ total damage: your Toxins also drain 2 HP, and +2 attack.",
+        "condition": { "metric": "damageTaken", "target": 15, "label": "total damage taken" },
+        "effects": { "toxinDrain": 2, "attack": 2 }
       }
     ],
     "bastion": [
       {
         "id": "carapace",
         "name": "Carapace",
-        "text": "Vent 6 total Strain: +5 armor, +2 attack; Fortify vents 3 instead of 2.",
-        "condition": { "metric": "strainVented", "target": 6, "label": "Strain vented" },
-        "effects": { "armor": 5, "attack": 2, "fortifyVent": 3 }
+        "text": "Vent 5 total Strain: +3 armor, +2 attack; Fortify vents 3 instead of 2.",
+        "condition": { "metric": "strainVented", "target": 5, "label": "Strain vented" },
+        "effects": { "armor": 3, "attack": 2, "fortifyVent": 3 }
       },
       {
         "id": "juggernaut",
         "name": "Juggernaut",
-        "text": "Block 16 total damage: your armor adds to your attack (up to +3).",
-        "condition": { "metric": "damageBlocked", "target": 16, "label": "damage blocked" },
-        "effects": { "armorToAttack": true, "armorToAttackCap": 3 }
+        "text": "Block 11 total damage: +2 armor, and your armor adds to your attack (up to +3).",
+        "condition": { "metric": "damageBlocked", "target": 11, "label": "damage blocked" },
+        "effects": { "armor": 2, "armorToAttack": true, "armorToAttackCap": 3 }
       }
     ]
   },

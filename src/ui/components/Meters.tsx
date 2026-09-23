@@ -3,12 +3,13 @@ import type { GameState, PlayerId } from '../../engine';
 
 export function HpBar({ hp, max }: { hp: number; max: number }) {
   const pct = Math.max(0, Math.min(100, (hp / max) * 100));
-  const color = pct > 50 ? 'bg-emerald-500' : pct > 25 ? 'bg-amber-500' : 'bg-red-500';
+  const color = pct > 50 ? 'from-emerald-600 to-emerald-400' : pct > 25 ? 'from-amber-600 to-amber-400' : 'from-red-700 to-red-500';
   return (
-    <div className="relative h-4 w-full overflow-hidden rounded bg-black/50" role="meter" aria-label="HP" aria-valuenow={hp} aria-valuemin={0} aria-valuemax={max}>
-      <div className={`h-full ${color} transition-all`} style={{ width: `${pct}%` }} />
-      <div className="absolute inset-0 grid place-items-center text-[11px] font-bold drop-shadow">
-        HP {hp}/{max}
+    <div className="relative h-5 w-full overflow-hidden rounded-md border border-black/60 bg-black/60" role="meter" aria-label="HP" aria-valuenow={hp} aria-valuemin={0} aria-valuemax={max}>
+      <div className={`h-full bg-linear-to-r ${color} transition-all duration-500`} style={{ width: `${pct}%` }} />
+      <div className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(90deg,transparent_0_9%,rgba(0,0,0,0.25)_9%_10%)]" />
+      <div className="absolute inset-0 grid place-items-center font-display text-[12px] font-bold tracking-wide text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.9)]">
+        HP {hp} / {max}
       </div>
     </div>
   );

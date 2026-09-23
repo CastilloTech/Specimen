@@ -65,6 +65,17 @@ export interface SavedDeck {
 export const loadDecks = (): SavedDeck[] => read<SavedDeck[]>('specimen.decks', []);
 export const saveDecks = (d: SavedDeck[]) => write('specimen.decks', d);
 
+// Last match-setup picks per mode, so Setup (and Quick match) start where you left off.
+export interface LastPlayerPick {
+  name: string;
+  faction: Faction;
+  worldFaction: WorldFactionId;
+  chip: string;
+  deckId: string;
+}
+export const loadLastSetup = (mode: 'hotseat' | 'bot'): LastPlayerPick[] | null => read<LastPlayerPick[] | null>(`specimen.lastSetup.${mode}`, null);
+export const saveLastSetup = (mode: 'hotseat' | 'bot', picks: LastPlayerPick[]) => write(`specimen.lastSetup.${mode}`, picks);
+
 // Chip ids are globally unique across World Factions, so one flat dict (no nesting) is enough.
 // (Older `specimen.loadouts`, keyed by Build, predates Chips and is intentionally left unread.)
 export const loadChipLoadouts = (): Partial<Record<string, string[]>> => read('specimen.chipLoadouts', {});

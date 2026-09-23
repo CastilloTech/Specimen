@@ -88,6 +88,31 @@ describe('Clash chips Integrity', () => {
   });
 });
 
+describe('Infect (Parasite Build trait)', () => {
+  const bleedTwice = (build: 'parasite' | 'predator') => {
+    let s = setEnergy(hands(arena(build, 'predator', ['aggress', 'aggress'], { status: { parasiteInfectStrain: 1 } }), ['t_test_bleed', 't_test_bleed']), 0, 4);
+    s = play(s, 0, 't_test_bleed');
+    const afterFirst = s.players[1].strain;
+    s = pass(s, 1);
+    s = play(s, 0, 't_test_bleed'); // refreshes a Bleed the opponent already has
+    return { afterFirst, afterSecond: s.players[1].strain, s };
+  };
+
+  it('a fresh status from a Parasite also gives the opponent Strain', () => {
+    const { afterFirst, s } = bleedTwice('parasite');
+    expect(afterFirst).toBe(1);
+    expect(s.log.some((l) => /^Infect:/.test(l.text))).toBe(true);
+  });
+
+  it('refreshing a status the opponent already has does not', () => {
+    expect(bleedTwice('parasite').afterSecond).toBe(1);
+  });
+
+  it('other Builds do not Infect', () => {
+    expect(bleedTwice('predator').afterSecond).toBe(0);
+  });
+});
+
 describe('Bleed', () => {
   it('deals 1 damage per round for the configured number of rounds, then stops', () => {
     let s = setEnergy(hands(arena(), ['t_test_bleed']), 0, 2);

@@ -1,20 +1,23 @@
 @import "tailwindcss";
 
 @theme {
-  --color-bg: #0d1110;
-  --color-panel: #151b19;
-  --color-panel2: #1c2421;
-  --color-line: #2b3532;
-  --color-ink: #eef2f0;
-  --color-ink2: #b9c3be;
-  --color-mute: #8a948f;
+  --color-bg: #090e0c;
+  --color-panel: #111a16;
+  --color-panel2: #18241f;
+  --color-line: #263a31;
+  --color-ink: #eaf3ee;
+  --color-ink2: #b3c4ba;
+  --color-mute: #82958b;
   --color-p1: #3987e5;
   --color-p2: #d95926;
   --color-stable: #2f9e6e;
   --color-oc: #e0a31a;
   --color-rej: #d03b3b;
   --color-accent: #7be0b0;
+  --color-flesh: #c65a4e;
+  --color-vein: #7a2f3a;
   --font-sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Chakra Petch", ui-monospace, "Cascadia Mono", "Segoe UI", sans-serif;
 }
 
 :root {
@@ -27,11 +30,97 @@ body,
   min-height: 100dvh;
 }
 
+/* A dim containment lab: a faint culture-plate grid under a bioluminescent glow. */
 body {
-  background: var(--color-bg);
+  background:
+    radial-gradient(ellipse 80% 55% at 50% -10%, rgba(123, 224, 176, 0.09), transparent 70%),
+    radial-gradient(ellipse 60% 50% at 50% 115%, rgba(198, 90, 78, 0.07), transparent 70%),
+    linear-gradient(rgba(123, 224, 176, 0.025) 1px, transparent 1px) 0 0 / 28px 28px,
+    linear-gradient(90deg, rgba(123, 224, 176, 0.025) 1px, transparent 1px) 0 0 / 28px 28px,
+    var(--color-bg);
+  background-attachment: fixed;
   color: var(--color-ink);
   font-family: var(--font-sans);
   -webkit-tap-highlight-color: transparent;
+}
+
+.font-display {
+  font-family: var(--font-display);
+  letter-spacing: 0.02em;
+}
+
+/* Lab-panel surface: a glassy edge highlight on the standard panel. */
+.lab-panel {
+  background: linear-gradient(180deg, rgba(123, 224, 176, 0.035), transparent 40%), var(--color-panel);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 8px 24px -16px rgba(0, 0, 0, 0.8);
+}
+
+/* Specimen-label strip used for section headings. */
+.lab-label {
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-mute);
+}
+
+/* Hazard tape for danger states (Meltdown, rejection). */
+.hazard {
+  background: repeating-linear-gradient(-45deg, rgba(224, 163, 26, 0.9) 0 6px, rgba(20, 16, 8, 0.9) 6px 12px);
+}
+
+/* Hand: one row that scrolls sideways, with snap, so every card keeps its full text. */
+.hand-row {
+  scroll-snap-type: x proximity;
+  scrollbar-width: thin;
+  scrollbar-color: #3a4642 transparent;
+}
+.hand-row > * {
+  scroll-snap-align: start;
+}
+
+@keyframes bubble-rise {
+  0% {
+    transform: translateY(0);
+    opacity: 0;
+  }
+  15% {
+    opacity: 0.7;
+  }
+  100% {
+    transform: translateY(-70px);
+    opacity: 0;
+  }
+}
+.tank-bubble {
+  animation: bubble-rise 5s linear infinite;
+}
+@keyframes breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.012);
+  }
+}
+.specimen-breathe {
+  animation: breathe 4.5s ease-in-out infinite;
+  transform-origin: 50% 60%;
+  transform-box: fill-box;
+}
+@keyframes turn-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(123, 224, 176, 0);
+  }
+  50% {
+    box-shadow: 0 0 18px 2px rgba(123, 224, 176, 0.35);
+  }
+}
+.turn-glow {
+  animation: turn-glow 2.4s ease-in-out infinite;
 }
 
 button {
@@ -145,7 +234,10 @@ button:disabled {
 }
 @media (prefers-reduced-motion: reduce) {
   .evo-banner,
-  .evo-glow {
+  .evo-glow,
+  .tank-bubble,
+  .specimen-breathe,
+  .turn-glow {
     animation: none;
   }
   .wear-flash {

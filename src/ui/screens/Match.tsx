@@ -48,11 +48,12 @@ export function MatchScreen({ setup, mode, settings, onExit, onFinish }: Props) 
   const [seenPlays, setSeenPlays] = useState(0); // plays before this index have been shown to the current viewer
   const [showHelp, setShowHelp] = useState(false);
   const [confirmingPass, setConfirmingPass] = useState(false);
+  const [confirmExit, setConfirmExit] = useState(false);
   const [evoEvents, dismissEvo] = useEvolutionEvents(state);
 
   const over = state.phase === 'over';
   const needsHandoff = mode === 'hotseat' && introSeen && actor !== undefined && viewer !== actor && !over;
-  pausedRef.current = !introSeen || needsHandoff || !!detail || !!playSheet || showHistory || showHelp;
+  pausedRef.current = !introSeen || needsHandoff || !!detail || !!playSheet || showHistory || showHelp || confirmExit;
 
   const me: PlayerId = mode === 'bot' ? 0 : (viewer ?? actor ?? 0);
   const opp = other(me);
@@ -144,14 +145,15 @@ export function MatchScreen({ setup, mode, settings, onExit, onFinish }: Props) 
     const k = e.key.toLowerCase();
     if (k === '?') return setShowHelp((v) => !v);
     if (k === 'escape') {
-      if (showHelp) setShowHelp(false);
+      if (confirmExit) setConfirmExit(false);
+      else if (showHelp) setShowHelp(false);
       else if (detail) setDetail(null);
       else if (playSheet) setPlaySheet(null);
       else if (showHistory) setShowHistory(false);
       else clearSel();
       return;
     }
-    if (!settings.keyboard || !introSeen || needsHandoff || over || !myDecision || showHelp || detail || playSheet || showHistory) return;
+    if (!settings.keyboard || !introSeen || needsHandoff || over || !myDecision || showHelp || detail || playSheet || showHistory || confirmExit) return;
     const stanceIdx = ({ a: 0, d: 1, f: 2, '1': 0, '2': 1, '3': 2 } as Record<string, number>)[k];
     if (state.phase === 'mulligan') {
       if (k === 'k') send({ type: 'MULLIGAN', player: me, mulligan: false });
@@ -189,7 +191,7 @@ export function MatchScreen({ setup, mode, settings, onExit, onFinish }: Props) 
     window.addEventListener('keydown', f);
     return () => window.removeEventListener('keydown', f);
   }, []);
-  const kbd = (k: string) => (settings.keyboard ? <span className="ml-1 rounded bg-black/30 px-1 text-[10px] font-normal text-mute">{k}</span> : null);
+  const kbd = (k: string) => (settings.keyboard ? <span className="ml-1 hidden rounded bg-black/30 px-1 text-[10px] font-normal text-mute sm:inline">{k}</span> : null);
 
   // What happened last round, from the per-round snapshots (shown while picking the next stance).
   const recap = (() => {
@@ -227,31 +229,58 @@ export function MatchScreen({ setup, mode, settings, onExit, onFinish }: Props) 
     <div className="mx-auto grid min-h-dvh max-w-6xl gap-2 p-2 lg:h-dvh lg:min-h-0 lg:max-w-[1500px] lg:grid-cols-[minmax(0,1fr)_300px] lg:overflow-hidden">
       <main className="flex min-w-0 flex-col gap-2 lg:min-h-0">
         {/* Header */}
-        <header className="flex items-center gap-2 rounded-xl border border-line bg-panel px-3 py-2">
-          <button onClick={onExit} className="rounded-md border border-line px-2 py-1 text-xs text-ink2 hover:border-mute" aria-label="Leave match">
+        <header className="lab-panel relative flex items-center gap-2 rounded-xl border border-line px-3 py-2">
+          <button onClick={() => (over ? onExit() : setConfirmExit(true))} className="rounded-md border border-line px-2 py-1 text-xs text-ink2 hover:border-mute" aria-label="Leave match" title="Leave match">
             ✕
           </button>
-          <div className="whitespace-nowrap text-sm font-bold">
-            R{Math.max(state.round, 1)}/{state.config.match.maxRounds}
-            {state.round >= state.config.match.meltdownFromRound && <span className="ml-1.5 rounded bg-red-900/60 px-1 py-0.5 text-[9px] text-red-200">MELTDOWN</span>}
+          <div className="whitespace-nowrap font-display text-sm font-bold">
+            <span className="text-mute">
+              <span className="hidden sm:inline">ROUND </span>
+              <span className="sm:hidden">R</span>
+            </span>
+            {Math.max(state.round, 1)}
+            <span className="text-mute">/{state.config.match.maxRounds}</span>
           </div>
-          {state.phase === 'actions' && !over ? (
-            <div className="flex min-w-0 items-center gap-1 text-xs" title={state.window ? 'May respond' : 'Turn'}>
+          {state.round >= state.config.match.meltdownFromRound && (
+            <span className="hazard rounded px-1.5 py-0.5 font-display text-[9px] font-bold text-black" title={`Meltdown: both Specimens gain ${state.config.match.meltdownStrain} Strain each round from round ${state.config.match.meltdownFromRound}.`}>
+              <span className="rounded-sm bg-black/80 px-1 text-amber-300">MELTDOWN</span>
+            </span>
+          )}
+          {!over && myTurn ? (
+            <span className="turn-glow rounded-md bg-accent px-2 py-0.5 font-display text-xs font-bold tracking-wider text-black">YOUR TURN</span>
+          ) : !over && reacting ? (
+            <span className="turn-glow rounded-md bg-amber-400 px-2 py-0.5 font-display text-xs font-bold tracking-wider text-black">RESPOND?</span>
+          ) : state.phase === 'actions' && !over ? (
+            <div className="flex min-w-0 items-center gap-1 text-xs text-ink2" title={state.window ? 'May respond' : 'Turn'}>
               <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: PLAYER_COLORS[state.window ? state.window.reactor : state.turn] }} />
               <span className="truncate">
                 {state.players[state.window ? state.window.reactor : state.turn].name}
-                {state.window ? ' responds?' : ''}
+                {state.window ? ' may respond' : "'s turn"}
               </span>
             </div>
           ) : (
-            <div className="truncate text-xs text-ink2">{PHASE_LABEL[state.phase]}</div>
+            <div className="truncate font-display text-xs font-semibold uppercase tracking-wider text-accent">{PHASE_LABEL[state.phase]}</div>
           )}
-          <div className="ml-auto flex items-center gap-2">
+          {confirmExit && (
+            <div className="pop absolute left-2 top-full z-40 mt-1 flex w-72 flex-col gap-2 rounded-xl border border-red-500/60 bg-panel p-3 text-xs shadow-xl" role="dialog" aria-label="Leave match?">
+              <div className="font-bold">Leave this match?</div>
+              <div className="text-ink2">The match is abandoned and can't be resumed.</div>
+              <div className="flex gap-2">
+                <button onClick={onExit} className="flex-1 rounded-lg bg-red-700 px-3 py-1.5 font-bold">
+                  Leave
+                </button>
+                <button onClick={() => setConfirmExit(false)} className="flex-1 rounded-lg bg-panel2 px-3 py-1.5 font-semibold" autoFocus>
+                  Keep playing
+                </button>
+              </div>
+            </div>
+          )}
+          <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
             {timer && <TimerBadge timer={timer} who={actor!} />}
             <button onClick={() => setShowHelp(true)} className="rounded-md border border-line px-2 py-1 text-xs text-ink2 hover:border-mute" title="Quick rules and keyboard shortcuts (?)" aria-label="Help">
               ?
             </button>
-            <button onClick={() => setShowHistory(true)} className="rounded-md border border-line px-2 py-1 text-xs text-ink2 hover:border-mute" title="Every card played this match">
+            <button onClick={() => setShowHistory(true)} className="whitespace-nowrap rounded-md border border-line px-2 py-1 text-xs text-ink2 hover:border-mute" title="Every card played this match">
               Plays{state.plays.length > 0 ? ` (${state.plays.length})` : ''}
             </button>
             <button onClick={() => setShowLog((v) => !v)} className="rounded-md border border-line px-2 py-1 text-xs text-ink2 hover:border-mute lg:hidden">
@@ -269,14 +298,27 @@ export function MatchScreen({ setup, mode, settings, onExit, onFinish }: Props) 
           </div>
 
           {/* Arena: the two Specimens face each other */}
-          <section className="relative rounded-xl border border-line bg-gradient-to-b from-panel to-bg px-1 py-2 lg:order-2 lg:flex lg:flex-col lg:justify-center lg:self-stretch" aria-label="Arena">
+          <section className="relative rounded-xl border border-line bg-[radial-gradient(ellipse_at_50%_40%,rgba(123,224,176,0.06),transparent_65%)] px-1.5 py-2 lg:order-2 lg:flex lg:flex-col lg:justify-center lg:self-stretch" aria-label="Arena">
+            <div className="mb-1 grid grid-cols-[1fr_auto_1fr] items-center gap-1 text-center">
+              <span className="lab-label truncate" style={{ color: PLAYER_COLORS[me] }}>
+                {mine.name} · you
+              </span>
+              <span className="w-8" />
+              <span className="lab-label truncate" style={{ color: PLAYER_COLORS[opp] }}>
+                {theirs.name}
+              </span>
+            </div>
             <PlayToast state={state} viewer={me} recs={toastRecs} onDismiss={() => setSeenPlays(playCount)} onOpen={setPlaySheet} />
             <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-1">
               <div>
                 <Specimen state={state} player={me} viewer={me} color={PLAYER_COLORS[me]} highlight={mineHi} onSlot={onMySlot} />
                 <StanceBadge state={state} player={me} show={stancesRevealed} />
               </div>
-              <div className="px-0.5 text-center text-[10px] font-bold text-mute">VS</div>
+              <div className="flex flex-col items-center gap-1 px-0.5">
+                <span className="h-10 w-px bg-linear-to-b from-transparent to-line" />
+                <span className="font-display text-[11px] font-bold tracking-widest text-mute">VS</span>
+                <span className="h-10 w-px bg-linear-to-t from-transparent to-line" />
+              </div>
               <div>
                 <Specimen state={state} player={opp} viewer={me} flip color={PLAYER_COLORS[opp]} highlight={oppHi} onSlot={onOppSlot} />
                 <StanceBadge state={state} player={opp} show={stancesRevealed} />
@@ -319,15 +361,18 @@ export function MatchScreen({ setup, mode, settings, onExit, onFinish }: Props) 
         ) : reacting && state.window ? (
           <ReactionPrompt state={state} me={me} onAct={(a) => send(a)} />
         ) : (
-          <section className="shrink-0 rounded-xl border border-accent/60 bg-panel p-2 lg:grid lg:grid-cols-[minmax(0,1fr)_290px] lg:gap-3" aria-label="Your hand">
-            <div>
-              <div className="flex items-center justify-between px-1 text-[11px] text-mute">
-                <span>Hand ({mine.hand.length})</span>
+          <section className={`lab-panel shrink-0 rounded-xl border p-2 lg:grid lg:grid-cols-[minmax(0,1fr)_290px] lg:gap-3 ${myTurn ? 'border-accent/70' : 'border-line'}`} aria-label="Your hand">
+            <div className="min-w-0">
+              <div className="flex items-center justify-between gap-2 px-1">
+                <span className="lab-label">
+                  Hand · {mine.hand.length}
+                  {mine.hand.length > 3 && <span className="ml-2 normal-case tracking-normal text-mute/70">scroll →</span>}
+                </span>
                 {myTurn && !cycleMode && (
-                  <span className="text-accent">{selected ? 'Double-tap to play instantly, or tap where it goes' : playableNow ? 'Tap a card to play it' : 'Nothing playable — Pass or Cycle'}</span>
+                  <span className="truncate text-[11px] text-accent">{selected ? 'Tap where it goes, or double-tap the card to play it now' : playableNow ? 'Tap a card to pick it up' : 'Nothing playable — Pass or Cycle'}</span>
                 )}
               </div>
-              <div className="scroll-thin flex max-h-[60vh] flex-wrap content-start justify-center gap-1.5 overflow-y-auto px-1 pb-2 pt-2 lg:pb-1">
+              <div className="hand-row flex gap-2.5 overflow-x-auto px-2 pb-3 pt-4">
                 {mine.hand.length === 0 && <div className="p-3 text-xs text-mute">Your hand is empty.</div>}
                 {mine.hand.map((c, i) => {
                   const d = cardOf(c.cardId);
@@ -343,7 +388,6 @@ export function MatchScreen({ setup, mode, settings, onExit, onFinish }: Props) 
                       hotkey={settings.keyboard && i < 9 ? String(i + 1) : undefined}
                       onClick={() => onHandClick(c.uid)}
                       onDoubleClick={() => onHandDoubleClick(c.uid)}
-                      size={mine.hand.length > 6 ? 'sm' : 'md'}
                     />
                   );
                 })}
@@ -469,19 +513,21 @@ function TimerBadge({ timer, who }: { timer: TimerView; who: PlayerId }) {
   const pct = Math.max(0, (timer.left / timer.limit) * 100);
   return (
     <div className="flex items-center gap-1.5 text-[11px]" aria-label="Timer">
-      <div className="h-1.5 w-14 overflow-hidden rounded bg-black/50">
+      <div className="h-1.5 w-8 overflow-hidden rounded bg-black/50 sm:w-14">
         <div className={`h-full ${timer.left <= 3 ? 'bg-red-500' : 'bg-accent'}`} style={{ width: `${pct}%` }} />
       </div>
       <span className={`w-7 font-bold tabular-nums ${timer.left <= 3 ? 'text-red-400' : ''}`}>{timer.left}s</span>
-      <span className={`tabular-nums ${timer.usingReserve ? 'font-bold text-amber-300' : 'text-mute'}`}>+{timer.reserve[who]}s</span>
+      <span className={`tabular-nums ${timer.usingReserve ? 'font-bold text-amber-300' : 'hidden text-mute sm:inline'}`} title="Reserve time left">
+        +{timer.reserve[who]}s
+      </span>
     </div>
   );
 }
 
 function PromptBox({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="pop rounded-xl border border-accent/60 bg-panel p-2.5">
-      <div className="mb-2 text-sm font-bold">{title}</div>
+    <section className="pop lab-panel rounded-xl border border-accent/60 p-2.5">
+      <div className="mb-2 font-display text-sm font-bold">{title}</div>
       {children}
     </section>
   );
@@ -514,10 +560,11 @@ function StanceButtons({ onPick, disabledStance }: { onPick: (s: Stance) => void
       {STANCES.map((st) => {
         const m = STANCE_META[st];
         return (
-          <button key={st} disabled={disabledStance === st} onClick={() => onPick(st)} className="rounded-xl border border-line bg-panel2 p-2 text-center hover:border-accent disabled:opacity-40">
-            <div className="text-2xl">{m.glyph}</div>
-            <div className="text-sm font-bold">{m.name}</div>
-            <div className="mt-0.5 text-[10px] leading-snug text-ink2">{m.text}</div>
+          <button key={st} disabled={disabledStance === st} onClick={() => onPick(st)} className="group rounded-xl border border-line bg-panel2 p-2.5 text-center transition hover:-translate-y-0.5 hover:border-accent hover:bg-accent/10 disabled:opacity-40">
+            <div className="text-3xl transition group-hover:scale-110">{m.glyph}</div>
+            <div className="mt-0.5 font-display text-base font-bold">{m.name}</div>
+            <div className="mt-0.5 text-[11px] leading-snug text-ink2">{m.text}</div>
+            <div className="mt-1 text-[10px] text-mute">loses to {STANCES.find((o) => STANCE_META[o].beats === m.name) ? STANCE_META[STANCES.find((o) => STANCE_META[o].beats === m.name)!].name : '—'}</div>
           </button>
         );
       })}
@@ -594,7 +641,7 @@ function ReactionPrompt({ state, me, onAct }: { state: GameState; me: PlayerId; 
           if (a.type !== 'REACT') return null;
           if (a.ability === 'pressureValve') {
             return (
-              <button key="valve" onClick={() => onAct(a)} className="h-[164px] w-[112px] shrink-0 rounded-lg border border-accent bg-panel2 p-2 text-left">
+              <button key="valve" onClick={() => onAct(a)} className="h-[198px] w-[132px] shrink-0 rounded-xl border border-accent bg-panel2 p-2 text-left">
                 <div className="text-[10px] font-bold uppercase text-accent">Skill</div>
                 <div className="text-sm font-bold">Pressure Valve</div>
                 <div className="mt-1 text-[10px] text-ink2">{findNode('pressureValve')?.text}</div>
@@ -663,11 +710,14 @@ function DetailSheet({ detail, state, me, myTurn, onClose, onReveal }: { detail:
 function Intro({ state, onGo, onExit }: { state: GameState; onGo: () => void; onExit: () => void }) {
   return (
     <div className="mx-auto flex min-h-dvh max-w-3xl flex-col gap-3 p-3">
-      <h1 className="text-xl font-bold">Match start — loadouts</h1>
-      <p className="text-xs text-ink2">Both players see both Chip loadouts. Seed {state.seed}.</p>
+      <div>
+        <div className="lab-label">Pre-match briefing · seed {state.seed}</div>
+        <h1 className="font-display text-2xl font-bold">Specimens and loadouts</h1>
+        <p className="text-xs text-ink2">Both players see both Chip loadouts and each Build's two evolutions.</p>
+      </div>
       <div className="grid gap-3 sm:grid-cols-2">
         {state.players.map((p) => (
-          <section key={p.id} className="rounded-xl border border-line bg-panel p-3">
+          <section key={p.id} className="lab-panel rounded-xl border border-line p-3" style={{ borderTop: `3px solid ${PLAYER_COLORS[p.id]}` }}>
             <div className="flex items-center gap-2">
               <span className="h-3 w-3 rounded-full" style={{ background: PLAYER_COLORS[p.id] }} />
               <span className="font-bold">{p.name}</span>
@@ -700,7 +750,7 @@ function Intro({ state, onGo, onExit }: { state: GameState; onGo: () => void; on
         <button onClick={onExit} className="rounded-lg bg-panel2 px-4 py-3 text-sm font-semibold">
           Back
         </button>
-        <button onClick={onGo} className="flex-1 rounded-lg bg-accent px-4 py-3 text-sm font-bold text-black">
+        <button onClick={onGo} autoFocus className="flex-1 rounded-lg bg-accent px-4 py-3 font-display text-sm font-bold text-black">
           Start match
         </button>
       </div>

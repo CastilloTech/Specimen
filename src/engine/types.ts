@@ -157,6 +157,7 @@ export interface PlayerStats {
   maxStrain: number;
   graftsPlayed: number;
   cardsPlayed: number;
+  hpHealed: number;
 }
 
 export interface PlayerState {

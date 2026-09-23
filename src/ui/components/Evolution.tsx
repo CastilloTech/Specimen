@@ -40,10 +40,14 @@ export function EvolutionBanners({ state, events, me, onDismiss }: { state: Game
 }
 
 function Banner({ state, event, me, onDismiss }: { state: GameState; event: EvoEvent; me: PlayerId; onDismiss: () => void }) {
+  // The parent hands a fresh onDismiss every render (and the match re-renders every timer tick), so keep it
+  // in a ref: otherwise the 3 s auto-dismiss restarts on each render and the banner never leaves on its own.
+  const dismissRef = useRef(onDismiss);
+  dismissRef.current = onDismiss;
   useEffect(() => {
-    const t = setTimeout(onDismiss, 3000);
+    const t = setTimeout(() => dismissRef.current(), 3500);
     return () => clearTimeout(t);
-  }, [onDismiss]);
+  }, []);
   const p = state.players[event.player];
   const def = evolutionDefs(state, p).find((d) => d.id === event.id);
   const boosts = evolutionBoosts(state, p, event.id);

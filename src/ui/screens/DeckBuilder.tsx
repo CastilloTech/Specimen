@@ -64,13 +64,14 @@ function DeckTab() {
             ))}
           </select>
         </div>
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(112px,1fr))] gap-x-2 gap-y-4 pt-2">
+        <div className="mb-1 text-[11px] text-mute">Click a card to add a copy; use − to remove one.</div>
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-x-2 gap-y-4 pt-2">
           {pool.map((c) => {
             const n = counts[c.id] ?? 0;
             const max = c.signature ? D.signatureCopies : D.maxCopies;
             return (
               <div key={c.id} className="flex flex-col items-center gap-1">
-                <CardView def={c} count={n || undefined} dim={n === 0} />
+                <CardView def={c} count={n || undefined} dim={n === 0} onClick={() => n < max && total < D.size && change(c.id, 1)} />
                 <div className="flex items-center gap-2">
                   <button onClick={() => change(c.id, -1)} disabled={n === 0} className="h-7 w-7 rounded-md bg-panel2 font-bold disabled:opacity-30" aria-label={`Remove ${c.name}`}>
                     −
@@ -147,7 +148,7 @@ function DeckTab() {
               >
                 Load
               </button>
-              <button className="rounded bg-panel2 px-2 py-0.5 text-red-300" onClick={() => persist(saved.filter((x) => x.id !== d.id))}>
+              <button className="rounded bg-panel2 px-2 py-0.5 text-red-300" onClick={() => window.confirm(`Delete "${d.name}"?`) && persist(saved.filter((x) => x.id !== d.id))}>
                 Delete
               </button>
             </li>

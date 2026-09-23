@@ -5,7 +5,7 @@ import { MatchScreen } from './ui/screens/Match';
 import { Menu } from './ui/screens/Menu';
 import { PostMatch } from './ui/screens/PostMatch';
 import { SettingsScreen } from './ui/screens/SettingsScreen';
-import { Setup } from './ui/screens/Setup';
+import { quickBotSetup, Setup } from './ui/screens/Setup';
 import { loadSettings, saveSettings } from './ui/storage';
 import type { Settings } from './ui/storage';
 
@@ -25,7 +25,7 @@ export default function App() {
 
   switch (screen.name) {
     case 'menu':
-      return <Menu onBot={() => setScreen({ name: 'setup', mode: 'bot' })} onHotseat={() => setScreen({ name: 'setup', mode: 'hotseat' })} onDecks={() => setScreen({ name: 'decks' })} onSettings={() => setScreen({ name: 'settings' })} />;
+      return <Menu onQuick={() => setScreen({ name: 'match', mode: 'bot', setup: quickBotSetup(), run: Date.now() })} onBot={() => setScreen({ name: 'setup', mode: 'bot' })} onHotseat={() => setScreen({ name: 'setup', mode: 'hotseat' })} onDecks={() => setScreen({ name: 'decks' })} onSettings={() => setScreen({ name: 'settings' })} />;
     case 'setup':
       return <Setup mode={screen.mode} onBack={menu} onStart={(setup) => setScreen({ name: 'match', mode: screen.mode, setup, run: 0 })} />;
     case 'match':

@@ -94,7 +94,7 @@ function makePlayer(id: PlayerId, setup: PlayerSetup, config: Config): PlayerSta
     tempArmor: 0,
     evolution: null,
     evolutionOptions: [],
-    stats: { damageDealt: 0, damageTaken: 0, damageBlocked: 0, strainVented: 0, rejectionsSuffered: 0, maxStrain: 0, graftsPlayed: 0, cardsPlayed: 0 },
+    stats: { damageDealt: 0, damageTaken: 0, damageBlocked: 0, strainVented: 0, rejectionsSuffered: 0, maxStrain: 0, graftsPlayed: 0, cardsPlayed: 0, hpHealed: 0 },
     bleed: 0,
     numb: 0,
     fever: 0,

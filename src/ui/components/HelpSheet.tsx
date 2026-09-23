@@ -76,6 +76,9 @@ export function HelpSheet({ state, onClose }: { state: GameState; onClose: () =>
           <li>Fever: grafts cost {c.status.feverCostIncrease} more Energy while it lasts.</li>
           <li>Necrosis: the slot a destroyed graft was in cannot be refilled for a few rounds.</li>
           <li>A Purge-style effect clears your own Bleed, Numb, Fever and Necrosis at once.</li>
+          {c.status.parasiteInfectStrain > 0 && (
+            <li>Infect (Parasite Build): whenever a Parasite gives the opponent a Bleed, Numb or Fever they did not already have, the opponent also gains {c.status.parasiteInfectStrain} Strain.</li>
+          )}
         </ul>
 
         <h3 className="mt-3 text-xs font-bold uppercase tracking-wide text-accent">Evolution</h3>
