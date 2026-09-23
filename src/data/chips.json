@@ -34,7 +34,7 @@
           "id": "corrosionRow",
           "name": "Corrosion",
           "nodes": [
-            { "id": "deepCorrosion", "name": "Deep Corrosion", "text": "Bleed you inflict lasts 2 rounds longer.", "params": { "bleedRoundsBonus": 2 } },
+            { "id": "deepCorrosion", "name": "Deep Corrosion", "text": "+2 attack while you're Overclocked.", "params": { "flatAttack": 2 }, "cond": { "zone": "overclocked" } },
             { "id": "rustingStrike", "name": "Rusting Strike", "text": "+1 integrity damage dealt (Clash wear included) from round 4 on.", "params": { "graftDamageBonus": 1 }, "cond": { "minRound": 4 } }
           ]
         },
@@ -233,7 +233,7 @@
           "name": "Dig",
           "nodes": [
             { "id": "deepGrave", "name": "Deep Grave", "text": "Necrosis you inflict lasts 1 round longer.", "params": { "necrosisRoundsBonus": 1 } },
-            { "id": "shallowGrave", "name": "Shallow Grave", "text": "Necrosis you inflict lasts 1 round longer from round 4 on.", "params": { "necrosisRoundsBonus": 1 }, "cond": { "minRound": 4 } }
+            { "id": "openGrave", "name": "Open Grave", "text": "+1 integrity damage dealt (Clash wear included) while the opponent has 6+ Strain.", "params": { "graftDamageBonus": 1 }, "cond": { "oppStrainAtLeast": 6 } }
           ]
         },
         {
@@ -264,7 +264,7 @@
           "id": "clarityRow",
           "name": "Clarity",
           "nodes": [
-            { "id": "clearMind", "name": "Clear Mind", "text": "+1 armor while the opponent has an active status.", "params": { "flatArmor": 1 }, "cond": { "oppHasAnyStatus": true } },
+            { "id": "clearMind", "name": "Clear Mind", "text": "+2 armor while the opponent has an active status.", "params": { "flatArmor": 2 }, "cond": { "oppHasAnyStatus": true } },
             { "id": "clearBody", "name": "Clear Body", "text": "+1 attack while the opponent has 6+ Strain.", "params": { "flatAttack": 1 }, "cond": { "oppStrainAtLeast": 6 } }
           ]
         }

@@ -1,17 +1,19 @@
 import { Creature } from '../components/Specimen';
-import { loadLastSetup } from '../storage';
 import { FACTION_META, WORLD_FACTION_META } from '../meta';
+import { activeSave, loadLastSetup } from '../storage';
 
 interface Props {
   onQuick: () => void;
-  onHotseat: () => void;
   onBot: () => void;
+  onSaves: () => void;
+  onGuide: () => void;
   onDecks: () => void;
   onSettings: () => void;
 }
 
-export function Menu({ onQuick, onHotseat, onBot, onDecks, onSettings }: Props) {
-  const last = loadLastSetup('bot')?.[0];
+export function Menu({ onQuick, onBot, onSaves, onGuide, onDecks, onSettings }: Props) {
+  const save = activeSave();
+  const last = loadLastSetup()?.[0];
   const btn = 'lab-panel w-full rounded-xl border border-line px-4 py-3 text-left transition hover:-translate-y-0.5 hover:border-accent';
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-3 p-4">
@@ -27,6 +29,14 @@ export function Menu({ onQuick, onHotseat, onBot, onDecks, onSettings }: Props) 
         <h1 className="font-display text-5xl font-bold tracking-[0.12em] text-accent drop-shadow-[0_0_18px_rgba(123,224,176,0.35)]">SPECIMEN</h1>
         <p className="mt-1 text-sm text-ink2">One creature. Two players. Graft it, strain it, and break theirs before yours rejects.</p>
       </div>
+      <button onClick={onSaves} className="lab-panel flex items-center gap-3 rounded-xl border border-line px-4 py-2.5 text-left transition hover:border-accent">
+        <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${save ? 'bg-accent shadow-[0_0_8px_var(--color-accent)]' : 'bg-mute'}`} />
+        <span className="min-w-0 flex-1">
+          <span className="block text-[11px] text-mute">{save ? `Save slot ${save.slot + 1}` : 'No save loaded'}</span>
+          <span className="block truncate font-display font-bold">{save ? save.meta.name : 'Create a save to keep decks and stats'}</span>
+        </span>
+        <span className="font-display text-sm font-bold text-accent">Save ›</span>
+      </button>
       <button className="w-full rounded-xl bg-accent px-4 py-4 text-left text-black shadow-[0_0_24px_-6px_rgba(123,224,176,0.6)] transition hover:brightness-110" onClick={onQuick}>
         <div className="font-display text-lg font-bold">Quick match</div>
         <div className="text-xs text-black/70">
@@ -43,9 +53,9 @@ export function Menu({ onQuick, onHotseat, onBot, onDecks, onSettings }: Props) 
         <div className="font-display font-bold">Vs Bot</div>
         <div className="text-xs text-ink2">Choose both Specimens' Build, World Faction, Chip and deck.</div>
       </button>
-      <button className={btn} onClick={onHotseat}>
-        <div className="font-display font-bold">Hotseat</div>
-        <div className="text-xs text-ink2">Two players, one device, with pass-the-device privacy screens.</div>
+      <button className={btn} onClick={onGuide}>
+        <div className="font-display font-bold">Game guide</div>
+        <div className="text-xs text-ink2">A quick, step-by-step tutorial: the goal, a round, stances, Strain, cards and evolution.</div>
       </button>
       <div className="grid grid-cols-2 gap-3">
         <button className={btn} onClick={onDecks}>
@@ -54,7 +64,7 @@ export function Menu({ onQuick, onHotseat, onBot, onDecks, onSettings }: Props) 
         </button>
         <button className={btn} onClick={onSettings}>
           <div className="font-display font-bold">Settings</div>
-          <div className="text-xs text-ink2">Timers, shortcuts, optional rules.</div>
+          <div className="text-xs text-ink2">Key bindings.</div>
         </button>
       </div>
     </div>

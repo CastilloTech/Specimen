@@ -70,16 +70,6 @@ body {
   background: repeating-linear-gradient(-45deg, rgba(224, 163, 26, 0.9) 0 6px, rgba(20, 16, 8, 0.9) 6px 12px);
 }
 
-/* Hand: one row that scrolls sideways, with snap, so every card keeps its full text. */
-.hand-row {
-  scroll-snap-type: x proximity;
-  scrollbar-width: thin;
-  scrollbar-color: #3a4642 transparent;
-}
-.hand-row > * {
-  scroll-snap-align: start;
-}
-
 @keyframes bubble-rise {
   0% {
     transform: translateY(0);

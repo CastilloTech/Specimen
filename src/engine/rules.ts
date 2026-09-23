@@ -39,12 +39,18 @@ export function logMsg(s: GameState, kind: LogKind, player: PlayerId | null, tex
 const name = (s: GameState, p: PlayerId) => s.players[p].name;
 
 // ---------- Primitive mutations ----------
+/** Draws up to n cards. A card drawn into a full hand (config.match.maxHand) is burned: discarded face-up. */
 export function drawCards(s: GameState, p: PlayerId, n: number): number {
   const pl = s.players[p];
   let drawn = 0;
   for (let i = 0; i < n; i++) {
     const c = pl.deck.pop();
     if (!c) break;
+    if (pl.hand.length >= s.config.match.maxHand) {
+      pl.discard.push(c);
+      logMsg(s, 'info', p, `${pl.name}'s hand is full (${s.config.match.maxHand}): ${cardOf(c.cardId).name} is burned.`);
+      continue;
+    }
     pl.hand.push(c);
     drawn++;
   }

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ambushText, cardCost, cardOf, chipOf, evolutionBoosts, findNode, legalPlays, other, reactionOptions, SLOT_LABEL, STANCES } from '../../engine';
+import { ambushText, cardCost, cardOf, chipOf, defaultConfig, evolutionBoosts, findNode, legalPlays, other, reactionOptions, SLOT_LABEL, STANCES } from '../../engine';
 import type { Action, CardDef, GameState, MatchSetup, PlayerId, PlayRecord, SlotId, Stance } from '../../engine';
 import { CardView } from '../components/CardView';
 import { EvolutionBanners, FormList, useEvolutionEvents } from '../components/Evolution';
@@ -9,14 +9,14 @@ import { PlayHistory, PlaySheet, PlaysStrip, PlayToast } from '../components/Pla
 import { PlayerPanel } from '../components/PlayerPanel';
 import { Specimen } from '../components/Specimen';
 import { FACTION_META, PLAYER_COLORS, STANCE_META, WORLD_FACTION_META } from '../meta';
-import type { Settings } from '../storage';
-import { configPatch } from '../storage';
+import { matchRecord } from '../stats';
+import type { KeyAction, Settings } from '../storage';
+import { keyLabel, recordMatch } from '../storage';
 import { useMatch } from '../useMatch';
 import type { TimerView } from '../useMatch';
 
 interface Props {
   setup: MatchSetup;
-  mode: 'hotseat' | 'bot';
   settings: Settings;
   onExit: () => void;
   onFinish: (s: GameState, setup: MatchSetup) => void;
@@ -32,12 +32,10 @@ interface Detail {
 
 const PHASE_LABEL = { mulligan: 'Mulligan', stance: 'Choose stance', feint: 'Feint', actions: 'Actions', evolve: 'Evolution', over: 'Match over' } as const;
 
-export function MatchScreen({ setup, mode, settings, onExit, onFinish }: Props) {
-  const fullSetup = useMemo<MatchSetup>(() => ({ ...setup, config: { ...configPatch(settings), ...setup.config } }), [setup, settings]);
+export function MatchScreen({ setup, settings, onExit, onFinish }: Props) {
   const pausedRef = useRef(false);
-  const { state, dispatch, error, actor, timer } = useMatch(fullSetup, settings.timers, pausedRef);
+  const { state, dispatch, error, actor, timer } = useMatch(setup, defaultConfig.timers.enabled, pausedRef);
   const [introSeen, setIntroSeen] = useState(false);
-  const [viewer, setViewer] = useState<PlayerId | null>(mode === 'bot' ? 0 : null);
   const [selected, setSelected] = useState<string | null>(null);
   const [faceDown, setFaceDown] = useState(false);
   const [cycleMode, setCycleMode] = useState(false);
@@ -52,21 +50,29 @@ export function MatchScreen({ setup, mode, settings, onExit, onFinish }: Props) 
   const [evoEvents, dismissEvo] = useEvolutionEvents(state);
 
   const over = state.phase === 'over';
-  const needsHandoff = mode === 'hotseat' && introSeen && actor !== undefined && viewer !== actor && !over;
-  pausedRef.current = !introSeen || needsHandoff || !!detail || !!playSheet || showHistory || showHelp || confirmExit;
+  pausedRef.current = !introSeen || !!detail || !!playSheet || showHistory || showHelp || confirmExit;
 
-  const me: PlayerId = mode === 'bot' ? 0 : (viewer ?? actor ?? 0);
+  // You are always Player 1; the bot is Player 2.
+  const me: PlayerId = 0;
   const opp = other(me);
+
+  // A finished match goes into the loaded save's history (once), for the stats and tips on the Save screen.
+  const recorded = useRef(false);
+  useEffect(() => {
+    if (!over || recorded.current) return;
+    recorded.current = true;
+    recordMatch(matchRecord(state, me));
+  }, [over, state, me]);
 
   // The opponent's plays you have not been shown yet pop up as real cards for a few seconds.
   const unseenOpp = useMemo(() => state.plays.slice(seenPlays).filter((r) => r.player === opp), [state.plays, seenPlays, opp]);
   const toastRecs = unseenOpp.slice(-3);
   const playCount = state.plays.length;
   useEffect(() => {
-    if (!introSeen || needsHandoff || unseenOpp.length === 0) return;
+    if (!introSeen || unseenOpp.length === 0) return;
     const t = setTimeout(() => setSeenPlays(playCount), 3000);
     return () => clearTimeout(t);
-  }, [introSeen, needsHandoff, unseenOpp.length, playCount]);
+  }, [introSeen, unseenOpp.length, playCount]);
   const mine = state.players[me];
   const theirs = state.players[opp];
   const myDecision = actor === me;
@@ -134,16 +140,18 @@ export function MatchScreen({ setup, mode, settings, onExit, onFinish }: Props) 
   const historyLen = state.history.length;
   useEffect(() => setConfirmingPass(false), [historyLen, state.phase]);
   const passClick = () => {
-    if (settings.confirmPass && playableNow && !confirmingPass) return setConfirmingPass(true);
+    if (playableNow && !confirmingPass) return setConfirmingPass(true);
     send({ type: 'PASS', player: me });
   };
+  const binds = settings.keybinds;
+  const isKey = (k: string, action: KeyAction) => binds[action].toLowerCase() === k;
   const keyRef = useRef<(e: KeyboardEvent) => void>(() => {});
   keyRef.current = (e) => {
     const el = e.target as HTMLElement | null;
     if (el && ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)) return;
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     const k = e.key.toLowerCase();
-    if (k === '?') return setShowHelp((v) => !v);
+    if (isKey(k, 'help')) return setShowHelp((v) => !v);
     if (k === 'escape') {
       if (confirmExit) setConfirmExit(false);
       else if (showHelp) setShowHelp(false);
@@ -153,31 +161,32 @@ export function MatchScreen({ setup, mode, settings, onExit, onFinish }: Props) 
       else clearSel();
       return;
     }
-    if (!settings.keyboard || !introSeen || needsHandoff || over || !myDecision || showHelp || detail || playSheet || showHistory || confirmExit) return;
-    const stanceIdx = ({ a: 0, d: 1, f: 2, '1': 0, '2': 1, '3': 2 } as Record<string, number>)[k];
+    if (!introSeen || over || !myDecision || showHelp || detail || playSheet || showHistory || confirmExit) return;
+    // Stance keys (and 1 / 2 / 3, always) pick a stance; the first two also take the 1st / 2nd evolution option.
+    const stanceIdx = isKey(k, 'aggress') || k === '1' ? 0 : isKey(k, 'adapt') || k === '2' ? 1 : isKey(k, 'fortify') || k === '3' ? 2 : undefined;
     if (state.phase === 'mulligan') {
-      if (k === 'k') send({ type: 'MULLIGAN', player: me, mulligan: false });
-      if (k === 'm') send({ type: 'MULLIGAN', player: me, mulligan: true });
+      if (isKey(k, 'keep')) send({ type: 'MULLIGAN', player: me, mulligan: false });
+      if (isKey(k, 'mulligan')) send({ type: 'MULLIGAN', player: me, mulligan: true });
     } else if (state.phase === 'stance') {
       if (stanceIdx !== undefined) send({ type: 'PICK_STANCE', player: me, stance: STANCES[stanceIdx] });
     } else if (state.phase === 'feint') {
       if (stanceIdx !== undefined) send({ type: 'FEINT', player: me, stance: STANCES[stanceIdx] });
-      if (k === 'k') send({ type: 'FEINT', player: me, stance: null });
+      if (isKey(k, 'keep')) send({ type: 'FEINT', player: me, stance: null });
     } else if (state.phase === 'evolve') {
-      if (k === 'k') send({ type: 'CHOOSE_EVOLUTION', player: me, id: null });
+      if (isKey(k, 'keep')) send({ type: 'CHOOSE_EVOLUTION', player: me, id: null });
       else if (stanceIdx !== undefined) {
         const opt = mine.evolutionOptions[stanceIdx];
         if (opt) send({ type: 'CHOOSE_EVOLUTION', player: me, id: opt });
       }
     } else if (reacting) {
-      if (k === 'n') send({ type: 'DECLINE_REACTION', player: me });
+      if (isKey(k, 'noResponse')) send({ type: 'DECLINE_REACTION', player: me });
     } else if (myTurn) {
-      if (k === 'p') passClick();
-      else if (k === 'h' && !mine.hold) send({ type: 'HOLD', player: me });
-      else if (k === 'c' && settings.cycling && mine.cycledThisRound < state.config.cycle.perRound && mine.hand.length) {
+      if (isKey(k, 'pass')) passClick();
+      else if (isKey(k, 'hold') && !mine.hold) send({ type: 'HOLD', player: me });
+      else if (isKey(k, 'cycle') && state.config.features.cycling && mine.cycledThisRound < state.config.cycle.perRound && mine.hand.length) {
         setCycleMode((v) => !v);
         setSelected(null);
-      } else if (k === 'w') {
+      } else if (isKey(k, 'wake')) {
         const g = mine.grafts.find((x) => x.faceDown);
         if (g) send({ type: 'REVEAL', player: me, slot: g.slot });
       } else if (/^[1-9]$/.test(k)) {
@@ -191,7 +200,7 @@ export function MatchScreen({ setup, mode, settings, onExit, onFinish }: Props) 
     window.addEventListener('keydown', f);
     return () => window.removeEventListener('keydown', f);
   }, []);
-  const kbd = (k: string) => (settings.keyboard ? <span className="ml-1 hidden rounded bg-black/30 px-1 text-[10px] font-normal text-mute sm:inline">{k}</span> : null);
+  const kbd = (action: KeyAction) => <span className="ml-1 hidden rounded bg-black/30 px-1 text-[10px] font-normal text-mute sm:inline">{keyLabel(binds[action])}</span>;
 
   // What happened last round, from the per-round snapshots (shown while picking the next stance).
   const recap = (() => {
@@ -210,20 +219,6 @@ export function MatchScreen({ setup, mode, settings, onExit, onFinish }: Props) 
 
   // ----- Overlays that replace the board entirely -----
   if (!introSeen) return <Intro state={state} onGo={() => setIntroSeen(true)} onExit={onExit} />;
-  if (needsHandoff && actor !== undefined) {
-    return (
-      <PassDevice
-        name={state.players[actor].name}
-        color={PLAYER_COLORS[actor]}
-        why={state.phase === 'mulligan' ? 'decide on your mulligan' : state.phase === 'stance' ? 'pick your secret stance' : state.phase === 'feint' ? 'decide on a Feint' : state.phase === 'evolve' ? 'evolve, or hold off' : state.window ? 'respond to a play' : 'take your turn'}
-        recent={state.log.slice(-3).map((l) => l.text)}
-        onReady={() => {
-          setViewer(actor);
-          clearSel();
-        }}
-      />
-    );
-  }
 
   return (
     <div className="mx-auto grid min-h-dvh max-w-6xl gap-2 p-2 lg:h-dvh lg:min-h-0 lg:max-w-[1500px] lg:grid-cols-[minmax(0,1fr)_300px] lg:overflow-hidden">
@@ -311,7 +306,8 @@ export function MatchScreen({ setup, mode, settings, onExit, onFinish }: Props) 
             <PlayToast state={state} viewer={me} recs={toastRecs} onDismiss={() => setSeenPlays(playCount)} onOpen={setPlaySheet} />
             <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-1">
               <div>
-                <Specimen state={state} player={me} viewer={me} color={PLAYER_COLORS[me]} highlight={mineHi} onSlot={onMySlot} />
+                {/* The artwork's creature looks to its left, so the left-hand (your) tank is mirrored: both face the middle. */}
+                <Specimen state={state} player={me} viewer={me} flip color={PLAYER_COLORS[me]} highlight={mineHi} onSlot={onMySlot} />
                 <StanceBadge state={state} player={me} show={stancesRevealed} />
               </div>
               <div className="flex flex-col items-center gap-1 px-0.5">
@@ -320,7 +316,7 @@ export function MatchScreen({ setup, mode, settings, onExit, onFinish }: Props) 
                 <span className="h-10 w-px bg-linear-to-t from-transparent to-line" />
               </div>
               <div>
-                <Specimen state={state} player={opp} viewer={me} flip color={PLAYER_COLORS[opp]} highlight={oppHi} onSlot={onOppSlot} />
+                <Specimen state={state} player={opp} viewer={me} color={PLAYER_COLORS[opp]} highlight={oppHi} onSlot={onOppSlot} />
                 <StanceBadge state={state} player={opp} show={stancesRevealed} />
               </div>
             </div>
@@ -339,14 +335,14 @@ export function MatchScreen({ setup, mode, settings, onExit, onFinish }: Props) 
           <div className="pop rounded-xl border border-accent bg-panel p-3 text-center">
             <div className="text-lg font-bold text-accent">{state.result?.winner === null ? 'Draw' : `${state.players[state.result!.winner].name} wins`}</div>
             <div className="text-xs text-ink2">{state.result?.reason}</div>
-            <button onClick={() => onFinish(state, fullSetup)} className="mt-2 rounded-lg bg-accent px-4 py-2 text-sm font-bold text-black">
+            <button onClick={() => onFinish(state, setup)} className="mt-2 rounded-lg bg-accent px-4 py-2 text-sm font-bold text-black">
               See results
             </button>
           </div>
         ) : !myDecision ? (
           <div className="rounded-xl border border-line bg-panel p-3 text-center text-sm text-ink2">{actor === undefined ? `${(botOf(state) ?? theirs).name} is thinking…` : 'Waiting…'}</div>
         ) : state.phase === 'mulligan' ? (
-          <MulliganPrompt hand={mine.hand} onKeep={() => send({ type: 'MULLIGAN', player: me, mulligan: false })} onMull={() => send({ type: 'MULLIGAN', player: me, mulligan: true })} state={state} me={me} seconds={settings.timers ? state.config.timers.mulliganSeconds : null} />
+          <MulliganPrompt hand={mine.hand} onKeep={() => send({ type: 'MULLIGAN', player: me, mulligan: false })} onMull={() => send({ type: 'MULLIGAN', player: me, mulligan: true })} state={state} me={me} seconds={defaultConfig.timers.enabled ? state.config.timers.mulliganSeconds : null} />
         ) : state.phase === 'stance' ? (
           <StancePrompt state={state} me={me} onPick={(st) => send({ type: 'PICK_STANCE', player: me, stance: st })} />
         ) : state.phase === 'feint' ? (
@@ -361,18 +357,18 @@ export function MatchScreen({ setup, mode, settings, onExit, onFinish }: Props) 
         ) : reacting && state.window ? (
           <ReactionPrompt state={state} me={me} onAct={(a) => send(a)} />
         ) : (
-          <section className={`lab-panel shrink-0 rounded-xl border p-2 lg:grid lg:grid-cols-[minmax(0,1fr)_290px] lg:gap-3 ${myTurn ? 'border-accent/70' : 'border-line'}`} aria-label="Your hand">
+          <section className={`lab-panel shrink-0 rounded-xl border p-2 ${myTurn ? 'border-accent/70' : 'border-line'}`} aria-label="Your hand">
             <div className="min-w-0">
               <div className="flex items-center justify-between gap-2 px-1">
                 <span className="lab-label">
-                  Hand · {mine.hand.length}
-                  {mine.hand.length > 3 && <span className="ml-2 normal-case tracking-normal text-mute/70">scroll →</span>}
+                  Hand · {mine.hand.length}/{state.config.match.maxHand}
+                  {mine.hand.length >= state.config.match.maxHand && <span className="ml-2 normal-case tracking-normal text-amber-300">full: new draws are burned</span>}
                 </span>
                 {myTurn && !cycleMode && (
                   <span className="truncate text-[11px] text-accent">{selected ? 'Tap where it goes, or double-tap the card to play it now' : playableNow ? 'Tap a card to pick it up' : 'Nothing playable — Pass or Cycle'}</span>
                 )}
               </div>
-              <div className="hand-row flex gap-2.5 overflow-x-auto px-2 pb-3 pt-4">
+              <div className="scroll-thin flex flex-wrap content-start justify-center gap-2.5 overflow-y-auto px-2 pb-3 pt-4 lg:max-h-[48vh]">
                 {mine.hand.length === 0 && <div className="p-3 text-xs text-mute">Your hand is empty.</div>}
                 {mine.hand.map((c, i) => {
                   const d = cardOf(c.cardId);
@@ -385,15 +381,16 @@ export function MatchScreen({ setup, mode, settings, onExit, onFinish }: Props) 
                       selected={selected === c.uid}
                       dim={dim}
                       reason={dim ? (whyNot(c.uid) ?? undefined) : undefined}
-                      hotkey={settings.keyboard && i < 9 ? String(i + 1) : undefined}
+                      hotkey={i < 9 ? String(i + 1) : undefined}
                       onClick={() => onHandClick(c.uid)}
                       onDoubleClick={() => onHandDoubleClick(c.uid)}
+                      size={mine.hand.length > 7 ? 'sm' : 'md'}
                     />
                   );
                 })}
               </div>
             </div>
-            <div className="flex min-w-0 flex-col justify-end lg:pt-1">
+            <div className="mx-auto flex w-full max-w-3xl min-w-0 flex-col justify-end">
             {selDef && selected && (
               <div className="mb-2 rounded-lg bg-black/30 p-2 text-xs">
                 <div className="font-bold">
@@ -449,7 +446,7 @@ export function MatchScreen({ setup, mode, settings, onExit, onFinish }: Props) 
                   onClick={passClick}
                   className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold disabled:opacity-40 ${nothingToPlay ? 'animate-pulse bg-accent text-black' : 'bg-panel2'}`}
                 >
-                  Pass{kbd('P')}
+                  Pass{kbd('pass')}
                 </button>
               )}
               <button
@@ -458,9 +455,9 @@ export function MatchScreen({ setup, mode, settings, onExit, onFinish }: Props) 
                 title={`Deal no Clash damage this round, in exchange for +${state.config.strain.holdArmor} armor (reduces what you take) and venting ${state.config.strain.holdVent} Strain now.`}
                 className="flex-1 rounded-lg bg-panel2 px-3 py-2 text-sm font-semibold disabled:opacity-40"
               >
-                Hold{kbd('H')}
+                Hold{kbd('hold')}
               </button>
-              {settings.cycling && (
+              {state.config.features.cycling && (
                 <button
                   disabled={!myTurn || mine.cycledThisRound >= state.config.cycle.perRound || mine.hand.length === 0}
                   onClick={() => {
@@ -469,7 +466,7 @@ export function MatchScreen({ setup, mode, settings, onExit, onFinish }: Props) 
                   }}
                   className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold disabled:opacity-40 ${cycleMode ? 'bg-sky-700' : 'bg-panel2'}`}
                 >
-                  Cycle{kbd('C')}
+                  Cycle{kbd('cycle')}
                 </button>
               )}
             </div>
@@ -486,7 +483,7 @@ export function MatchScreen({ setup, mode, settings, onExit, onFinish }: Props) 
       </aside>
 
       <EvolutionBanners state={state} events={evoEvents} me={me} onDismiss={dismissEvo} />
-      {showHelp && <HelpSheet state={state} onClose={() => setShowHelp(false)} />}
+      {showHelp && <HelpSheet state={state} keybinds={binds} onClose={() => setShowHelp(false)} />}
       {showHistory && <PlayHistory state={state} viewer={me} onClose={() => setShowHistory(false)} onOpen={(r) => setPlaySheet(r)} />}
       {playSheet && <PlaySheet state={state} viewer={me} rec={playSheet} onClose={() => setPlaySheet(null)} />}
       {detail && <DetailSheet detail={detail} state={state} me={me} myTurn={myTurn} onClose={() => setDetail(null)} onReveal={(slot) => { setDetail(null); send({ type: 'REVEAL', player: me, slot }); }} />}
@@ -752,27 +749,6 @@ function Intro({ state, onGo, onExit }: { state: GameState; onGo: () => void; on
         </button>
         <button onClick={onGo} autoFocus className="flex-1 rounded-lg bg-accent px-4 py-3 font-display text-sm font-bold text-black">
           Start match
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function PassDevice({ name, color, why, recent, onReady }: { name: string; color: string; why: string; recent: string[]; onReady: () => void }) {
-  return (
-    <div className="grid min-h-dvh place-items-center bg-black p-4">
-      <div className="pop w-full max-w-sm text-center">
-        <div className="mx-auto mb-3 h-4 w-4 rounded-full" style={{ background: color }} />
-        <div className="text-xs uppercase tracking-widest text-mute">Pass the device</div>
-        <div className="mt-1 text-3xl font-bold">{name}</div>
-        <div className="mt-2 text-sm text-ink2">is up next to {why}. Hand the device over and look away until they tap.</div>
-        <div className="mx-auto mt-4 space-y-0.5 rounded-lg bg-panel p-2 text-left text-[11px] text-ink2">
-          {recent.map((t, i) => (
-            <div key={i}>{t}</div>
-          ))}
-        </div>
-        <button onClick={onReady} className="mt-5 w-full rounded-xl bg-accent px-4 py-3 text-base font-bold text-black">
-          I'm {name} — show my screen
         </button>
       </div>
     </div>

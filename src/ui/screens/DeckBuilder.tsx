@@ -6,7 +6,7 @@ import { ChipPicker } from '../components/ChipPicker';
 import { LoadoutPicker } from '../components/LoadoutPicker';
 import { FACTION_META, TYPE_META, WORLD_FACTION_META } from '../meta';
 import type { SavedDeck } from '../storage';
-import { loadChipLoadouts, loadDecks, saveChipLoadout, saveDecks } from '../storage';
+import { activeSave, loadChipLoadouts, loadDecks, saveChipLoadout, saveDecks } from '../storage';
 
 const D = defaultConfig.deck;
 
@@ -206,7 +206,10 @@ export function DeckBuilder({ onBack }: { onBack: () => void }) {
         <button onClick={onBack} className="rounded-md border border-line px-3 py-1.5 text-sm text-ink2 hover:border-mute">
           ← Menu
         </button>
-        <h1 className="text-xl font-bold">Decks &amp; Chips</h1>
+        <div>
+          <h1 className="font-display text-xl font-bold leading-tight">Decks &amp; Chips</h1>
+          <div className="text-[11px] text-mute">{activeSave() ? `Saving to ${activeSave()!.meta.name}` : 'No save loaded: kept as unsaved defaults on this device'}</div>
+        </div>
         <div className="ml-auto flex rounded-lg border border-line p-0.5 text-sm">
           {(['deck', 'tree'] as const).map((t) => (
             <button key={t} onClick={() => setTab(t)} aria-pressed={tab === t} className={`rounded-md px-3 py-1 ${tab === t ? 'bg-accent font-bold text-black' : 'text-ink2'}`}>

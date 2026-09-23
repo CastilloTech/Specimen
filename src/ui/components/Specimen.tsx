@@ -52,7 +52,7 @@ function useWearFlashes(state: GameState, p: PlayerState): Partial<Record<SlotId
 
 // Slot anchor points on the creature artwork (percent of the square tank), placed on its anatomy:
 // helmet, neck cables, chest, the resting hand, the far forearm, and the hip. `flip` mirrors the whole
-// creature (and so every slot) so the two Specimens face each other.
+// creature (and so every slot); the match flips the left-hand tank so the two Specimens face each other.
 const POS: Record<SlotId, { x: number; y: number }> = {
   head: { x: 46, y: 16 },
   nerve: { x: 57, y: 33 },

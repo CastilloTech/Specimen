@@ -70,6 +70,28 @@ describe('Extra draws', () => {
   });
 });
 
+describe('Hand limit', () => {
+  const seven = Array.from({ length: 7 }, () => 't_filler');
+
+  it('a card drawn into a full hand is burned: discarded face-up and logged', () => {
+    let s = arena('predator', 'predator', ['aggress', 'aggress'], { match: { maxHand: 7 } });
+    s = hands(s, seven, []);
+    const discardBefore = s.players[0].discard.length;
+    s = endRound(s); // the next round's draw
+    expect(s.players[0].hand).toHaveLength(7);
+    expect(s.players[0].discard.length).toBe(discardBefore + 1);
+    expect(s.log.some((l) => /hand is full \(7\).*burned/.test(l.text))).toBe(true);
+  });
+
+  it('below the limit draws are unaffected', () => {
+    let s = arena('predator', 'predator', ['aggress', 'aggress'], { match: { maxHand: 7 } });
+    s = hands(s, seven.slice(0, 3), []);
+    s = endRound(s);
+    expect(s.players[0].hand).toHaveLength(4);
+    expect(s.log.some((l) => /burned/.test(l.text))).toBe(false);
+  });
+});
+
 describe('Simultaneous KO tiebreak', () => {
   const bothDie = (config: Parameters<typeof arena>[3], strain: [number, number]) => {
     let s = arena('predator', 'predator', ['aggress', 'aggress'], config);

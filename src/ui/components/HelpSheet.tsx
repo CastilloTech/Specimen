@@ -1,24 +1,17 @@
 import type { GameState } from '../../engine';
 import { ambushText, STANCES } from '../../engine';
 import { STANCE_META } from '../meta';
-
-const KEYS: [string, string][] = [
-  ['A / D / F  or  1 / 2 / 3', 'Pick Aggress / Adapt / Fortify'],
-  ['K / M', 'Keep / Mulligan the opening hand'],
-  ['1 - 9', 'Select that card in your hand'],
-  ['P', 'Pass'],
-  ['H', 'Hold (no Clash damage, but armor and Strain relief this round)'],
-  ['C', 'Cycle mode (then pick a card)'],
-  ['W', 'Wake your first sleeping face-down graft'],
-  ['N', 'No response to a play'],
-  ['1 / 2', 'Choose an evolution when offered'],
-  ['K', 'Hold off on an evolution choice'],
-  ['Esc', 'Cancel / close'],
-  ['?', 'Show or hide this help'],
-];
+import type { Keybinds } from '../storage';
+import { KEY_ACTIONS, keyLabel } from '../storage';
 
 /** A one-screen rules reminder, built from the live config so the numbers are always right. */
-export function HelpSheet({ state, onClose }: { state: GameState; onClose: () => void }) {
+export function HelpSheet({ state, keybinds, onClose }: { state: GameState; keybinds: Keybinds; onClose: () => void }) {
+  const KEYS: [string, string][] = [
+    ...KEY_ACTIONS.map((a): [string, string] => [keyLabel(keybinds[a.id]), `${a.label}: ${a.hint}`]),
+    ['1 / 2 / 3', 'Aggress / Adapt / Fortify (always works)'],
+    ['1 - 9', 'Select that card in your hand'],
+    ['Esc', 'Cancel / close'],
+  ];
   const c = state.config;
   const T = c.strain.threshold;
   const stable = Math.floor(T * c.strain.stableMaxRatio);
@@ -61,6 +54,7 @@ export function HelpSheet({ state, onClose }: { state: GameState; onClose: () =>
           {c.match.catchUpDraw > 0 && (
             <li>Second wind: if you are {c.match.catchUpHpGap}+ HP behind at the start of a round, you draw {c.match.catchUpDraw} extra card{c.match.catchUpDraw === 1 ? '' : 's'}{c.match.catchUpEnergy > 0 ? ` and gain ${c.match.catchUpEnergy} extra Energy` : ''}.</li>
           )}
+          <li>Your hand holds at most {c.match.maxHand} cards. A card drawn into a full hand is burned (discarded), so play or Cycle cards rather than hoarding them.</li>
           {c.replace.enabled && <li>Playing a graft on an occupied slot replaces it for {c.replace.extraCost} extra Energy (the old graft leaves with its Strain).</li>}
           <li>Face-down grafts are asleep: no stats or text, {c.dormant.quietStrain} less Strain until they wake. Waking one on purpose after it has slept a round gives an Ambush for that round: Predator {ambushText(c, 'predator')}; Parasite {ambushText(c, 'parasite')}; Bastion {ambushText(c, 'bastion')}. Scanner Probe and Sabotage wake them by force, with no Ambush.</li>
         </ul>
@@ -91,8 +85,8 @@ export function HelpSheet({ state, onClose }: { state: GameState; onClose: () =>
         <h3 className="mt-3 text-xs font-bold uppercase tracking-wide text-accent">Keyboard</h3>
         <div className="mt-1 grid gap-x-4 gap-y-0.5 text-xs sm:grid-cols-2">
           {KEYS.map(([k, v]) => (
-            <div key={k} className="flex gap-2">
-              <span className="w-40 shrink-0 font-mono text-accent">{k}</span>
+            <div key={`${k}${v}`} className="flex gap-2">
+              <span className="w-16 shrink-0 font-mono text-accent">{k}</span>
               <span className="text-ink2">{v}</span>
             </div>
           ))}

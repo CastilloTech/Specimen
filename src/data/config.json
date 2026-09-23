@@ -3,6 +3,7 @@
   "match": {
     "maxRounds": 8,
     "startingHand": 5,
+    "maxHand": 9,
     "freeMulligans": 1,
     "drawPerRound": 1,
     "meltdownFromRound": 7,
@@ -11,7 +12,7 @@
     "lateDraw": 1,
     "catchUpHpGap": 6,
     "catchUpDraw": 2,
-    "catchUpEnergy": 1,
+    "catchUpEnergy": 2,
     "secondMoverDraw": 0,
     "secondMoverEnergy": 0,
     "energyRampBonus": 1,
@@ -130,9 +131,9 @@
       {
         "id": "leechForm",
         "name": "Leech Form",
-        "text": "Take 15+ total damage: your Toxins also drain 2 HP, and +2 attack.",
+        "text": "Take 15+ total damage: your Toxins also drain 2 HP, and +3 attack.",
         "condition": { "metric": "damageTaken", "target": 15, "label": "total damage taken" },
-        "effects": { "toxinDrain": 2, "attack": 2 }
+        "effects": { "toxinDrain": 2, "attack": 3 }
       }
     ],
     "bastion": [

@@ -5,7 +5,7 @@ A 2D digital prototype of a two-player card game where both players control the 
 ```
 npm install
 npm run dev          # play at http://localhost:5173
-npm test             # 222 unit tests
+npm test             # 224 unit tests
 npm run sim -- --matches 1000
 ```
 
@@ -18,19 +18,21 @@ TypeScript, React, Vite, Tailwind. No backend. Node 20+.
 | Mode | What it does |
 |---|---|
 | **Vs Bot** | You are Player 1. The bot plays grafts while staying 2 below the Rejection threshold, uses Toxins when you are at 7+ Strain, and weights its stance toward countering your last stance. |
-| **Hotseat** | Two players, one device. A "pass the device" screen appears before **every** private decision (mulligan, stance, each action, each reaction). While it shows, the hand is not even in the page. |
-| **Decks & Chips** | Build a 20-card deck (live validation, a Build's own cards + your chosen World Faction's cards + up to 4 tech) and pick a Chip loadout (one node per row). Saved in `localStorage`, usable in match setup. |
-| **Settings** | Timers, Cycling, Dormant, Neural links, Energy banking, Stance momentum. |
+| **Quick match** | Your default picks (from the loaded save) against a random bot build, no setup screen. |
+| **Save** | Up to 3 save slots, each with a player name. A save keeps its own decks, Chip loadouts, default Build / World Faction / Chip (your last Vs Bot picks), and a history of every finished match, shown as win rates by Build / World Faction / opponent plus tips drawn from your own games (`src/ui/stats.ts`). With no save loaded you can still play; nothing is recorded. |
+| **Game guide** | A short paged tutorial: the goal, a round, stances, Strain, card types, Integrity, Build / World Faction / Chip, evolution. |
+| **Decks & Chips** | Build a 20-card deck (live validation, a Build's own cards + your chosen World Faction's cards + up to 4 tech) and pick a Chip loadout (one node per row). Stored in the loaded save. |
+| **Settings** | Key bindings only (click an action, press a key). 1-9 always select hand cards and Esc cancels. Optional rules (Cycling, Dormant, Neural links, banking, momentum, timers) follow `config.json` directly. |
 
 **Two independent axes, not one pick.** A Specimen is built from a **Build** (Predator / Parasite / Bastion — unchanged since the prototype's start) and a **World Faction** (Corrosion / Aegis / Miasma / Hollow — new), and the two answer completely different questions:
 - **Build** governs your relationship with **Strain**: it decides your card pool, and your two possible evolutions. It carries no skill tree of its own any more (see the Eleventh pass).
 - **World Faction** governs your relationship with **graft Integrity and the four status effects** (Bleed, Necrosis, Numb, Fever) — an axis deliberately orthogonal to Strain, so a Predator/Corrosion Specimen and a Bastion/Corrosion Specimen play very differently even though they share a World Faction, and a Predator/Corrosion Specimen and a Predator/Aegis Specimen play very differently even though they share a Build. It brings its own ~10-card pool (min 8 copies in a legal deck) and offers exactly **3 Chips** to choose from.
 - A **Chip** is the loadout item you actually equip: pick one of your World Faction's 3 Chips before a match, and it carries a **2-row x 2-node skill tree** (4 unique nodes, one pick per row) — this is the only place node-picking happens now. Any Build pairs with any World Faction (12 combinations total), and each Chip's tree is independent of both.
 
-**Layout.** On a phone (portrait) the match is one stacked column. On desktop (window at least 1024 px wide) it becomes a single-screen board: your panel, the two Specimens facing each other, and the opponent's panel on one row; your hand next to the selected-card detail and the Pass / Hold / Cycle buttons underneath; the match log in a fixed column on the right. It fits without page scrolling at 1280×720, 1366×768 and 1920×1080 in every phase (mulligan, stance, actions, reaction, evolution choice).
+**Layout.** On a phone (portrait) the match is one stacked column. On desktop (window at least 1024 px wide) it becomes a single-screen board: your panel, the two Specimens facing each other, and the opponent's panel on one row; your hand (centered, wrapping onto rows; at most 9 cards) next to the selected-card detail and the Pass / Hold / Cycle buttons underneath; the match log in a fixed column on the right. It fits without page scrolling at 1280×720, 1366×768 and 1920×1080 in every phase (mulligan, stance, actions, reaction, evolution choice).
 
 **Seeing what the opponent played.** Three layers, all built from the engine's public play history (`state.plays`):
-- When the opponent plays, a compact stack of cards drops in on **their side of the arena** (left for you, right for them — it follows whoever played it) for about 5 seconds, narrow rather than a big banner across the board (in hotseat it shows as soon as the next player taps in). Each row already states the card's own effect text, so what it did is obvious without opening it; tap a row for the full card, or tap the header to dismiss the whole stack. The panel lets clicks through everywhere except its own rows, so you can still target enemy slots under it.
+- When the opponent plays, a compact stack of cards drops in on **their side of the arena** (left for you, right for them — it follows whoever played it) for about 5 seconds, narrow rather than a big banner across the board. Each row already states the card's own effect text, so what it did is obvious without opening it; tap a row for the full card, or tap the header to dismiss the whole stack. The panel lets clicks through everywhere except its own rows, so you can still target enemy slots under it.
 - A **"Played this round"** strip under the Specimens keeps every card of the current round as a chip (player, name, where it went or what it targeted, "negated" if it was), newest highlighted.
 - The **Plays** button in the header opens the whole match grouped by round; tap any chip to see the card.
 
@@ -549,9 +551,23 @@ In real play each Build now splits roughly evenly between its two forms (43-54% 
 
 **Net** (`npm run sim`, 10,000 matches): Builds 50.9 / 48.6 / 50.5; World Factions 46-54% against each other; archetypes 45.8-56.0%, only Bastion/Aegis (56.0%) outside 45-55%. 222 tests.
 
+### Nineteenth pass: hand limit, and a holistic balance check
+
+**Hand limit 9** (`match.maxHand`; a card drawn into a full hand is burned). Picked by sweeping 6-12 and unlimited (6,000 sim + 6,000 audit matches each): below 9 the limit eats the trailing player's second-wind draws and snowballing climbs steeply (66% at 6, 62% at 7); from 10 up it is almost never reached and behaves like no limit. 9 kept all 12 archetypes inside 45-55% with the tightest World Faction and archetype spreads while still binding occasionally.
+
+**Holistic check** (`npm run sim` 12,000 + `npm run audit` 8,000), and the fixes it led to:
+- Snowballing had crept back to ~64% (a 6+ HP leader after round 3 wins) as Clash wear and the Integrity/evolution changes made early leads stickier. A sweep of the comeback levers: `catchUpEnergy` **1 -> 2** cut it to ~57%; a lower gap or a third catch-up card did little. First-mover advantage stayed at ~50%.
+- Predator vs Parasite had drifted to 55/45: Leech Form attack **+2 -> +3** (it was reached most but winning only 37%; now 45%).
+- Miasma was the weakest World Faction again: Toxic Barb and Creeping Rot Integrity **2 -> 3** (its cheap Limbs were the grafts most often destroyed).
+- Chip nodes: Deep Corrosion (42.7%) is now **+2 attack while Overclocked** (Bleed-duration was worth ~1 damage); Clear Mind **+1 -> +2 armor**.
+
+**Net** (12,000 matches): Builds 48.4 / 51.3 / 50.3, every cross-Build matchup inside 45-55%; World Factions 45.5-54.5%; 11 of 12 archetypes inside 45-55% (Bastion/Corrosion 44.6%); snowball ~57%; 224 tests, budget clean.
+
+**Save stats** now also record, per match: stance clashes won/lost/tied, cards and grafts played, HP healed, grafts destroyed on each side via Integrity, cards burned, the round you evolved, KO vs decision, and comebacks (won after trailing by the second-wind gap). The Save screen adds best streak, stance-clash win rate, a "how your matches go" table, your stance mix, and win rates by Chip, evolution form and your most-played Build / World Faction combinations, plus tips for losing stance clashes, losing grafts and burning cards. Older saved matches without these fields still load.
+
 ### UI pass: containment-lab look and quality of life
 
-- **Art direction.** A dim containment-lab look: culture-plate grid background, bioluminescent accent, Chakra Petch display type (Google Fonts; falls back to system fonts offline), hazard tape for Meltdown. Every card has procedural "specimen plate" art (`src/ui/components/CardArt.tsx`), drawn from its type (and a graft's slot), tinted by faction and seeded by card id, so there are no image assets to maintain. Each Specimen is the bio-engineered creature from `src/assets/specimen.jpg` (cropped from the provided concept card art) in a containment tank, mirrored for the opponent, with graft sockets placed on its anatomy (helmet, neck cables, chest, resting hand, far forearm, hip; see `POS` in `Specimen.tsx`) and grafts shown as mini plates.
+- **Art direction.** A dim containment-lab look: culture-plate grid background, bioluminescent accent, Chakra Petch display type (Google Fonts; falls back to system fonts offline), hazard tape for Meltdown. Every card has procedural "specimen plate" art (`src/ui/components/CardArt.tsx`), drawn from its type (and a graft's slot), tinted by faction and seeded by card id, so there are no image assets to maintain. Each Specimen is the bio-engineered creature from `src/assets/specimen.jpg` (cropped from the provided concept card art) in a containment tank, mirrored on the left-hand side so the two face each other, with graft sockets placed on its anatomy (helmet, neck cables, chest, resting hand, far forearm, hip; see `POS` in `Specimen.tsx`) and grafts shown as mini plates.
 - **Readability.** Hand cards always show their full text (they used to drop it once you held more than 6); the hand is one sideways-scrolling row. Unplayable cards say why on the card. Player names no longer truncate. Hollow's colour was lightened (it was near-invisible on the dark background). A clear YOUR TURN / RESPOND? pill in the header.
 - **Quality of life.** Quick match from the menu (your last Vs Bot picks against a random bot build); setup remembers your last picks per mode, has a sticky Start bar and a Randomize opponent button; leaving a match asks first; Rematch is the primary post-match action; Integrity destructions appear in post-match key events; deck builder adds a card on click and confirms deck deletion; keyboard hints hidden on phones.
 - **Bug fixed.** The evolution announcement never auto-dismissed during a timed turn (its 3-second timer restarted on every re-render, and the turn timer re-renders every second), so it could cover the board on phones.
@@ -582,12 +598,12 @@ Stripped Frame's "less Strain" is nearly worthless because Strain rarely limits 
 5. **A stronger Strain source can backfire.** A stronger Cytokine Storm (+4 Strain) or a "+2 Strain per round" Gland made Predator *better*, because Predator lives in Overclock. The same goes for pricing a Predator node in Strain (Feint).
 
 ### What is still weak
-
+Numbers below are from the Nineteenth pass's sample (12,000 `sim` matches, 8,000 `audit`). Everything here predates full 30,000-match tuning, and bullets from earlier passes that no longer apply were removed rather than left stale.
 Numbers below are from the Sixteenth pass's sample (10,000 matches) where stated, otherwise the Fifteenth pass's (8,000 for `sim`, 6,000 for `audit`; snowball was not re-measured after Clash wear got stronger). Everything here predates full 30,000-match tuning, and bullets from earlier passes that no longer apply were removed rather than left stale.
 
-- **Miasma is still slightly below the others**: 46.4% vs. Corrosion and 46.8% vs. Hollow (Eighteenth pass sample); Parasite/Miasma 46.3%, Predator/Miasma 48.7%. Its denial kit still converts to wins a little worse than raw stats.
-- **Rustbite's Deep Corrosion (44.6%)** trails its row partner Rusting Strike (51.7%): extra Bleed rounds are 1 damage each, which is not much.
-- **The 12 Build x World Faction archetypes are close but not perfectly even**: after the Eighteenth pass only Bastion/Aegis (56.0%) is outside 45-55% (Aegis armor makes Juggernaut's damage-blocked condition come early), with Bastion/Corrosion (45.8%) and Predator/Corrosion (54.9%) at the edges. Predator is also the Build most likely to finish with no evolution (7.7%, vs 0.5% Parasite and 3.3% Bastion): its forms are reached on the same curve as the others by round 5, but its conditions are slightly less likely to ever be met in games that go long. A full 30,000-match-per-cell pass is the natural follow-up.
+- **Bastion/Corrosion (44.6%)** is the one archetype just outside 45-55% (Nineteenth pass sample); Predator/Aegis (46.1%) and Predator/Hollow (46.6%) are the next lowest. Miasma, the weakest World Faction for several passes, now sits at 51-54%.
+- **Snowballing (~57%)**: a 6+ HP leader after round 3 still usually wins, though far less than the 70-76% of earlier passes. The hand limit is set where it does not add to this (see the Nineteenth pass).
+- **The 12 Build x World Faction archetypes are close but not perfectly even**: 11 of 12 inside 45-55% at 12,000 matches. A full 30,000-match-per-cell pass is the natural follow-up.
 - **Small, cheap cards are surprisingly sensitive to flat stat buffs.** Buffing three of Hollow's low-cost grafts by +1 attack each (plus its signature) overshot its target band by ~9 points in one sim run; dialing back to two of the three landed it correctly. Worth remembering before making multiple small simultaneous changes to any one World Faction or Build — verify with a sim between each change, not after all of them.
 - These are all bot-vs-bot numbers, from a heuristic bot that does not bluff, plans few Ambushes, and replaces conservatively. Human players will use Cycling, Hold, Dormant, replacement and Protocols differently, so a real playtest is the next test for all of the above.
 
@@ -596,14 +612,14 @@ Numbers below are from the Sixteenth pass's sample (10,000 matches) where stated
 Where the rules were ambiguous I picked the simplest reading. Change them in `config.json` where a toggle exists.
 
 **Setup and flow**
-1. Round 1 also draws 1 card, and from round 5 you draw 2 a round. If you start a round 8 or more HP behind you draw 1 extra (second wind). No hand limit. An empty deck simply stops drawing.
+1. Round 1 also draws 1 card, and from round 5 you draw 2 a round. If you start a round 6 or more HP behind you draw 2 extra and gain 2 Energy (second wind). The hand holds at most 9 cards (`match.maxHand`): a card drawn into a full hand is burned (discarded face-up, logged). An empty deck simply stops drawing.
 2. The mulligan returns the whole hand to the deck, reshuffles, and draws a new 5. Each player may do it once, for free.
 3. On a stance tie in round 1, the coin flip for who acts first comes from the match seed. Afterwards the player who acted second last round goes first.
 4. Two passes in a row end the actions phase. Any non-pass action resets the count.
 
 **Cards and reactions**
 5. Cost (and Strain for non-grafts) is paid when a card is played. The Protocol window opens **before** the card resolves (stack-like), so a Protocol can negate or reflect it.
-6. A window opens only after a card play — not after Cycle, Reveal, Hold or Pass. The opponent gets one Protocol per window, paid from their current Energy. If they have no legal response the window is skipped automatically, so in hotseat that skip reveals "no Protocol in hand".
+6. A window opens only after a card play — not after Cycle, Reveal, Hold or Pass. The opponent gets one Protocol per window, paid from their current Energy. If they have no legal response the window is skipped automatically.
 7. Protocols cannot be played on your own turn.
 8. A graft goes into a slot of its type. If the slot is occupied and replacement is on (default), it **replaces** the graft there for 1 extra Energy: the old graft is discarded and takes out exactly the Strain it had added (a sleeping one loses the Strain it saved). If the new graft is negated, nothing is replaced. Limb grafts fit Limb A or B; Organ grafts fit Organ or Organ B.
 9. A negated graft never attaches and adds no Strain.

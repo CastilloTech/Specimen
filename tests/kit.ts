@@ -34,7 +34,7 @@ export function baseMatch(f0: Faction = 'predator', f1: Faction = 'predator', co
       ...config,
       specimen: { ...config?.specimen, hp: 30 },
       // Later rules changes (Energy floor, extra draws, KO tiebreak, graft replacement) are off here and switched on by the tests that cover them.
-      match: { lateDraw: 0, catchUpDraw: 0, catchUpEnergy: 0, secondMoverDraw: 0, secondMoverEnergy: 0, energyRampBonus: 0, koTiebreak: false, ...config?.match, meltdownStrain: 2 },
+      match: { maxHand: 99, lateDraw: 0, catchUpDraw: 0, catchUpEnergy: 0, secondMoverDraw: 0, secondMoverEnergy: 0, energyRampBonus: 0, koTiebreak: false, ...config?.match, meltdownStrain: 2 },
       energy: { min: 1, ...config?.energy },
       replace: { enabled: false, extraCost: 1, ...config?.replace },
       // Off by default (divisor 0): Clash's passive Integrity wear is opt-in per test.

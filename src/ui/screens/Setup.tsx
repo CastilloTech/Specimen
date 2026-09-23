@@ -4,7 +4,7 @@ import type { Faction, MatchSetup, WorldFactionId } from '../../engine';
 import { ChipPicker } from '../components/ChipPicker';
 import { LoadoutPicker } from '../components/LoadoutPicker';
 import { FACTION_META, PLAYER_COLORS, WORLD_FACTION_META } from '../meta';
-import { loadChipLoadouts, loadDecks, loadLastSetup, saveChipLoadout, saveLastSetup } from '../storage';
+import { activeSave, loadChipLoadouts, loadDecks, loadLastSetup, saveChipLoadout, saveLastSetup } from '../storage';
 import type { LastPlayerPick } from '../storage';
 
 interface PlayerCfg {
@@ -49,20 +49,29 @@ function fromPick(pick: LastPlayerPick | undefined, isBot: boolean): PlayerCfg |
 const deckOf = (c: PlayerCfg) => (c.deckId === 'starter' ? starterDeck(c.faction, c.worldFaction) : (loadDecks().find((d) => d.id === c.deckId)?.cards ?? starterDeck(c.faction, c.worldFaction)));
 const toPick = ({ name, faction, worldFaction, chip, deckId }: PlayerCfg): LastPlayerPick => ({ name, faction, worldFaction, chip, deckId });
 
-/** Quick match: your remembered Vs Bot picks against a random bot build, no setup screen. */
+/** The loaded save's player name, or a plain default without a save. */
+const playerName = () => activeSave()?.meta.name ?? 'Player 1';
+
+/** Your defaults (the loaded save's last picks), named after the save. */
+function myDefaults(): PlayerCfg {
+  const cfg = fromPick(loadLastSetup()?.[0], false) ?? makeDefaultCfg('Player 1', 'predator', 'corrosion', false);
+  return { ...cfg, name: playerName() };
+}
+
+/** Quick match: your default picks against a random bot build, no setup screen. */
 export function quickBotSetup(): MatchSetup {
-  const me = fromPick(loadLastSetup('bot')?.[0], false) ?? makeDefaultCfg('Player 1', 'predator', 'corrosion', false);
+  const me = myDefaults();
   const bot = randomCfg('Bot');
   return {
     seed: Math.floor(Math.random() * 2 ** 31),
     players: [
-      { name: me.name || 'Player 1', faction: me.faction, worldFaction: me.worldFaction, chip: me.chip, deck: deckOf(me), loadout: me.loadout },
+      { name: me.name, faction: me.faction, worldFaction: me.worldFaction, chip: me.chip, deck: deckOf(me), loadout: me.loadout },
       { name: bot.name, faction: bot.faction, worldFaction: bot.worldFaction, chip: bot.chip, deck: deckOf(bot), loadout: bot.loadout, isBot: true },
     ],
   };
 }
 
-function PlayerSetup({ idx, cfg, onChange, isBot }: { idx: 0 | 1; cfg: PlayerCfg; onChange: (c: PlayerCfg) => void; isBot?: boolean }) {
+function PlayerSetup({ idx, cfg, onChange, isBot, nameLocked }: { idx: 0 | 1; cfg: PlayerCfg; onChange: (c: PlayerCfg) => void; isBot?: boolean; nameLocked?: boolean }) {
   const decks = loadDecks().filter((d) => d.faction === cfg.faction && d.worldFaction === cfg.worldFaction);
   const set = (patch: Partial<PlayerCfg>) => onChange({ ...cfg, ...patch });
   const changeFaction = (f: Faction) => set({ faction: f, deckId: 'starter' });
@@ -74,7 +83,7 @@ function PlayerSetup({ idx, cfg, onChange, isBot }: { idx: 0 | 1; cfg: PlayerCfg
   return (
     <section className="lab-panel rounded-xl border border-line p-3" style={{ borderLeft: `4px solid ${PLAYER_COLORS[idx]}` }}>
       <div className="flex items-center gap-2">
-        <input value={cfg.name} onChange={(e) => set({ name: e.target.value })} maxLength={16} aria-label="Player name" className="w-40 rounded-md border border-line bg-black/30 px-2 py-1 text-sm font-bold" />
+        <input value={cfg.name} onChange={(e) => set({ name: e.target.value })} readOnly={nameLocked} title={nameLocked ? 'Your save name (rename it on the Save screen)' : undefined} maxLength={16} aria-label="Player name" className={`w-40 rounded-md border border-line px-2 py-1 text-sm font-bold ${nameLocked ? 'bg-transparent text-accent' : 'bg-black/30'}`} />
         {isBot && <span className="rounded bg-black/40 px-1.5 py-0.5 text-[10px] text-mute">bot</span>}
         {isBot && (
           <button onClick={() => onChange(randomCfg(cfg.name))} className="ml-auto rounded-md bg-panel2 px-3 py-1 text-xs font-semibold hover:bg-accent/20" title="Random Build, World Faction, Chip and loadout">
@@ -147,10 +156,10 @@ function makeDefaultCfg(name: string, faction: Faction, worldFaction: WorldFacti
   return { name, faction, worldFaction, chip, deckId: 'starter', loadout: isBot ? randomLoadout(chip) : defaultLoadout(chip) };
 }
 
-export function Setup({ mode, onStart, onBack }: { mode: 'hotseat' | 'bot'; onStart: (s: MatchSetup) => void; onBack: () => void }) {
-  const last = loadLastSetup(mode);
-  const [p1, setP1] = useState<PlayerCfg>(() => fromPick(last?.[0], false) ?? makeDefaultCfg('Player 1', 'predator', 'corrosion', false));
-  const [p2, setP2] = useState<PlayerCfg>(() => fromPick(last?.[1], mode === 'bot') ?? makeDefaultCfg(mode === 'bot' ? 'Bot' : 'Player 2', 'bastion', 'aegis', mode === 'bot'));
+export function Setup({ onStart, onBack }: { onStart: (s: MatchSetup) => void; onBack: () => void }) {
+  const save = activeSave();
+  const [p1, setP1] = useState<PlayerCfg>(myDefaults);
+  const [p2, setP2] = useState<PlayerCfg>(() => fromPick(loadLastSetup()?.[1], true) ?? makeDefaultCfg('Bot', 'bastion', 'aegis', true));
   const [seedText, setSeedText] = useState('');
 
   const errors = useMemo(
@@ -168,16 +177,13 @@ export function Setup({ mode, onStart, onBack }: { mode: 'hotseat' | 'bot'; onSt
 
   const start = () => {
     const seed = seedText.trim() && Number.isFinite(+seedText) ? Math.floor(+seedText) : Math.floor(Math.random() * 2 ** 31);
-    if (mode === 'hotseat') {
-      saveChipLoadout(p1.chip, p1.loadout);
-      saveChipLoadout(p2.chip, p2.loadout);
-    } else saveChipLoadout(p1.chip, p1.loadout);
-    saveLastSetup(mode, [toPick(p1), toPick(p2)]);
+    saveChipLoadout(p1.chip, p1.loadout);
+    saveLastSetup([toPick(p1), toPick(p2)]);
     onStart({
       seed,
       players: [
         { name: p1.name || 'Player 1', faction: p1.faction, worldFaction: p1.worldFaction, chip: p1.chip, deck: deckOf(p1), loadout: p1.loadout },
-        { name: p2.name || 'Player 2', faction: p2.faction, worldFaction: p2.worldFaction, chip: p2.chip, deck: deckOf(p2), loadout: p2.loadout, isBot: mode === 'bot' },
+        { name: p2.name || 'Bot', faction: p2.faction, worldFaction: p2.worldFaction, chip: p2.chip, deck: deckOf(p2), loadout: p2.loadout, isBot: true },
       ],
     });
   };
@@ -185,11 +191,11 @@ export function Setup({ mode, onStart, onBack }: { mode: 'hotseat' | 'bot'; onSt
   return (
     <div className="mx-auto flex min-h-dvh max-w-3xl flex-col gap-3 p-3 pb-0">
       <div>
-        <div className="lab-label">Match setup · your last picks are remembered</div>
-        <h1 className="font-display text-2xl font-bold">{mode === 'bot' ? 'Vs Bot' : 'Hotseat'}</h1>
+        <div className="lab-label">{save ? `Save: ${save.meta.name} · your picks become your defaults` : 'No save loaded · picks are remembered on this device only'}</div>
+        <h1 className="font-display text-2xl font-bold">Vs Bot</h1>
       </div>
-      <PlayerSetup idx={0} cfg={p1} onChange={setP1} />
-      <PlayerSetup idx={1} cfg={p2} onChange={setP2} isBot={mode === 'bot'} />
+      <PlayerSetup idx={0} cfg={p1} onChange={setP1} nameLocked={!!save} />
+      <PlayerSetup idx={1} cfg={p2} onChange={setP2} isBot />
       <label className="text-xs text-ink2">
         Seed (optional, for exact replays)
         <input value={seedText} onChange={(e) => setSeedText(e.target.value)} inputMode="numeric" placeholder="random" className="ml-2 w-32 rounded-md border border-line bg-black/30 px-2 py-1 text-sm" />
