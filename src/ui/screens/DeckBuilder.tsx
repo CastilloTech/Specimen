@@ -168,7 +168,9 @@ function LoadoutTab() {
   const [worldFaction, setWorldFaction] = useState<WorldFactionId>('corrosion');
   const [chip, setChip] = useState<string>(() => chipsFor('corrosion')[0].id);
   const [loadouts, setLoadouts] = useState(loadChipLoadouts);
-  const value = loadouts[chip] ?? chipRows(chip).map((r) => r.nodes[0].id);
+  const saved = loadouts[chip];
+  // A saved loadout can go stale if the chip's own nodes changed since it was saved.
+  const value = saved && validateLoadout(chip, saved).length === 0 ? saved : chipRows(chip).map((r) => r.nodes[0].id);
   const update = (l: string[]) => {
     setLoadouts((cur) => ({ ...cur, [chip]: l }));
     saveChipLoadout(chip, l);

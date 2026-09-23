@@ -16,7 +16,13 @@ interface PlayerCfg {
 }
 
 const defaultChip = (wf: WorldFactionId) => chipsFor(wf)[0].id;
-const defaultLoadout = (chipId: string) => loadChipLoadouts()[chipId] ?? chipRows(chipId).map((r) => r.nodes[0].id);
+// A saved loadout can go stale if the chip's own nodes changed since it was saved (localStorage
+// persists across data updates); fall back to the chip's default nodes rather than surface invalid ids.
+const defaultLoadout = (chipId: string) => {
+  const saved = loadChipLoadouts()[chipId];
+  if (saved && validateLoadout(chipId, saved).length === 0) return saved;
+  return chipRows(chipId).map((r) => r.nodes[0].id);
+};
 const randomLoadout = (chipId: string) => {
   const rng = makeRng(Math.floor(Math.random() * 2 ** 31));
   return chipRows(chipId).map((r) => rng.pick(r.nodes).id);
