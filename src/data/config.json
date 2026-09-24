@@ -42,6 +42,7 @@
   "status": {
     "bleedRounds": 2,
     "bleedDamage": 1,
+    "bleedMaxStacks": 2,
     "numbRounds": 2,
     "feverRounds": 2,
     "feverCostIncrease": 2,

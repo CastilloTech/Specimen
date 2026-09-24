@@ -324,8 +324,11 @@ function applyStatus(s: GameState, ctx: OpCtx, op: Extract<Op, { op: 'status' }>
   const t = s.players[(op.who ?? 'opp') === 'self' ? ctx.caster : ctx.victim];
   const hadIt = t[op.kind] > 0;
   if (op.kind === 'bleed') {
+    // Stacking: a fresh Bleed starts at 1 stack; each re-application adds one (up to the cap) and refreshes it.
+    t.bleedStacks = hadIt ? Math.min(Math.max(1, cfg.bleedMaxStacks), t.bleedStacks + 1) : 1;
     t.bleed = Math.max(t.bleed, (op.rounds ?? cfg.bleedRounds) + sumLoadoutParam(s, caster, 'bleedRoundsBonus'));
-    logMsg(s, 'strain', t.id, `${ctx.source}: ${t.name} is bleeding for ${t.bleed} round(s).`);
+    const stacks = t.bleedStacks > 1 ? ` x${t.bleedStacks} (${cfg.bleedDamage * t.bleedStacks} damage a round)` : '';
+    logMsg(s, 'strain', t.id, `${ctx.source}: ${t.name} is bleeding for ${t.bleed} round(s)${stacks}.`);
   } else if (op.kind === 'numb') {
     t.numb = Math.max(t.numb, (op.rounds ?? cfg.numbRounds) + sumLoadoutParam(s, caster, 'numbRoundsBonus'));
     logMsg(s, 'info', t.id, `${ctx.source}: ${t.name} is numbed and cannot play Protocols for ${t.numb} round(s).`);
@@ -346,6 +349,7 @@ function purge(s: GameState, ctx: OpCtx, op: Extract<Op, { op: 'purge' }>): void
   const self = (op.who ?? 'self') === 'self';
   const t = s.players[self ? ctx.caster : ctx.victim];
   t.bleed = 0;
+  t.bleedStacks = 0;
   t.numb = 0;
   t.fever = 0;
   t.necrosis = {};
@@ -420,8 +424,15 @@ export function runOps(s: GameState, ops: Op[], ctx: OpCtx): void {
         break;
       case 'drain': {
         const pl = s.players[ctx.victim];
-        pl.energy = Math.max(0, pl.energy - op.amount);
-        logMsg(s, 'info', ctx.victim, `${pl.name} loses ${op.amount} Energy (${ctx.source}).`);
+        if (s.actionsClosed) {
+          // This round's Energy is already spent or about to be reset, so the drain comes off next round's refill.
+          pl.energyDebt += op.amount;
+          logMsg(s, 'info', ctx.victim, `${pl.name} will lose ${op.amount} Energy next round (${ctx.source}).`);
+        } else {
+          const lost = Math.min(op.amount, pl.energy);
+          pl.energy -= lost;
+          logMsg(s, 'info', ctx.victim, lost > 0 ? `${pl.name} loses ${lost} Energy (${ctx.source}).` : `${pl.name} has no Energy left to lose (${ctx.source}).`);
+        }
         break;
       }
       case 'buff': {
@@ -594,6 +605,15 @@ export function beginRound(s: GameState): void {
     if (cfg.match.catchUpEnergy > 0) trailing.energy += cfg.match.catchUpEnergy;
     const extraEnergy = cfg.match.catchUpEnergy > 0 ? `, +${cfg.match.catchUpEnergy} Energy` : '';
     if (n > 0 || cfg.match.catchUpEnergy > 0) logMsg(s, 'info', trailing.id, `Second wind: ${trailing.name} is ${Math.abs(pa.hp - pb.hp)} HP behind and draws ${n} extra card(s)${extraEnergy}.`);
+  }
+  // Drains that landed after last round's actions come off the fresh Energy now.
+  s.actionsClosed = false;
+  for (const pl of s.players) {
+    if (pl.energyDebt <= 0) continue;
+    const lost = Math.min(pl.energyDebt, pl.energy);
+    pl.energy -= lost;
+    logMsg(s, 'info', pl.id, `${pl.name} starts the round ${lost} Energy down (drained last round).`);
+    pl.energyDebt = 0;
   }
   if (s.round >= cfg.match.meltdownFromRound) {
     for (const pl of s.players) addStrain(s, pl.id, cfg.match.meltdownStrain);
@@ -821,12 +841,13 @@ export function strainCheck(s: GameState): void {
   const cfg = s.config;
   const T = cfg.strain.threshold;
   const ids: PlayerId[] = [0, 1];
-  // Bleed: 1 damage per round while it lasts, ticking down independent of Strain.
+  // Bleed: bleedDamage per stack each round while it lasts, ticking down independent of Strain.
   for (const p of ids) {
     const pl = s.players[p];
     if (pl.bleed <= 0) continue;
-    hurt(s, p, cfg.status.bleedDamage, null, 'Bleed');
+    hurt(s, p, cfg.status.bleedDamage * Math.max(1, pl.bleedStacks), null, 'Bleed');
     pl.bleed--;
+    if (pl.bleed === 0) pl.bleedStacks = 0;
   }
   if (endIfDead(s)) return;
   // 1. Overclock self-damage

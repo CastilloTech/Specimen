@@ -3,7 +3,7 @@ import type { GameState, PlayerId, Stance } from '../../engine';
 import { FACTION_META, STANCE_META, WORLD_FACTION_META } from '../meta';
 import { EvolvedBadge } from './Evolution';
 import { EnergyPips, EvolutionBars, HpBar, HpFlash, HpGhost, StrainMeter } from './Meters';
-import { STATUS_META, StatusIcon } from './StatusFx';
+import { STATUS_META, StatusIcon, statusCount } from './StatusFx';
 import { StrainDelta, strainSegFx, useChange } from './StrainFx';
 
 /**
@@ -105,9 +105,9 @@ export function PlayerPanelCompact({ state, player, color, active }: { state: Ga
         {(['bleed', 'numb', 'fever'] as const)
           .filter((k) => p[k] > 0)
           .map((k) => (
-            <span key={k} className="flex items-center gap-0.5 rounded border px-1 py-0.5 text-white" style={{ background: `${STATUS_META[k].color}55`, borderColor: STATUS_META[k].color }} title={`${STATUS_META[k].name}: ${STATUS_META[k].text(p[k], state)}`}>
+            <span key={k} className="flex items-center gap-0.5 rounded border px-1 py-0.5 text-white" style={{ background: `${STATUS_META[k].color}55`, borderColor: STATUS_META[k].color }} title={`${STATUS_META[k].name}: ${STATUS_META[k].text(p[k], state, p)}`}>
               <StatusIcon kind={k} className="h-2.5 w-2.5" />
-              {p[k]}
+              {statusCount(k, p)}
             </span>
           ))}
       </div>
@@ -192,10 +192,10 @@ export function PlayerPanel({ state, player, color, active }: { state: GameState
                   key={k}
                   className="status-badge flex items-center gap-1 rounded border px-1.5 py-0.5 text-white"
                   style={{ background: `${STATUS_META[k].color}55`, borderColor: STATUS_META[k].color }}
-                  title={`${STATUS_META[k].name}: ${STATUS_META[k].text(p[k], state)}`}
+                  title={`${STATUS_META[k].name}: ${STATUS_META[k].text(p[k], state, p)}`}
                 >
                   <StatusIcon kind={k} />
-                  {STATUS_META[k].name.toUpperCase()} {p[k]}
+                  {STATUS_META[k].name.toUpperCase()} {statusCount(k, p)}
                 </span>
               ))}
           </div>

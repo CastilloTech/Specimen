@@ -39,7 +39,7 @@ export function baseMatch(f0: Faction = 'predator', f1: Faction = 'predator', co
       replace: { enabled: false, extraCost: 1, ...config?.replace },
       // Off by default (divisor 0): Clash's passive Integrity wear is opt-in per test.
       integrity: { clashDamageDivisor: 0, ...config?.integrity },
-      status: { parasiteInfectStrain: 0, ...config?.status },
+      status: { parasiteInfectStrain: 0, bleedMaxStacks: 1, ...config?.status },
       stances: { aggressBeatsAdaptBonus: 2, fortifyCounterDamage: 1, ...config?.stances },
       dormant: {
         quietStrain: 1,

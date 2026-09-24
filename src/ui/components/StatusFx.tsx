@@ -1,12 +1,21 @@
 import { useEffect, useRef, useState } from 'react';
-import type { GameState, PlayerId } from '../../engine';
+import type { GameState, PlayerId, PlayerState } from '../../engine';
 
 // Status effects made visible: a persistent aura on the afflicted Specimen's tank while a status lasts,
 // icon badges with rounds left, and a short animated callout when a status lands, ticks, is purged or wears off.
 
 export type StatusKind = 'bleed' | 'numb' | 'fever';
-export const STATUS_META: Record<StatusKind, { name: string; color: string; verb: string; text: (n: number, s: GameState) => string }> = {
-  bleed: { name: 'Bleed', color: '#ef4444', verb: 'BLEEDING', text: (n, s) => `${s.config.status.bleedDamage} damage at the start of each round, ${n} more round(s).` },
+export const STATUS_META: Record<StatusKind, { name: string; color: string; verb: string; text: (n: number, s: GameState, p?: PlayerState) => string }> = {
+  bleed: {
+    name: 'Bleed',
+    color: '#ef4444',
+    verb: 'BLEEDING',
+    text: (n, s, p) => {
+      const stacks = Math.max(1, p?.bleedStacks ?? 1);
+      const max = s.config.status.bleedMaxStacks;
+      return `${s.config.status.bleedDamage * stacks} damage at each Strain check (end of round), ${n} more round(s).${max > 1 ? ` ${stacks}/${max} stacks: each new Bleed adds a stack and refreshes it.` : ''}`;
+    },
+  },
   numb: { name: 'Numb', color: '#a78bfa', verb: 'NUMBED', text: (n) => `Can't play Protocols for ${n} more round(s).` },
   fever: { name: 'Fever', color: '#fb923c', verb: 'FEVER', text: (n, s) => `Grafts cost ${s.config.status.feverCostIncrease} more Energy for ${n} more round(s).` },
 };
@@ -72,7 +81,7 @@ export function useStatusEvents(state: GameState): StatusEvent[] {
     for (const l of fresh) {
       if (l.player === null) continue;
       const p = l.player;
-      if (/ is bleeding for /.test(l.text)) found.push({ key: ++statusKey, player: p, kind: 'bleed', status: 'bleed', label: `BLEEDING · ${state.players[p].bleed}` });
+      if (/ is bleeding for /.test(l.text)) found.push({ key: ++statusKey, player: p, kind: 'bleed', status: 'bleed', label: state.players[p].bleedStacks > 1 ? `BLEEDING ×${state.players[p].bleedStacks}` : `BLEEDING · ${state.players[p].bleed}` });
       else if (/ is numbed /.test(l.text)) found.push({ key: ++statusKey, player: p, kind: 'numb', status: 'numb', label: `NUMBED · ${state.players[p].numb}` });
       else if (/\(Fever\)\.$/.test(l.text)) found.push({ key: ++statusKey, player: p, kind: 'fever', status: 'fever', label: `FEVER · ${state.players[p].fever}` });
       else if (/statuses are purged/.test(l.text)) {
@@ -99,6 +108,11 @@ export function useStatusEvents(state: GameState): StatusEvent[] {
   return events;
 }
 
+/** A status badge's count: rounds left, plus Bleed's stacks when it has more than one ("×2 · 2"). */
+export function statusCount(k: StatusKind, p: PlayerState): string {
+  return k === 'bleed' && p.bleedStacks > 1 ? `×${p.bleedStacks} · ${p.bleed}` : `${p[k]}`;
+}
+
 /** Persistent aura on a Specimen's tank for each active status (drawn inside the tank, under the slots). */
 export function StatusAura({ state, player }: { state: GameState; player: PlayerId }) {
   const p = state.players[player];
@@ -108,8 +122,9 @@ export function StatusAura({ state, player }: { state: GameState; player: Player
       {p.numb > 0 && <div className="status-numb pointer-events-none absolute inset-0 rounded-[inherit]" />}
       {p.bleed > 0 && (
         <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit]">
-          <div className="absolute inset-x-0 bottom-0 h-1/3 bg-linear-to-t from-red-900/45 to-transparent" />
-          {[14, 33, 58, 77, 90].map((left, i) => (
+          {/* More stacks: a deeper red floor and more drips. */}
+          <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-red-900/45 to-transparent" style={{ height: `${33 + 12 * (Math.max(1, p.bleedStacks) - 1)}%`, opacity: Math.min(1, 0.75 + 0.2 * (p.bleedStacks - 1)) }} />
+          {[14, 33, 58, 77, 90, 24, 46, 68, 84, 6, 40, 96].slice(0, 5 + 3 * (Math.max(1, p.bleedStacks) - 1)).map((left, i) => (
             <span key={left} className="status-drip absolute top-0 h-2 w-1.5 rounded-b-full bg-red-500/85" style={{ left: `${left}%`, animationDelay: `${i * 0.55}s` }} />
           ))}
         </div>
@@ -130,10 +145,10 @@ export function StatusBadges({ state, player, side }: { state: GameState; player
           key={k}
           className="status-badge flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 font-display text-[10px] font-bold leading-none text-white shadow-lg"
           style={{ background: `${STATUS_META[k].color}cc`, borderColor: STATUS_META[k].color, boxShadow: `0 0 10px ${STATUS_META[k].color}99` }}
-          title={`${STATUS_META[k].name}: ${STATUS_META[k].text(p[k], state)}`}
+          title={`${STATUS_META[k].name}: ${STATUS_META[k].text(p[k], state, p)}`}
         >
           <StatusIcon kind={k} className="h-3 w-3" />
-          {p[k]}
+          {statusCount(k, p)}
         </span>
       ))}
     </div>

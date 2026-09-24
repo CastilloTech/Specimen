@@ -128,6 +128,55 @@ describe('Bleed', () => {
     s = nextRound(s); // bleed expired: no more ticks
     expect(s.players[1].hp).toBe(hpBeforeThird - 2); // only the base Clash damage now
   });
+
+  describe('stacking', () => {
+    const stacked = (maxStacks: number, times: number) => {
+      let s = setEnergy(hands(arena('predator', 'predator', ['aggress', 'aggress'], { status: { bleedMaxStacks: maxStacks } }), Array(times).fill('t_test_bleed')), 0, 9);
+      for (let i = 0; i < times; i++) {
+        if (i > 0) s = pass(s, 1);
+        s = play(s, 0, 't_test_bleed');
+      }
+      return s;
+    };
+
+    it('each re-application adds a stack, and each tick deals damage per stack', () => {
+      let s = stacked(3, 2);
+      expect(s.players[1].bleedStacks).toBe(2);
+      expect(s.players[1].bleed).toBe(s.config.status.bleedRounds); // duration refreshed, not added
+      const hpBefore = s.players[1].hp;
+      s = endRound(s);
+      expect(s.players[1].hp).toBe(hpBefore - 2 - 2 * s.config.status.bleedDamage); // base Clash (2) + 2 stacks
+    });
+
+    it('stops stacking at the configured cap', () => {
+      const s = stacked(3, 5);
+      expect(s.players[1].bleedStacks).toBe(3);
+    });
+
+    it('stacks clear when the Bleed runs out, so the next Bleed starts again at 1', () => {
+      let s = stacked(3, 2);
+      s = endRound(s);
+      s = nextRound(s); // the 2-round Bleed has now ticked twice and ended
+      expect(s.players[1].bleed).toBe(0);
+      expect(s.players[1].bleedStacks).toBe(0);
+    });
+
+    it('a Purge clears the stacks with the Bleed', () => {
+      let s = setEnergy(hands(arena('predator', 'predator', ['aggress', 'aggress'], { status: { bleedMaxStacks: 3 } }), ['t_test_bleed', 't_test_bleed'], ['t_test_purge']), 0, 9);
+      s = setEnergy(s, 1, 9);
+      s = play(s, 0, 't_test_bleed');
+      s = pass(s, 1);
+      s = play(s, 0, 't_test_bleed');
+      s = play(s, 1, 't_test_purge');
+      expect(s.players[1].bleed).toBe(0);
+      expect(s.players[1].bleedStacks).toBe(0);
+    });
+
+    it('with a cap of 1, a second Bleed only refreshes (the pre-stacking rule)', () => {
+      const s = stacked(1, 2);
+      expect(s.players[1].bleedStacks).toBe(1);
+    });
+  });
 });
 
 describe('Numb', () => {

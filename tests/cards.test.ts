@@ -155,6 +155,43 @@ describe('Protocol', () => {
     expect(s.players[0].energy).toBe(1); // 3 - 2
   });
 
+  describe('Energy drain timing', () => {
+    // Energy is refilled (not topped up) each round, so a drain that lands after the actions phase would
+    // otherwise vanish. Those carry over and come off the victim's next refill instead.
+    it('a drain during the Clash (Grave Thorn) comes off the opponent\'s next round', () => {
+      let s = attached(attached(arena(), 0, 't_pred_bone_spur', 'limbA'), 1, 't_hol_grave_thorn', 'limbA');
+      s = endRound(s); // player 0's Bone Spur hits player 1, whose Grave Thorn drains player 0
+      expect(s.log.some((l) => l.text.includes('will lose 1 Energy next round (Grave Thorn)'))).toBe(true);
+      expect(s.players[0].energyDebt).toBe(0); // already paid at this round's refill
+      expect(s.players[0].energy).toBe(s.players[1].energy - 1);
+    });
+
+    it('a drain at the Strain check (Hollow Husk) comes off the opponent\'s next round', () => {
+      let s = attached(arena(), 1, 't_hol_hollow_husk', 'head');
+      s = endRound(s);
+      expect(s.players[0].energy).toBe(s.players[1].energy - 1);
+      s = nextRound(s); // the debt is paid once, not every round after
+      expect(s.players[0].energy).toBe(s.players[1].energy - 1); // Hollow Husk fired again at this Strain check
+    });
+
+    it('a round-start drain (Bone Ward) still hits the fresh Energy immediately, with no carry-over', () => {
+      let s = attached(arena(), 1, 't_hol_bone_ward', 'organ');
+      s = endRound(s);
+      expect(s.players[0].energy).toBe(s.players[1].energy - 1);
+      expect(s.players[0].energyDebt).toBe(0);
+    });
+
+    it('a drain during the actions phase takes only what is left, and says so when there is nothing', () => {
+      let s = setEnergy(hands(arena(), ['t_pred_twitch_nerve'], ['t_para_static_jam']), 0, 0);
+      s = setEnergy(s, 1, 1);
+      s = play(s, 0, 't_pred_twitch_nerve', { slot: 'nerve' });
+      s = go(s, { type: 'REACT', player: 1, uid: s.players[1].hand[0].uid });
+      expect(s.players[0].energy).toBe(0);
+      expect(s.players[0].energyDebt).toBe(0); // an in-round drain never carries over
+      expect(s.log.some((l) => l.text.includes('has no Energy left to lose'))).toBe(true);
+    });
+  });
+
   describe('answering a Protocol with a Protocol', () => {
     it('a "respond to any play" Protocol can itself be answered, and both effects apply', () => {
       let s = setEnergy(hands(arena(), ['t_pred_bile_spit', 't_para_static_jam'], ['t_pred_blood_scent']), 0, 5);

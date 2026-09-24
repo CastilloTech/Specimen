@@ -73,6 +73,7 @@ function makePlayer(id: PlayerId, setup: PlayerSetup, config: Config): PlayerSta
     strain: 0,
     energy: 0,
     bank: 0,
+    energyDebt: 0,
     deck: [],
     hand: [],
     discard: [],
@@ -96,6 +97,7 @@ function makePlayer(id: PlayerId, setup: PlayerSetup, config: Config): PlayerSta
     evolutionOptions: [],
     stats: { damageDealt: 0, damageTaken: 0, damageBlocked: 0, strainVented: 0, rejectionsSuffered: 0, maxStrain: 0, graftsPlayed: 0, cardsPlayed: 0, hpHealed: 0 },
     bleed: 0,
+    bleedStacks: 0,
     numb: 0,
     fever: 0,
     necrosis: {},
@@ -136,6 +138,7 @@ export function createMatch(setup: MatchSetup): GameState {
     lastError: null,
     uidCounter: 0,
     graftSeq: 0,
+    actionsClosed: false,
   };
   for (const pl of s.players) {
     pl.deck = setup.players[pl.id].deck.map((cardId) => ({ uid: `${pl.id}:${s.uidCounter++}`, cardId }));

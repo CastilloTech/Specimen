@@ -243,7 +243,11 @@ export function botReaction(s: GameState, p: PlayerId): Action {
             score += pl.strain >= 7 ? op.amount * 1.4 : 0;
             break;
           case 'status':
-            if (op.who !== 'self') score += op.kind === 'numb' ? 3 : op.kind === 'bleed' ? 2.5 : 2;
+            if (op.who !== 'self') {
+              // Another Bleed on a bleeding opponent adds a stack (more damage every tick) until the cap.
+              const bleedValue = opp.bleed > 0 ? (opp.bleedStacks < s.config.status.bleedMaxStacks ? 3 : 1) : 2.5;
+              score += op.kind === 'numb' ? 3 : op.kind === 'bleed' ? bleedValue : 2;
+            }
             break;
           default:
             break;

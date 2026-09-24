@@ -65,7 +65,10 @@ export function HelpSheet({ state, keybinds, onClose }: { state: GameState; keyb
           {c.integrity.clashDamageDivisor > 0 && (
             <li>Clash wear: whenever you take Clash damage, your awake graft with the most Integrity loses 1 Integrity per {c.integrity.clashDamageDivisor} damage taken (rounded up, so any hit wears at least 1). The ⬢ badge turns amber when worn and red at 1.</li>
           )}
-          <li>Bleed: {c.status.bleedDamage} damage at the start of each round while it lasts.</li>
+          <li>
+            Bleed: {c.status.bleedDamage} damage per stack at each Strain check (end of round) while it lasts.
+            {c.status.bleedMaxStacks > 1 && ` Bleeding again while already bleeding adds a stack (up to ${c.status.bleedMaxStacks}) and refreshes the duration; stacks clear when it ends or is purged.`}
+          </li>
           <li>Numb: Protocols cannot be played while it lasts.</li>
           <li>Fever: grafts cost {c.status.feverCostIncrease} more Energy while it lasts.</li>
           <li>Necrosis: the slot a destroyed graft was in cannot be refilled for a few rounds.</li>

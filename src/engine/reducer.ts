@@ -202,6 +202,7 @@ function afterAction(s: GameState, actor: PlayerId): void {
 function endActions(s: GameState): void {
   s.window = null;
   s.stack = [];
+  s.actionsClosed = true;
   clash(s);
   if (s.phase === 'over') return;
   strainCheck(s);

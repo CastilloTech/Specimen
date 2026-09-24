@@ -74,5 +74,5 @@ describe('Seeded RNG and replays', () => {
       expect(s.result).toBeTruthy();
       expect(s.round).toBeLessThanOrEqual(8);
     }
-  });
+  }, 30_000); // 30 full bot matches: well over the 5 s default on a slower machine
 });

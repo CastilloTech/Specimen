@@ -172,6 +172,8 @@ export interface PlayerState {
   strain: number;
   energy: number;
   bank: number;
+  /** Energy drained after this round's actions ended (Clash, Strain check): taken from next round's refill. */
+  energyDebt: number;
   deck: CardInstance[];
   hand: CardInstance[];
   discard: CardInstance[];
@@ -194,8 +196,11 @@ export interface PlayerState {
   evolution: string | null;
   evolutionOptions: string[];
   stats: PlayerStats;
-  /** Rounds remaining of a 1-damage-per-round bleed-out. */
+  /** Rounds remaining of a bleed-out. */
   bleed: number;
+  /** Bleed intensity: each tick deals bleedDamage x stacks. Re-applying Bleed adds a stack (up to
+   * config.status.bleedMaxStacks) and refreshes the duration; stacks clear when Bleed ends or is purged. */
+  bleedStacks: number;
   /** Rounds remaining during which this player's Protocols cannot be played. */
   numb: number;
   /** Rounds remaining during which this player's grafts cost 1 more Energy. */
@@ -291,6 +296,9 @@ export interface GameState {
   lastError: string | null;
   uidCounter: number;
   graftSeq: number;
+  /** True from the end of the actions phase until the next round's Energy refill, so drains that land
+   * then (Clash, Strain check, rejection triggers) carry over to next round instead of vanishing. */
+  actionsClosed: boolean;
 }
 
 // ---------- Setup ----------
