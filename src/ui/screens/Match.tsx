@@ -3,6 +3,7 @@ import { ambushText, cardCost, cardOf, chipOf, defaultConfig, evolutionBoosts, f
 import type { Action, CardDef, GameState, MatchSetup, PlayerId, PlayRecord, SlotId, Stance } from '../../engine';
 import { CardView } from '../components/CardView';
 import { EvolutionBanners, FormList, useEvolutionEvents } from '../components/Evolution';
+import { MatchEndOverlay, RoundBanner, useArrivals } from '../components/MatchFx';
 import { HelpSheet } from '../components/HelpSheet';
 import { LogPanel } from '../components/LogPanel';
 import { PlayHistory, PlaySheet, PlaysStrip, PlayToast } from '../components/Plays';
@@ -52,6 +53,7 @@ export function MatchScreen({ setup, settings, onExit, onFinish }: Props) {
   const [confirmExit, setConfirmExit] = useState(false);
   const [evoEvents, dismissEvo] = useEvolutionEvents(state);
   const clash = useClashEvent(state);
+  const arrivals = useArrivals(state.players[0].hand.map((c) => c.uid), introSeen);
   const phone = useMediaQuery(PHONE_LANDSCAPE);
   const portrait = useMediaQuery(PHONE_PORTRAIT);
   const [portraitOk, setPortraitOk] = useState(false);
@@ -331,6 +333,8 @@ export function MatchScreen({ setup, settings, onExit, onFinish }: Props) {
   const overlays = () => (
     <>
       <EvolutionBanners state={state} events={evoEvents} me={me} onDismiss={dismissEvo} />
+      <RoundBanner state={state} />
+      <MatchEndOverlay state={state} me={me} />
       {showHelp && <HelpSheet state={state} keybinds={binds} onClose={() => setShowHelp(false)} />}
       {showHistory && <PlayHistory state={state} viewer={me} onClose={() => setShowHistory(false)} onOpen={(r) => setPlaySheet(r)} />}
       {playSheet && <PlaySheet state={state} viewer={me} rec={playSheet} onClose={() => setPlaySheet(null)} />}
@@ -397,7 +401,7 @@ export function MatchScreen({ setup, settings, onExit, onFinish }: Props) {
                 const d = cardOf(c.cardId);
                 const dim = !cycleMode && !playable.has(c.uid);
                 return (
-                  <div key={c.uid} className={i > 0 ? (fan ? '-ml-3' : 'ml-1') : ''}>
+                  <div key={c.uid} className={`${i > 0 ? (fan ? '-ml-3' : 'ml-1') : ''} ${arrivals.has(c.uid) ? 'card-draw' : ''}`} style={arrivals.has(c.uid) ? ({ '--i': `${arrivals.get(c.uid)! * 90}ms` } as React.CSSProperties) : undefined}>
                     <CardView def={d} cost={cardCost(state, mine, d)} size="xs" dim={dim} reason={dim ? (whyNot(c.uid) ?? undefined) : undefined} onClick={() => onHandClick(c.uid)} onDoubleClick={() => onHandDoubleClick(c.uid)} />
                   </div>
                 );
@@ -432,7 +436,7 @@ export function MatchScreen({ setup, settings, onExit, onFinish }: Props) {
             R{Math.max(state.round, 1)}
             <span className="text-mute">/{state.config.match.maxRounds}</span>
           </span>
-          {state.round >= state.config.match.meltdownFromRound && <span className="hazard rounded px-1 font-display text-[8px] font-bold"><span className="bg-black/80 px-0.5 text-amber-300">MELTDOWN</span></span>}
+          {state.round >= state.config.match.meltdownFromRound && <span className="hazard hazard-scroll rounded px-1 font-display text-[8px] font-bold"><span className="bg-black/80 px-0.5 text-amber-300">MELTDOWN</span></span>}
           {!over && myTurn ? (
             <span className="turn-glow rounded bg-accent px-1.5 font-display text-[11px] font-bold text-black">YOUR TURN</span>
           ) : !over && reacting ? (
@@ -533,7 +537,7 @@ export function MatchScreen({ setup, settings, onExit, onFinish }: Props) {
             <span className="text-mute">/{state.config.match.maxRounds}</span>
           </div>
           {state.round >= state.config.match.meltdownFromRound && (
-            <span className="hazard rounded px-1.5 py-0.5 font-display text-[9px] font-bold text-black" title={`Meltdown: both Specimens gain ${state.config.match.meltdownStrain} Strain each round from round ${state.config.match.meltdownFromRound}.`}>
+            <span className="hazard hazard-scroll rounded px-1.5 py-0.5 font-display text-[9px] font-bold text-black" title={`Meltdown: both Specimens gain ${state.config.match.meltdownStrain} Strain each round from round ${state.config.match.meltdownFromRound}.`}>
               <span className="rounded-sm bg-black/80 px-1 text-amber-300">MELTDOWN</span>
             </span>
           )}
@@ -671,8 +675,8 @@ export function MatchScreen({ setup, settings, onExit, onFinish }: Props) {
                   const d = cardOf(c.cardId);
                   const dim = !cycleMode && !playable.has(c.uid);
                   return (
+                    <div key={c.uid} className={arrivals.has(c.uid) ? 'card-draw' : ''} style={arrivals.has(c.uid) ? ({ '--i': `${arrivals.get(c.uid)! * 90}ms` } as React.CSSProperties) : undefined}>
                     <CardView
-                      key={c.uid}
                       def={d}
                       cost={cardCost(state, mine, d)}
                       selected={selected === c.uid}
@@ -683,6 +687,7 @@ export function MatchScreen({ setup, settings, onExit, onFinish }: Props) {
                       onDoubleClick={() => onHandDoubleClick(c.uid)}
                       size={mine.hand.length > 7 ? 'sm' : 'md'}
                     />
+                    </div>
                   );
                 })}
               </div>
@@ -745,21 +750,27 @@ function StanceBadge({ state, player, show }: { state: GameState; player: Player
   if (!show || !st) return <div className="h-6" />;
   const m = STANCE_META[st];
   const winner = state.stanceResult?.winner;
+  // Revealed stances flip over together each round; then the winner pops and glows and the loser dims.
+  const outcome = winner === undefined || winner === null ? 'stance-tie' : winner === player ? 'stance-win' : 'stance-lose';
   return (
-    <div className={`mx-auto mt-1 w-fit rounded-full px-2.5 py-0.5 text-[11px] font-bold ${winner === player ? 'bg-accent text-black' : 'bg-black/50 text-ink2'}`}>
+    <div key={`${state.round}:${st}`} className={`stance-flip ${outcome} mx-auto mt-1 w-fit rounded-full px-2.5 py-0.5 text-[11px] font-bold ${winner === player ? 'bg-accent text-black' : 'bg-black/50 text-ink2'}`}>
       {m.glyph} {m.name}
+      {winner === player && ' ✓'}
     </div>
   );
 }
 
 function TimerBadge({ timer, who }: { timer: TimerView; who: PlayerId }) {
   const pct = Math.max(0, (timer.left / timer.limit) * 100);
+  const urgent = timer.left <= 5 && timer.left > 0;
   return (
-    <div className="flex items-center gap-1.5 text-[11px]" aria-label="Timer">
+    <div className={`flex items-center gap-1.5 rounded px-0.5 text-[11px] ${urgent ? 'timer-urgent' : ''}`} aria-label="Timer">
       <div className="h-1.5 w-8 overflow-hidden rounded bg-black/50 sm:w-14">
-        <div className={`h-full ${timer.left <= 3 ? 'bg-red-500' : 'bg-accent'}`} style={{ width: `${pct}%` }} />
+        <div className={`h-full transition-[width] duration-1000 ease-linear ${urgent ? 'bg-red-500' : 'bg-accent'}`} style={{ width: `${pct}%` }} />
       </div>
-      <span className={`w-7 font-bold tabular-nums ${timer.left <= 3 ? 'text-red-400' : ''}`}>{timer.left}s</span>
+      <span key={urgent ? timer.left : 'n'} className={`inline-block w-7 font-bold tabular-nums ${urgent ? 'timer-tick text-red-400' : ''}`}>
+        {timer.left}s
+      </span>
       <span className={`tabular-nums ${timer.usingReserve ? 'font-bold text-amber-300' : 'hidden text-mute sm:inline'}`} title="Reserve time left">
         +{timer.reserve[who]}s
       </span>

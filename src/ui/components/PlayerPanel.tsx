@@ -1,12 +1,16 @@
-import { computeStats, evolutionProgress, evoNum, findNode, stableMax } from '../../engine';
+import { computeStats, condOk, evolutionProgress, evoNum, findNode, stableMax } from '../../engine';
 import type { GameState, PlayerId, Stance } from '../../engine';
 import { FACTION_META, STANCE_META, WORLD_FACTION_META } from '../meta';
 import { EvolvedBadge } from './Evolution';
-import { EnergyPips, EvolutionBars, HpBar, StrainMeter } from './Meters';
+import { EnergyPips, EvolutionBars, HpBar, HpFlash, HpGhost, StrainMeter } from './Meters';
 import { STATUS_META, StatusIcon } from './StatusFx';
 import { StrainDelta, strainSegFx, useChange } from './StrainFx';
 
-export function LoadoutChips({ loadout, stances = [] }: { loadout: string[]; stances?: Stance[] }) {
+/**
+ * A player's picked Chip nodes. Given the match (`state` + `player`), nodes with a condition show whether it
+ * currently holds (◆ lit / ◇ idle) and flash when they switch on.
+ */
+export function LoadoutChips({ loadout, stances = [], state, player }: { loadout: string[]; stances?: Stance[]; state?: GameState; player?: PlayerId }) {
   return (
     <div className="flex flex-wrap gap-1">
       {stances.length > 0 && (
@@ -16,8 +20,15 @@ export function LoadoutChips({ loadout, stances = [] }: { loadout: string[]; sta
       )}
       {loadout.map((id) => {
         const n = findNode(id);
+        const gated = !!n?.cond && !!state && player !== undefined;
+        const on = gated && condOk(state!, state!.players[player!], n!.cond);
         return (
-          <span key={id} title={n?.text} className="rounded bg-black/40 px-1.5 py-0.5 text-[10px] text-ink2">
+          <span
+            key={`${id}:${on}`}
+            title={gated ? `${n!.text} (${on ? 'active now' : 'condition not met right now'})` : n?.text}
+            className={`rounded border px-1.5 py-0.5 text-[10px] ${on ? 'node-on border-accent/70 bg-accent/15 text-accent' : 'border-transparent bg-black/40 text-ink2'}`}
+          >
+            {gated && <span className={on ? '' : 'text-mute'}>{on ? '◆ ' : '◇ '}</span>}
             {n?.name ?? id}
           </span>
         );
@@ -38,6 +49,8 @@ export function PlayerPanelCompact({ state, player, color, active }: { state: Ga
   const prog = evolutionProgress(state, player);
   const hpPct = Math.max(0, Math.min(100, (p.hp / state.config.specimen.hp) * 100));
   const chg = useChange(p.strain);
+  const hpChg = useChange(p.hp, 900);
+  const enChg = useChange(p.energy);
   return (
     <section className={`lab-panel flex h-full min-h-0 min-w-0 flex-col gap-1 overflow-hidden rounded-lg border p-1.5 ${active ? 'turn-glow border-accent/80' : 'border-line'}`} style={{ borderTop: `2px solid ${color}` }} aria-label={`${p.name} status`}>
       <div className="flex min-w-0 items-center gap-1">
@@ -56,7 +69,9 @@ export function PlayerPanelCompact({ state, player, color, active }: { state: Ga
         </span>
       </div>
       <div className="relative h-4 overflow-hidden rounded border border-black/60 bg-black/60" role="meter" aria-label="HP" aria-valuenow={p.hp}>
-        <div className={`h-full ${hpPct > 50 ? 'bg-emerald-500' : hpPct > 25 ? 'bg-amber-500' : 'bg-red-600'} transition-all duration-500`} style={{ width: `${hpPct}%` }} />
+        <HpGhost pct={hpPct} />
+        <div className={`relative h-full ${hpPct > 50 ? 'bg-emerald-500' : hpPct > 25 ? 'bg-amber-500' : 'bg-red-600'} transition-all duration-300`} style={{ width: `${hpPct}%` }} />
+        <HpFlash chg={hpChg} />
         <span className="absolute inset-0 grid place-items-center font-display text-[10px] font-bold text-white drop-shadow">
           {p.hp}/{state.config.specimen.hp}
         </span>
@@ -77,7 +92,7 @@ export function PlayerPanelCompact({ state, player, color, active }: { state: Ga
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-1 text-[9px] font-bold leading-none">
-        <span className="rounded bg-sky-900/60 px-1 py-0.5 text-sky-100" title="Energy">
+        <span key={enChg?.key} className={`rounded bg-sky-900/60 px-1 py-0.5 text-sky-100 ${enChg ? 'energy-bump' : ''}`} title="Energy">
           ◉{p.energy}
         </span>
         <span className="rounded bg-red-900/60 px-1 py-0.5 text-red-100" title="Attack">
@@ -189,7 +204,7 @@ export function PlayerPanel({ state, player, color, active }: { state: GameState
           {p.evolution ? <EvolvedBadge state={state} player={player} /> : <EvolutionBars state={state} player={player} />}
         </div>
         <div className="col-span-2">
-          <LoadoutChips loadout={p.loadout} stances={recent} />
+          <LoadoutChips loadout={p.loadout} stances={recent} state={state} player={player} />
         </div>
       </div>
     </section>

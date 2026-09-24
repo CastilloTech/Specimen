@@ -5,19 +5,20 @@ import type { GameState, PlayerId, PlayerState, SlotId } from '../../engine';
 import { CardArt } from './CardArt';
 import { accentFor } from './CardView';
 import { CastCard, ImpactBurst, usePlayFx } from './PlayFx';
+import { Flatline, TankLogFx, useLogFx } from './MatchFx';
 import { StrainTankFx, useStrainFx } from './StrainFx';
 import { StatusAura, StatusBadges, StatusCallouts, StatusIcon, useStatusEvents } from './StatusFx';
 
 /** A short-lived graft event on one slot: Integrity lost, the graft destroyed or ejected, or the slot necrosed. */
 interface GraftFx {
   key: number;
-  kind: 'wear' | 'destroyed' | 'ejected' | 'necrosis';
+  kind: 'wear' | 'destroyed' | 'ejected' | 'necrosis' | 'reveal';
   amount?: number;
   /** The lost graft (for its ghost); null when the viewer never saw it (an opponent's face-down graft). */
   cardId?: string | null;
 }
 
-const FX_MS: Record<GraftFx['kind'], number> = { wear: 1600, destroyed: 2000, ejected: 1800, necrosis: 1800 };
+const FX_MS: Record<GraftFx['kind'], number> = { wear: 1600, destroyed: 2000, ejected: 1800, necrosis: 1800, reveal: 1300 };
 let fxKey = 0;
 
 /** Diffs a player's grafts (and necrosis) between renders to find what just happened to each slot. */
@@ -37,7 +38,9 @@ function useGraftFx(state: GameState, p: PlayerState, viewer: PlayerId): Partial
     for (const [slot, old] of before.grafts) {
       const cur = now.get(slot);
       const seen = !old.faceDown || viewer === p.id ? old.cardId : null;
-      if (cur && cur.uid === old.uid && cur.integrity < old.integrity) {
+      if (cur && cur.uid === old.uid && old.faceDown && !cur.faceDown) {
+        found[slot] = { key: ++fxKey, kind: 'reveal' };
+      } else if (cur && cur.uid === old.uid && cur.integrity < old.integrity) {
         found[slot] = { key: ++fxKey, kind: 'wear', amount: old.integrity - cur.integrity };
       } else if (!cur) {
         const ejected = fresh.some((l) => l.kind === 'reject' && l.text.includes(`${p.name} ejects `) && l.text.includes(` from ${SLOT_LABEL[slot]}`));
@@ -123,6 +126,20 @@ function GraftGhost({ fx, x, y }: { fx: GraftFx; x: number; y: number }) {
   );
 }
 
+/** A face-down graft waking: its dark cocoon splits open with a flash. */
+function RevealBurst({ x, y, color }: { x: number; y: number; color: string }) {
+  return (
+    <div className="pointer-events-none absolute z-30 aspect-square w-[40%] -translate-x-1/2 -translate-y-1/2" style={{ left: `${x}%`, top: `${y}%` }} aria-hidden data-match-fx="reveal">
+      <svg viewBox="-50 -50 100 100" className="h-full w-full overflow-visible">
+        <circle className="reveal-flash" r="26" fill={color} />
+        <circle className="reveal-ring" r="30" stroke={color} strokeWidth="3" fill="none" />
+        <path className="reveal-shell-l" d="M0,-24 A16,24 0 0 0 0,24 L-4,12 L2,4 L-4,-6 L2,-14 Z" fill="#1f2a26" stroke="#6b7a73" strokeWidth="2" />
+        <path className="reveal-shell-r" d="M0,-24 A16,24 0 0 1 0,24 L-4,12 L2,4 L-4,-6 L2,-14 Z" fill="#1f2a26" stroke="#6b7a73" strokeWidth="2" />
+      </svg>
+    </div>
+  );
+}
+
 // Slot anchor points on the creature artwork (percent of the square tank), placed on its anatomy:
 // helmet, neck cables, chest, the resting hand, the far forearm, and the hip. `flip` mirrors the whole
 // creature (and so every slot); the match flips the left-hand tank so the two Specimens face each other.
@@ -177,13 +194,19 @@ export function Specimen({ state, player, viewer, flip, highlight, onSlot, color
   const strainFx = useStrainFx(state, player);
   const lostOne = Object.values(fx).some((f) => f && f.kind === 'destroyed') || strainFx.some((e) => e.kind === 'reject');
   const evolving = strainFx.some((e) => e.kind === 'evolve');
+  const logFx = useLogFx(state, player);
+  // Match over: the loser's Specimen goes dark (flatlining if it was KO'd), the winner's glows.
+  const res = state.phase === 'over' ? state.result : null;
+  const lost = !!res && res.winner !== null && res.winner !== player;
+  const won = !!res && res.winner === player;
   return (
     <div
       className={`relative aspect-square overflow-visible rounded-[26px] border ${fill ? 'h-full' : 'mx-auto w-full max-w-[230px] lg:max-w-[300px]'} ${lostOne ? 'graft-lost-shake' : ''}`}
       style={{ borderColor: `${color}66`, boxShadow: `0 0 22px -6px ${color}88, inset 0 0 0 1px rgba(255,255,255,0.05)` }}
       aria-label={`${p.name}'s Specimen`}
     >
-      <Creature flip={flip} surge={evolving} className="rounded-[26px]" />
+      <Creature flip={flip} surge={evolving} className={`rounded-[26px] ${lost ? 'specimen-dead' : ''}`} />
+      {won && <div className="evo-aura pointer-events-none absolute inset-0 rounded-[26px] mix-blend-screen" style={{ background: `radial-gradient(ellipse 60% 65% at 50% 50%, ${color}66, transparent 72%)` }} />}
       <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-[26px]" style={{ background: `linear-gradient(180deg, ${color}14, transparent 30%, transparent 75%, ${color}1f)` }}>
         {BUBBLES.map((b, i) => (
           <span key={i} className="tank-bubble absolute bottom-1 rounded-full border border-white/30" style={{ left: b.left, width: b.size, height: b.size, animationDelay: b.delay }} />
@@ -212,6 +235,7 @@ export function Specimen({ state, player, viewer, flip, highlight, onSlot, color
         const crack: 0 | 1 | 2 = !pg || !def || asleep || pg.integrity >= maxIntegrity ? 0 : pg.integrity <= 1 ? 2 : 1;
         return [
           f && (f.kind === 'destroyed' || f.kind === 'ejected') ? <GraftGhost key={`ghost-${f.key}`} fx={f} x={x} y={pos.y} /> : null,
+          f?.kind === 'reveal' ? <RevealBurst key={`reveal-${f.key}`} x={x} y={pos.y} color={accent} /> : null,
           <button
             key={slot}
             type="button"
@@ -224,7 +248,7 @@ export function Specimen({ state, player, viewer, flip, highlight, onSlot, color
                   : necrotic > 0
                     ? 'w-[36%] rounded-lg lg:w-[31%] border-fuchsia-700 bg-fuchsia-950/75'
                     : 'rounded-full border-dashed border-cyan-200/35 bg-black/55 px-1.5 hover:border-cyan-200/70'
-            } ${pg?.poisoned ? 'graft-poisoned ring-2 ring-fuchsia-500' : ''} ${pg?.disabled ? 'grayscale' : ''} ${wear ? 'wear-flash' : ''}`}
+            } ${f?.kind === 'reveal' ? 'graft-reveal' : ''} ${veteran ? 'ring-1 ring-amber-300/70' : ''} ${pg?.poisoned ? 'graft-poisoned ring-2 ring-fuchsia-500' : ''} ${pg?.disabled ? 'grayscale' : ''} ${wear ? 'wear-flash' : ''}`}
             style={{ left: `${x}%`, top: `${pos.y}%`, borderColor: pg && !lit ? `${accent}aa` : undefined }}
             title={
               def
@@ -250,6 +274,14 @@ export function Specimen({ state, player, viewer, flip, highlight, onSlot, color
               </span>
             )}
             <Cracks level={crack} />
+            {veteran && (
+              <span key={`vet-${pg!.uid}`} className="pointer-events-none absolute inset-0 z-10" aria-hidden>
+                <span className="absolute inset-0 overflow-hidden rounded-lg">
+                  <span className="veteran-shine absolute inset-y-0 -left-1/2 w-1/2" />
+                </span>
+                <span className="veteran-stamp absolute -top-4 left-1/2 whitespace-nowrap rounded-md border border-amber-300 bg-amber-500 px-1.5 font-display text-[10px] font-bold tracking-wider text-black shadow-lg">★ VETERAN</span>
+              </span>
+            )}
             {pg ? (
               <>
                 <div className={`relative h-[15px] overflow-hidden rounded-t-[7px] ${asleep ? 'opacity-40 grayscale' : ''}`}>
@@ -296,6 +328,8 @@ export function Specimen({ state, player, viewer, flip, highlight, onSlot, color
       })}
       <StatusCallouts events={statusEvents} player={player} />
       <StrainTankFx state={state} player={player} events={strainFx} flip={flip} layer="over" />
+      <TankLogFx events={logFx} />
+      {lost && p.hp <= 0 && <Flatline />}
       {/* Card plays: the card rises over its caster's tank and flies to where it lands... */}
       {plays
         .filter((e) => e.caster === player)

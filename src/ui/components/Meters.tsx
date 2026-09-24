@@ -1,13 +1,17 @@
 import { evolutionProgress, stableMax } from '../../engine';
 import type { GameState, PlayerId } from '../../engine';
 import { StrainDelta, strainSegFx, useChange } from './StrainFx';
+import type { Change } from './StrainFx';
 
 export function HpBar({ hp, max }: { hp: number; max: number }) {
   const pct = Math.max(0, Math.min(100, (hp / max) * 100));
   const color = pct > 50 ? 'from-emerald-600 to-emerald-400' : pct > 25 ? 'from-amber-600 to-amber-400' : 'from-red-700 to-red-500';
+  const chg = useChange(hp, 900);
   return (
     <div className="relative h-5 w-full overflow-hidden rounded-md border border-black/60 bg-black/60" role="meter" aria-label="HP" aria-valuenow={hp} aria-valuemin={0} aria-valuemax={max}>
-      <div className={`h-full bg-linear-to-r ${color} transition-all duration-500`} style={{ width: `${pct}%` }} />
+      <HpGhost pct={pct} />
+      <div className={`relative h-full bg-linear-to-r ${color} transition-all duration-300`} style={{ width: `${pct}%` }} />
+      <HpFlash chg={chg} />
       <div className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(90deg,transparent_0_9%,rgba(0,0,0,0.25)_9%_10%)]" />
       <div className="absolute inset-0 grid place-items-center font-display text-[12px] font-bold tracking-wide text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.9)]">
         HP {hp} / {max}
@@ -51,17 +55,40 @@ export function StrainMeter({ state, player }: { state: GameState; player: Playe
   );
 }
 
+/** A pale bar that trails the HP bar down after a hit, so the chunk just lost stays visible for a moment. */
+export function HpGhost({ pct }: { pct: number }) {
+  return <div className="absolute inset-y-0 left-0 bg-white/60 transition-[width] delay-300 duration-700 ease-out" style={{ width: `${pct}%` }} />;
+}
+
+/** A red flash when HP drops, a green sweep when it rises. */
+export function HpFlash({ chg }: { chg: Change | null }) {
+  if (!chg) return null;
+  return <div key={chg.key} className={`pointer-events-none absolute inset-0 ${chg.to > chg.from ? 'hp-heal' : 'hp-hit'}`} />;
+}
+
 export function EnergyPips({ energy, round, cap }: { energy: number; round: number; cap: number }) {
   const max = Math.max(Math.min(round, cap), energy);
+  const chg = useChange(energy);
   return (
     <div className="flex items-center gap-1" title={`Energy ${energy}`}>
       <span className="text-[11px] font-semibold text-ink2">Energy</span>
       <div className="flex gap-[3px]">
-        {Array.from({ length: max }, (_, i) => (
-          <span key={i} className={`h-3 w-3 rounded-full border ${i < energy ? 'border-sky-300 bg-sky-400' : 'border-line bg-transparent'}`} />
-        ))}
+        {Array.from({ length: max }, (_, i) => {
+          // Pips that just refilled pop in one after another; pips just spent flash out.
+          const gained = chg && chg.to > chg.from && i >= chg.from && i < chg.to;
+          const spent = chg && chg.to < chg.from && i >= chg.to && i < chg.from;
+          return (
+            <span
+              key={gained || spent ? `${i}:${chg!.key}` : i}
+              className={`h-3 w-3 rounded-full border ${i < energy ? 'border-sky-300 bg-sky-400' : 'border-line bg-transparent'} ${gained ? 'energy-in' : spent ? 'energy-out' : ''}`}
+              style={gained ? { animationDelay: `${(i - chg!.from) * 80}ms` } : undefined}
+            />
+          );
+        })}
       </div>
-      <span className="text-[11px] font-bold">{energy}</span>
+      <span key={chg?.key} className={`text-[11px] font-bold ${chg ? 'energy-bump' : ''}`}>
+        {energy}
+      </span>
     </div>
   );
 }

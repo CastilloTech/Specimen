@@ -9,7 +9,7 @@ import { accentFor } from './CardView';
 // where it lands (a graft into its slot, a Sabotage onto the targeted enemy graft, a Toxin onto the opponent,
 // a Serum / Protocol onto the caster), and a faction-specific impact fires there.
 
-export type FxTheme = 'predator' | 'parasite' | 'bastion' | 'corrosion' | 'aegis' | 'miasma' | 'hollow' | 'tech' | 'dormant';
+export type FxTheme = 'predator' | 'parasite' | 'bastion' | 'corrosion' | 'aegis' | 'miasma' | 'hollow' | 'tech' | 'dormant' | 'cycle';
 
 export interface PlayFxEvent {
   key: number;
@@ -31,9 +31,14 @@ export function usePlayFx(state: GameState, viewer: PlayerId): PlayFxEvent[] {
   useEffect(() => {
     const found: PlayFxEvent[] = [];
     for (const raw of state.plays.slice(seen.current)) {
-      if (raw.kind === 'cycle' || raw.kind === 'valve') continue;
+      if (raw.kind === 'valve') continue;
       const rec = publicPlay(raw, viewer);
       const def = rec.cardId ? cardOf(rec.cardId) : null;
+      if (raw.kind === 'cycle') {
+        // Cycling: the card (shown only to its owner) is fed into the tank's recycler.
+        found.push({ key: ++fxKey, caster: rec.player, def: rec.player === viewer ? def : null, theme: 'cycle', color: '#38bdf8', target: { player: rec.player, slot: null } });
+        continue;
+      }
       const opp = (rec.player === 0 ? 1 : 0) as PlayerId;
       const theme: FxTheme = def ? (def.faction as FxTheme) : 'dormant';
       const color = def ? accentFor(def.faction) : '#6b7a73';
@@ -73,11 +78,11 @@ export function usePlayFx(state: GameState, viewer: PlayerId): PlayFxEvent[] {
 export function CastCard({ ev, to }: { ev: PlayFxEvent; to: { x: number; y: number } }) {
   const style = { '--sx': `${to.x}%`, '--sy': `${to.y}%` } as CSSProperties;
   return (
-    <div className={`${ev.negated ? 'cast-negated' : 'cast-card'} pointer-events-none absolute z-40 w-[34%]`} style={style}>
+    <div className={`${ev.negated ? 'cast-negated' : ev.theme === 'cycle' ? 'cast-cycle' : 'cast-card'} pointer-events-none absolute z-40 w-[34%]`} style={style}>
       <div className="overflow-hidden rounded-lg border-2 bg-panel" style={{ borderColor: ev.color, boxShadow: `0 0 0 1px ${ev.color}, 0 0 26px 6px ${ev.color}aa` }}>
         <div className="aspect-[4/3]">{ev.def ? <CardArt def={ev.def} accent={ev.color} className="h-full w-full" /> : <div className="h-full w-full bg-[repeating-linear-gradient(45deg,#1b2521_0_4px,#111916_4px_8px)]" />}</div>
         <div className="truncate px-1 py-0.5 text-center font-display text-[10px] font-bold" style={{ color: ev.color }}>
-          {ev.def ? ev.def.name : 'Face-down graft'}
+          {ev.def ? ev.def.name : ev.theme === 'cycle' ? 'Cycled card' : 'Face-down graft'}
         </div>
       </div>
       {ev.negated && <div className="graft-stamp absolute left-1/2 top-1/2 whitespace-nowrap rounded border-2 border-zinc-200 bg-black/85 px-1.5 font-display text-[11px] font-bold tracking-widest text-zinc-100">NEGATED</div>}
@@ -185,6 +190,21 @@ export function ImpactBurst({ theme, color }: { theme: FxTheme; color: string })
           </g>
           <rect className="fx-pop" x="-6" y="-6" width="12" height="12" transform="rotate(45)" fill="#38bdf8" />
           <circle className="fx-ring" r="30" stroke="#38bdf8" strokeWidth="1.5" fill="none" />
+        </>
+      );
+      break;
+    case 'cycle': // recycler arrows spinning the card away
+      art = (
+        <>
+          <g className="fx-spin">
+            {[0, 120, 240].map((a) => (
+              <g key={a} transform={`rotate(${a})`}>
+                <path d="M-8,-26 A26,26 0 0 1 20,-16" stroke={color} strokeWidth="4" strokeLinecap="round" fill="none" />
+                <polygon points="20,-24 26,-12 14,-12" fill={color} />
+              </g>
+            ))}
+          </g>
+          <circle className="fx-ring" r="18" stroke="#bae6fd" strokeWidth="2" fill="none" />
         </>
       );
       break;
