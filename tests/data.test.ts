@@ -107,6 +107,14 @@ describe('Card pool', () => {
     }
   });
 
+  it('gives every card a unique name', () => {
+    const seen = new Map<string, string>();
+    for (const c of CARDS) {
+      expect(seen.get(c.name), `"${c.name}" is used by both ${seen.get(c.name)} and ${c.id}`).toBeUndefined();
+      seen.set(c.name, c.id);
+    }
+  });
+
   it('only references card ids that exist in starter decks', () => {
     const ids = new Set(CARDS.map((c) => c.id));
     for (const f of FACTIONS) for (const w of WORLD_FACTIONS) for (const id of starterDeck(f, w)) expect(ids.has(id)).toBe(true);

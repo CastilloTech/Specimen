@@ -1,9 +1,8 @@
 import { useId } from 'react';
 import type { CardDef } from '../../engine';
 
-// Procedural "specimen plate" art: every card gets a small illustration drawn from its type (and a graft's
-// slot), tinted by its faction and shaped by a seed from its id, so no two cards look alike and no image
-// assets are needed.
+// Procedural "specimen plate" art: the fallback for a card with no painted image, drawn from its type (and a
+// graft's slot), tinted by its faction and shaped by a seed from its id.
 
 function seeded(id: string) {
   let h = 2166136261;
@@ -49,7 +48,24 @@ function veins(cx: number, cy: number, r: number, rnd: () => number, count = 4):
   return d;
 }
 
+// Painted card art: src/assets/cards/<card id>.jpg (cropped from the art sheets). Vite turns each into a URL.
+const IMAGES: Record<string, string> = Object.fromEntries(
+  Object.entries(import.meta.glob<string>('../../assets/cards/*.jpg', { eager: true, import: 'default' })).map(([path, url]) => [path.slice(path.lastIndexOf('/') + 1, -4), url]),
+);
+
+/** A card's artwork: its painted image when there is one, otherwise the procedural specimen plate. */
 export function CardArt({ def, accent, className = '' }: { def: CardDef; accent: string; className?: string }) {
+  const src = IMAGES[def.id];
+  if (!src) return <ProceduralArt def={def} accent={accent} className={className} />;
+  return (
+    <div className={`relative overflow-hidden ${className}`}>
+      <img src={src} alt="" loading="lazy" decoding="async" draggable={false} className="h-full w-full select-none object-cover" style={{ objectPosition: '50% 40%' }} />
+      {def.signature && <div className="pointer-events-none absolute inset-0 border border-dashed border-[#e6c35c]" />}
+    </div>
+  );
+}
+
+function ProceduralArt({ def, accent, className = '' }: { def: CardDef; accent: string; className?: string }) {
   const uid = useId().replace(/:/g, '');
   const rnd = seeded(def.id);
   const flesh = '#c65a4e';

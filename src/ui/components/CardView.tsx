@@ -51,7 +51,7 @@ export function CardView({ def, cost, size = 'md', selected, dim, onClick, onDou
       >
         <span className={`absolute -left-1.5 -top-1.5 z-10 grid h-5 w-5 place-items-center rounded-full border border-bg font-display text-[11px] font-bold text-white ${costClass}`}>{shownCost}</span>
         {count !== undefined && <span className="absolute -right-1.5 -top-1.5 z-10 grid h-4 min-w-4 place-items-center rounded-full bg-accent px-0.5 text-[9px] font-bold text-black">×{count}</span>}
-        <div className="h-[26px] overflow-hidden rounded-t-[7px] border-b border-black/60">
+        <div className="h-[30px] overflow-hidden rounded-t-[7px] border-b border-black/60">
           <CardArt def={def} accent={accent} className="h-full w-full" />
         </div>
         <div className="flex min-h-0 flex-1 flex-col px-1 pt-0.5">
@@ -98,7 +98,7 @@ export function CardView({ def, cost, size = 'md', selected, dim, onClick, onDou
       {count !== undefined && <span className="absolute -right-2 -top-2 z-10 grid h-6 min-w-6 place-items-center rounded-full bg-accent px-1 text-[11px] font-bold text-black">×{count}</span>}
       {hotkey && <span className="absolute -bottom-2 -right-2 z-10 hidden h-5 w-5 sm:grid place-items-center rounded-md border border-line bg-bg text-[10px] font-bold text-mute">{hotkey}</span>}
 
-      <div className={`overflow-hidden rounded-t-[11px] border-b border-black/60 ${sm ? 'h-[40px]' : 'h-[58px]'}`}>
+      <div className={`overflow-hidden rounded-t-[11px] border-b border-black/60 ${sm ? 'h-[48px]' : 'h-[76px]'}`}>
         <CardArt def={def} accent={accent} className="h-full w-full" />
       </div>
 
@@ -138,7 +138,7 @@ export function CardView({ def, cost, size = 'md', selected, dim, onClick, onDou
             )}
           </div>
         )}
-        <div className={`mt-1 min-h-0 overflow-hidden text-ink2 ${sm ? 'line-clamp-3 text-[8.5px] leading-[1.2]' : 'line-clamp-5 text-[10px] leading-snug'}`}>{def.text}</div>
+        <div className={`mt-1 min-h-0 overflow-hidden text-ink2 ${sm ? 'line-clamp-2 text-[8.5px] leading-[1.2]' : 'line-clamp-4 text-[10px] leading-snug'}`}>{def.text}</div>
       </div>
       {dim && reason && (
         <div className={`absolute inset-x-0 bottom-0 rounded-b-[11px] bg-black/85 px-1.5 py-1 text-center font-semibold text-amber-300 ${sm ? 'text-[8px]' : 'text-[9.5px]'}`}>{reason}</div>
