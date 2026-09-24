@@ -1,8 +1,9 @@
-import { computeStats, evoNum, findNode } from '../../engine';
+import { computeStats, evolutionProgress, evoNum, findNode, stableMax } from '../../engine';
 import type { GameState, PlayerId, Stance } from '../../engine';
 import { FACTION_META, STANCE_META, WORLD_FACTION_META } from '../meta';
 import { EvolvedBadge } from './Evolution';
 import { EnergyPips, EvolutionBars, HpBar, StrainMeter } from './Meters';
+import { STATUS_META, StatusIcon } from './StatusFx';
 
 export function LoadoutChips({ loadout, stances = [] }: { loadout: string[]; stances?: Stance[] }) {
   return (
@@ -21,6 +22,96 @@ export function LoadoutChips({ loadout, stances = [] }: { loadout: string[]; sta
         );
       })}
     </div>
+  );
+}
+
+/** Phone landscape: the same information squeezed into a narrow column beside the tanks. */
+export function PlayerPanelCompact({ state, player, color, active }: { state: GameState; player: PlayerId; color: string; active: boolean }) {
+  const p = state.players[player];
+  const fm = FACTION_META[p.faction];
+  const wfm = WORLD_FACTION_META[p.worldFaction];
+  const st = computeStats(state, p);
+  const T = state.config.strain.threshold;
+  const sMax = stableMax(state, p);
+  const zone = p.strain <= sMax ? 'text-emerald-300' : p.strain <= T ? 'text-amber-300' : 'text-red-400';
+  const prog = evolutionProgress(state, player);
+  const hpPct = Math.max(0, Math.min(100, (p.hp / state.config.specimen.hp) * 100));
+  return (
+    <section className={`lab-panel flex h-full min-h-0 min-w-0 flex-col gap-1 overflow-hidden rounded-lg border p-1.5 ${active ? 'turn-glow border-accent/80' : 'border-line'}`} style={{ borderTop: `2px solid ${color}` }} aria-label={`${p.name} status`}>
+      <div className="flex min-w-0 items-center gap-1">
+        <span className="min-w-0 flex-1 truncate font-display text-[12px] font-bold leading-none" title={p.name}>
+          {p.name}
+        </span>
+        <span className="shrink-0 text-[9px] text-mute">✋{p.hand.length}</span>
+      </div>
+      <div className="flex min-w-0 gap-1 text-[8.5px] font-semibold leading-none">
+        <span className="truncate" style={{ color: fm.color }}>
+          {fm.name}
+          {p.evolution ? '★' : ''}
+        </span>
+        <span className="truncate" style={{ color: wfm.color }}>
+          {wfm.name}
+        </span>
+      </div>
+      <div className="relative h-4 overflow-hidden rounded border border-black/60 bg-black/60" role="meter" aria-label="HP" aria-valuenow={p.hp}>
+        <div className={`h-full ${hpPct > 50 ? 'bg-emerald-500' : hpPct > 25 ? 'bg-amber-500' : 'bg-red-600'} transition-all duration-500`} style={{ width: `${hpPct}%` }} />
+        <span className="absolute inset-0 grid place-items-center font-display text-[10px] font-bold text-white drop-shadow">
+          {p.hp}/{state.config.specimen.hp}
+        </span>
+      </div>
+      <div>
+        <div className="flex justify-between text-[9px] leading-none">
+          <span className="text-ink2">Strain</span>
+          <span className={`font-bold ${zone}`}>
+            {p.strain}/{T}
+          </span>
+        </div>
+        <div className="mt-0.5 flex gap-px" aria-label="Strain" role="meter" aria-valuenow={p.strain}>
+          {Array.from({ length: T + 2 }, (_, k) => k + 1).map((i) => (
+            <div key={i} className={`h-1.5 flex-1 rounded-[1px] ${i <= sMax ? 'bg-stable' : i <= T ? 'bg-oc' : 'bg-rej'} ${i <= p.strain ? '' : 'opacity-20'}`} />
+          ))}
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-1 text-[9px] font-bold leading-none">
+        <span className="rounded bg-sky-900/60 px-1 py-0.5 text-sky-100" title="Energy">
+          ◉{p.energy}
+        </span>
+        <span className="rounded bg-red-900/60 px-1 py-0.5 text-red-100" title="Attack">
+          ⚔{st.attack}
+        </span>
+        <span className="rounded bg-sky-900/60 px-1 py-0.5 text-sky-100" title="Armor">
+          ⛨{st.armor}
+        </span>
+        {p.hold && <span className="rounded bg-amber-900/60 px-1 py-0.5 text-amber-200">HOLD</span>}
+        {(['bleed', 'numb', 'fever'] as const)
+          .filter((k) => p[k] > 0)
+          .map((k) => (
+            <span key={k} className="flex items-center gap-0.5 rounded border px-1 py-0.5 text-white" style={{ background: `${STATUS_META[k].color}55`, borderColor: STATUS_META[k].color }} title={`${STATUS_META[k].name}: ${STATUS_META[k].text(p[k], state)}`}>
+              <StatusIcon kind={k} className="h-2.5 w-2.5" />
+              {p[k]}
+            </span>
+          ))}
+      </div>
+      <div className="mt-auto space-y-0.5">
+        {prog.map((e) => {
+          const locked = p.evolution !== null && !e.active;
+          if (locked) return null;
+          return (
+            <div key={e.id} title={`${e.name}: ${e.text}`}>
+              <div className="flex justify-between gap-1 text-[8.5px] leading-none">
+                <span className={`truncate font-semibold ${e.active ? 'text-accent' : 'text-ink2'}`}>{e.name}</span>
+                <span className="shrink-0 text-mute">{e.active ? 'evolved' : `${Math.min(e.current, e.target)}/${e.target}`}</span>
+              </div>
+              {!e.active && (
+                <div className="mt-px h-1 overflow-hidden rounded bg-black/50">
+                  <div className={`h-full ${e.met ? 'bg-accent' : 'bg-violet-400'}`} style={{ width: `${Math.min(100, (e.current / e.target) * 100)}%` }} />
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
@@ -75,21 +166,19 @@ export function PlayerPanel({ state, player, color, active }: { state: GameState
                 HOLD
               </span>
             )}
-            {p.bleed > 0 && (
-              <span className="rounded bg-red-950/60 px-1.5 py-0.5 text-red-300" title={`Bleeding: 1 damage at the start of each of the next ${p.bleed} round(s).`}>
-                BLEED {p.bleed}
-              </span>
-            )}
-            {p.numb > 0 && (
-              <span className="rounded bg-violet-950/60 px-1.5 py-0.5 text-violet-300" title={`Numb: Protocols cannot be played for ${p.numb} more round(s).`}>
-                NUMB {p.numb}
-              </span>
-            )}
-            {p.fever > 0 && (
-              <span className="rounded bg-orange-950/60 px-1.5 py-0.5 text-orange-300" title={`Fever: grafts cost ${state.config.status.feverCostIncrease} more Energy for ${p.fever} more round(s).`}>
-                FEVER {p.fever}
-              </span>
-            )}
+            {(['bleed', 'numb', 'fever'] as const)
+              .filter((k) => p[k] > 0)
+              .map((k) => (
+                <span
+                  key={k}
+                  className="status-badge flex items-center gap-1 rounded border px-1.5 py-0.5 text-white"
+                  style={{ background: `${STATUS_META[k].color}55`, borderColor: STATUS_META[k].color }}
+                  title={`${STATUS_META[k].name}: ${STATUS_META[k].text(p[k], state)}`}
+                >
+                  <StatusIcon kind={k} />
+                  {STATUS_META[k].name.toUpperCase()} {p[k]}
+                </span>
+              ))}
           </div>
         </div>
         <div className="col-span-2">

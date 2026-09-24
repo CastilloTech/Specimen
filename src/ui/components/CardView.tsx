@@ -17,7 +17,8 @@ export function factionName(faction: CardDef['faction']): string {
 interface Props {
   def: CardDef;
   cost?: number; // effective cost (after modifiers)
-  size?: 'md' | 'sm';
+  /** md / sm show the full card; xs (phone hand) shows cost, art, name and stats only. */
+  size?: 'md' | 'sm' | 'xs';
   selected?: boolean;
   dim?: boolean;
   onClick?: () => void;
@@ -36,6 +37,46 @@ export function CardView({ def, cost, size = 'md', selected, dim, onClick, onDou
   const accent = accentFor(def.faction);
   const sm = size === 'sm';
   const tooltip = `${def.name} (${factionName(def.faction)} ${t.label})${reason ? ` - ${reason}` : ''}\n${def.text}`;
+  const costClass = costChanged ? (cost! > def.cost ? 'bg-orange-600' : 'bg-emerald-600') : 'bg-sky-600';
+  if (size === 'xs') {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        onDoubleClick={onDoubleClick}
+        title={tooltip}
+        className={`relative flex h-[84px] w-[58px] shrink-0 flex-col overflow-visible rounded-lg border text-left transition ${selected ? '-translate-y-1.5 border-accent shadow-[0_0_0_1px_var(--color-accent)]' : 'border-line'} ${dim ? 'opacity-60 saturate-[.35]' : ''}`}
+        style={{ background: `linear-gradient(180deg, ${accent}26, transparent 45%), var(--color-panel)` }}
+        aria-pressed={selected}
+      >
+        <span className={`absolute -left-1.5 -top-1.5 z-10 grid h-5 w-5 place-items-center rounded-full border border-bg font-display text-[11px] font-bold text-white ${costClass}`}>{shownCost}</span>
+        {count !== undefined && <span className="absolute -right-1.5 -top-1.5 z-10 grid h-4 min-w-4 place-items-center rounded-full bg-accent px-0.5 text-[9px] font-bold text-black">×{count}</span>}
+        <div className="h-[26px] overflow-hidden rounded-t-[7px] border-b border-black/60">
+          <CardArt def={def} accent={accent} className="h-full w-full" />
+        </div>
+        <div className="flex min-h-0 flex-1 flex-col px-1 pt-0.5">
+          <div className="line-clamp-2 font-display text-[8.5px] font-bold leading-[1.1]">
+            {def.signature && <span className="text-amber-300">★</span>}
+            {def.name}
+          </div>
+          <div className="mt-auto flex flex-wrap gap-[2px] pb-1 text-[7.5px] font-bold leading-none">
+            {def.type === 'graft' ? (
+              <>
+                <span className="rounded bg-red-900/70 px-[2px] py-px text-red-100">⚔{def.attack}</span>
+                <span className="rounded bg-sky-900/70 px-[2px] py-px text-sky-100">⛨{def.armor}</span>
+              </>
+            ) : (
+              <span className="font-display uppercase tracking-wide" style={{ color: t.color }}>
+                {t.label}
+              </span>
+            )}
+            {def.strain > 0 && <span className="rounded bg-amber-900/70 px-[2px] py-px text-amber-100">☣{def.strain}</span>}
+          </div>
+        </div>
+        {dim && reason && <div className="absolute inset-x-0 bottom-0 rounded-b-[7px] bg-black/85 px-0.5 py-px text-center text-[7px] font-semibold leading-tight text-amber-300">{reason.replace(/\.$/, '')}</div>}
+      </button>
+    );
+  }
   return (
     <button
       type="button"
@@ -49,7 +90,7 @@ export function CardView({ def, cost, size = 'md', selected, dim, onClick, onDou
       aria-pressed={selected}
     >
       <span
-        className={`absolute -left-2 -top-2 z-10 grid place-items-center rounded-full border-2 border-bg font-display font-bold text-white shadow ${sm ? 'h-6 w-6 text-[12px]' : 'h-7 w-7 text-sm'} ${costChanged ? (cost! > def.cost ? 'bg-orange-600' : 'bg-emerald-600') : 'bg-sky-600'}`}
+        className={`absolute -left-2 -top-2 z-10 grid place-items-center rounded-full border-2 border-bg font-display font-bold text-white shadow ${sm ? 'h-6 w-6 text-[12px]' : 'h-7 w-7 text-sm'} ${costClass}`}
         title={costChanged ? `Energy cost (normally ${def.cost})` : 'Energy cost'}
       >
         {shownCost}

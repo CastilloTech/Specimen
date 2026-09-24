@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* A phone held sideways (must match PHONE_LANDSCAPE in src/ui/useMediaQuery.ts). */
+@custom-variant phone (@media (orientation: landscape) and (max-height: 540px));
+
 @theme {
   --color-bg: #090e0c;
   --color-panel: #111a16;
@@ -188,6 +191,478 @@ button:disabled {
 .evo-glow {
   animation: evo-pulse 2.6s ease-in-out infinite;
 }
+/* Clash: both Specimens lunge to the middle, a burst fires on impact, the hit tank shakes and shows the damage. */
+@keyframes lunge-r {
+  0%,
+  100% {
+    transform: translateX(0) scale(1);
+  }
+  40% {
+    transform: translateX(16%) scale(1.04);
+  }
+  55% {
+    transform: translateX(10%) scale(1.02);
+  }
+}
+@keyframes lunge-l {
+  0%,
+  100% {
+    transform: translateX(0) scale(1);
+  }
+  40% {
+    transform: translateX(-16%) scale(1.04);
+  }
+  55% {
+    transform: translateX(-10%) scale(1.02);
+  }
+}
+.clash-lunge-r {
+  animation: lunge-r 0.7s cubic-bezier(0.3, 0.7, 0.4, 1);
+  z-index: 20;
+  position: relative;
+}
+.clash-lunge-l {
+  animation: lunge-l 0.7s cubic-bezier(0.3, 0.7, 0.4, 1);
+  z-index: 20;
+  position: relative;
+}
+@keyframes shake {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  15% {
+    translate: -6px 2px;
+  }
+  30% {
+    translate: 5px -3px;
+  }
+  45% {
+    translate: -4px 1px;
+  }
+  60% {
+    translate: 3px 2px;
+  }
+  80% {
+    translate: -1px -1px;
+  }
+}
+.clash-lunge-r.clash-shake {
+  animation: lunge-r 0.7s cubic-bezier(0.3, 0.7, 0.4, 1), shake 0.45s 0.3s ease-out;
+}
+.clash-lunge-l.clash-shake {
+  animation: lunge-l 0.7s cubic-bezier(0.3, 0.7, 0.4, 1), shake 0.45s 0.3s ease-out;
+}
+.clash-lunge-r.clash-shake-big {
+  animation: lunge-r 0.7s cubic-bezier(0.3, 0.7, 0.4, 1), shake 0.3s 0.3s ease-out 3;
+}
+.clash-lunge-l.clash-shake-big {
+  animation: lunge-l 0.7s cubic-bezier(0.3, 0.7, 0.4, 1), shake 0.3s 0.3s ease-out 3;
+}
+@keyframes clash-flash {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  25% {
+    opacity: 1;
+  }
+}
+.clash-flash {
+  animation: clash-flash 0.6s 0.3s ease-out both;
+  mix-blend-mode: screen;
+}
+@keyframes clash-num {
+  0% {
+    opacity: 0;
+    transform: translateY(8px) scale(0.4);
+  }
+  22% {
+    opacity: 1;
+    transform: translateY(0) scale(1.35);
+  }
+  35% {
+    transform: translateY(0) scale(1);
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-26px) scale(1);
+  }
+}
+.clash-num {
+  animation: clash-num 1.35s 0.3s ease-out both;
+}
+@keyframes clash-burst {
+  0% {
+    opacity: 0;
+    transform: scale(0.1) rotate(0deg);
+  }
+  30% {
+    opacity: 1;
+    transform: scale(1.15) rotate(20deg);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.5) rotate(40deg);
+  }
+}
+.clash-burst {
+  animation: clash-burst 0.8s 0.25s ease-out both;
+}
+@keyframes clash-word {
+  0%,
+  25% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+  75% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+  }
+}
+.clash-word {
+  animation: clash-word 1s 0.2s ease-out both;
+}
+
+/* ---------- Status effects on a Specimen ---------- */
+/* Fever: a pulsing orange heat glow around the tank. */
+@keyframes status-fever {
+  0%,
+  100% {
+    box-shadow: inset 0 0 18px 2px rgba(251, 146, 60, 0.35);
+  }
+  50% {
+    box-shadow: inset 0 0 34px 8px rgba(251, 146, 60, 0.6);
+  }
+}
+.status-fever {
+  animation: status-fever 1.6s ease-in-out infinite;
+  background: radial-gradient(ellipse 80% 60% at 50% 100%, rgba(251, 146, 60, 0.16), transparent 70%);
+}
+/* Numb: violet static crawling over the tank. */
+@keyframes status-numb {
+  0%,
+  100% {
+    opacity: 0.55;
+    background-position: 0 0;
+  }
+  50% {
+    opacity: 0.9;
+    background-position: 0 6px;
+  }
+}
+.status-numb {
+  animation: status-numb 0.9s steps(3) infinite;
+  background: repeating-linear-gradient(0deg, rgba(167, 139, 250, 0.16) 0 1px, transparent 1px 4px), radial-gradient(ellipse at 50% 40%, rgba(167, 139, 250, 0.14), transparent 70%);
+  box-shadow: inset 0 0 22px 2px rgba(167, 139, 250, 0.45);
+}
+/* Bleed: drops running down from the top of the tank. */
+@keyframes status-drip {
+  0% {
+    transform: translateY(-6px) scaleY(0.6);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(2000%) scaleY(1.6);
+    opacity: 0;
+  }
+}
+.status-drip {
+  animation: status-drip 2.6s cubic-bezier(0.5, 0, 0.9, 0.6) infinite;
+}
+@keyframes status-badge {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.08);
+  }
+}
+.status-badge {
+  animation: status-badge 1.4s ease-in-out infinite;
+}
+/* A status lands: the label slams in, holds, and fades. */
+@keyframes status-slam {
+  0% {
+    opacity: 0;
+    transform: scale(2.2) rotate(-6deg);
+  }
+  18% {
+    opacity: 1;
+    transform: scale(0.94) rotate(0deg);
+  }
+  28% {
+    transform: scale(1.03);
+  }
+  36%,
+  78% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1) translateY(-10px);
+  }
+}
+.status-slam {
+  animation: status-slam 1.6s ease-out both;
+}
+.status-slam.absolute {
+  translate: -50% -50%;
+}
+@keyframes status-tick {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -12px);
+  }
+  20% {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, 26px);
+  }
+}
+.status-tick {
+  animation: status-tick 1.5s ease-in both;
+}
+@keyframes status-expire {
+  0% {
+    opacity: 0;
+  }
+  20%,
+  75% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+.status-expire {
+  animation: status-expire 1.6s ease-out both;
+}
+@keyframes status-purge-ring {
+  0% {
+    opacity: 0.9;
+    transform: scale(0.2);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.8);
+  }
+}
+.status-purge-ring {
+  animation: status-purge-ring 0.9s ease-out both;
+}
+
+/* ---------- Graft lost ---------- */
+/* Destroyed: the plate cracks into four shards that fly apart, sparks burst out, and a stamp slams on. */
+@keyframes graft-shard-0 {
+  0%,
+  15% {
+    transform: none;
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-60%, -70%) rotate(-35deg);
+    opacity: 0;
+  }
+}
+@keyframes graft-shard-1 {
+  0%,
+  15% {
+    transform: none;
+    opacity: 1;
+  }
+  100% {
+    transform: translate(60%, -80%) rotate(40deg);
+    opacity: 0;
+  }
+}
+@keyframes graft-shard-2 {
+  0%,
+  15% {
+    transform: none;
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-55%, 110%) rotate(-25deg);
+    opacity: 0;
+  }
+}
+@keyframes graft-shard-3 {
+  0%,
+  15% {
+    transform: none;
+    opacity: 1;
+  }
+  100% {
+    transform: translate(65%, 100%) rotate(30deg);
+    opacity: 0;
+  }
+}
+.graft-shard {
+  animation-duration: 1.1s;
+  animation-timing-function: cubic-bezier(0.3, 0.6, 0.5, 1);
+  animation-fill-mode: both;
+  filter: drop-shadow(0 0 3px rgba(248, 113, 113, 0.8));
+}
+.graft-shard-0 {
+  animation-name: graft-shard-0;
+}
+.graft-shard-1 {
+  animation-name: graft-shard-1;
+}
+.graft-shard-2 {
+  animation-name: graft-shard-2;
+}
+.graft-shard-3 {
+  animation-name: graft-shard-3;
+}
+@keyframes graft-spark {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) rotate(var(--a)) translateX(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) rotate(var(--a)) translateX(46px);
+  }
+}
+.graft-spark {
+  animation: graft-spark 0.7s 0.1s ease-out both;
+}
+@keyframes graft-stamp {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(2.4) rotate(-12deg);
+  }
+  20% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(0.95) rotate(-8deg);
+  }
+  30%,
+  80% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1) rotate(-8deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1) rotate(-8deg);
+  }
+}
+.graft-stamp {
+  animation: graft-stamp 1.9s 0.15s ease-out both;
+}
+/* Ejected (rejection): the plate is flung up and out of the Specimen. */
+@keyframes graft-eject {
+  0% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-160%) rotate(24deg) scale(0.8);
+  }
+}
+.graft-eject {
+  animation: graft-eject 1.2s cubic-bezier(0.2, 0.7, 0.4, 1) both;
+}
+@keyframes graft-lost-shake {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  20% {
+    translate: -4px 2px;
+  }
+  40% {
+    translate: 4px -2px;
+  }
+  60% {
+    translate: -2px 1px;
+  }
+}
+.graft-lost-shake {
+  animation: graft-lost-shake 0.45s ease-out;
+}
+.graft-lost-flash {
+  animation: clash-flash 0.7s ease-out both;
+  mix-blend-mode: screen;
+}
+@keyframes graft-poisoned {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(217, 70, 239, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 10px 2px rgba(217, 70, 239, 0.7);
+  }
+}
+.graft-poisoned {
+  animation: graft-poisoned 1.5s ease-in-out infinite;
+}
+
+/* Rotate prompt: the phone outline tips over to landscape and back. */
+@keyframes rotate-hint {
+  0%,
+  20% {
+    transform: rotate(0deg);
+  }
+  45%,
+  75% {
+    transform: rotate(-90deg);
+  }
+  100% {
+    transform: rotate(0deg);
+  }
+}
+.rotate-hint {
+  animation: rotate-hint 2.6s ease-in-out infinite;
+}
+
+/* Achievement unlocked: a quick scale-in with a gold flash. */
+@keyframes achievement-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.85);
+    box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.7);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.04);
+    box-shadow: 0 0 22px 4px rgba(251, 191, 36, 0.35);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(251, 191, 36, 0);
+  }
+}
+.achievement-pop {
+  animation: achievement-pop 0.6s ease-out both;
+}
+
 /* Integrity wear: the graft's slot flashes and a "-N INT" / "destroyed" tag floats off it. */
 @keyframes wear-pulse {
   0%,
@@ -227,8 +702,41 @@ button:disabled {
   .evo-glow,
   .tank-bubble,
   .specimen-breathe,
-  .turn-glow {
+  .turn-glow,
+  .clash-lunge-r,
+  .clash-lunge-l,
+  .clash-burst,
+  .clash-flash,
+  .rotate-hint,
+  .achievement-pop,
+  .status-fever,
+  .status-numb,
+  .status-drip,
+  .status-badge,
+  .status-purge-ring,
+  .graft-shard,
+  .graft-spark,
+  .graft-eject,
+  .graft-lost-shake,
+  .graft-poisoned {
     animation: none;
+  }
+  /* Callouts and stamps still appear (without motion) so the information is not lost. */
+  .status-slam,
+  .status-tick,
+  .status-expire,
+  .graft-stamp {
+    animation: none;
+    opacity: 1;
+  }
+  .graft-stamp {
+    transform: translate(-50%, -50%) rotate(-8deg);
+  }
+  /* Keep the information (damage numbers, CLASH word) without the motion. */
+  .clash-num,
+  .clash-word {
+    animation: none;
+    opacity: 1;
   }
   .wear-flash {
     animation: none;

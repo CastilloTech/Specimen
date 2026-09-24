@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { chipOf, defaultConfig } from '../../engine';
+import { ACHIEVEMENTS, achievementStates } from '../achievements';
 import { FACTION_META, STANCE_META, WORLD_FACTION_META } from '../meta';
 import type { Analysis, Split, StanceUse } from '../stats';
 import { analyze, pct } from '../stats';
@@ -92,6 +93,9 @@ export function SavesScreen({ onBack }: { onBack: () => void }) {
                 <div>
                   {decks} saved deck{decks === 1 ? '' : 's'} · since {new Date(meta.created).toLocaleDateString()}
                 </div>
+                <div className="text-amber-300">
+                  ★ {achievementStates(recs).filter((s) => s.unlocked).length}/{ACHIEVEMENTS.length} achievements
+                </div>
               </div>
               <div className="mt-auto flex gap-1.5 pt-1">
                 {isActive ? (
@@ -115,14 +119,56 @@ export function SavesScreen({ onBack }: { onBack: () => void }) {
         })}
       </div>
 
+      {active !== null && <AchievementGallery records={matches} />}
+
       {active === null ? (
-        <div className="lab-panel rounded-xl border border-line p-4 text-sm text-ink2">No save is loaded. You can still play, but decks and picks are kept only as unsaved defaults on this device and match stats are not recorded. Create or load a save to track your progress.</div>
+        <div className="lab-panel rounded-xl border border-line p-4 text-sm text-ink2">No save is loaded. You can still play, but decks and picks are kept only as unsaved defaults on this device, and match stats and achievements are not recorded. Create or load a save to track your progress.</div>
       ) : analysis ? (
         <StatsPanel name={idx.slots[active]!.name} a={analysis} recent={matches.slice(-8).reverse()} />
       ) : (
         <div className="lab-panel rounded-xl border border-line p-4 text-sm text-ink2">No matches recorded for this save yet. Finish a match and your stats and tips will show up here.</div>
       )}
     </div>
+  );
+}
+
+function AchievementGallery({ records }: { records: MatchRecord[] }) {
+  const states = achievementStates(records);
+  const got = states.filter((s) => s.unlocked).length;
+  // Unlocked first (newest first), then locked by how close they are.
+  const sorted = [...states].sort((x, y) => (x.unlocked === y.unlocked ? (x.unlocked ? (y.at ?? 0) - (x.at ?? 0) : y.have / y.need - x.have / x.need) : x.unlocked ? -1 : 1));
+  return (
+    <section className="lab-panel rounded-xl border border-line p-4">
+      <div className="flex items-baseline gap-3">
+        <h2 className="font-display text-lg font-bold">Achievements</h2>
+        <span className="text-xs text-mute">
+          {got} of {states.length} unlocked
+        </span>
+      </div>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        {sorted.map(({ a, have, need, unlocked, at }) => (
+          <div key={a.id} className={`flex items-center gap-3 rounded-lg border px-3 py-2 ${unlocked ? 'border-amber-400/50 bg-amber-950/25' : 'border-line bg-black/20'}`}>
+            <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-full font-display text-lg ${unlocked ? 'bg-amber-400 text-black' : 'bg-panel2 text-mute'}`}>{a.icon}</span>
+            <div className="min-w-0 flex-1">
+              <div className={`truncate font-display text-sm font-bold ${unlocked ? 'text-amber-200' : 'text-ink2'}`}>{a.name}</div>
+              <div className="text-[11px] leading-snug text-ink2">{a.text}</div>
+              {unlocked ? (
+                <div className="text-[10px] text-mute">{at ? `Unlocked ${new Date(at).toLocaleDateString()}` : 'Unlocked'}</div>
+              ) : need > 1 ? (
+                <div className="mt-1 flex items-center gap-2" title={`${have} of ${need}`}>
+                  <div className="h-1.5 flex-1 rounded bg-black/40">
+                    <div className="h-full rounded bg-amber-400/70" style={{ width: `${(have / need) * 100}%` }} />
+                  </div>
+                  <span className="text-[10px] tabular-nums text-mute">
+                    {have}/{need}
+                  </span>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 

@@ -4,50 +4,121 @@ import { CARD_MAP, publicGraft, SLOT_LABEL } from '../../engine';
 import type { GameState, PlayerId, PlayerState, SlotId } from '../../engine';
 import { CardArt } from './CardArt';
 import { accentFor } from './CardView';
+import { StatusAura, StatusBadges, StatusCallouts, StatusIcon, useStatusEvents } from './StatusFx';
 
-interface WearFlash {
+/** A short-lived graft event on one slot: Integrity lost, the graft destroyed or ejected, or the slot necrosed. */
+interface GraftFx {
   key: number;
-  text: string;
-  destroyed: boolean;
+  kind: 'wear' | 'destroyed' | 'ejected' | 'necrosis';
+  amount?: number;
+  /** The lost graft (for its ghost); null when the viewer never saw it (an opponent's face-down graft). */
+  cardId?: string | null;
 }
 
-const FLASH_MS = 1600;
-let flashKey = 0;
+const FX_MS: Record<GraftFx['kind'], number> = { wear: 1600, destroyed: 2000, ejected: 1800, necrosis: 1800 };
+let fxKey = 0;
 
-/** Slots whose graft just lost Integrity (or was destroyed by losing it all), cleared after a moment. */
-function useWearFlashes(state: GameState, p: PlayerState): Partial<Record<SlotId, WearFlash>> {
-  const prev = useRef<Map<SlotId, { uid: string; integrity: number }> | null>(null);
+/** Diffs a player's grafts (and necrosis) between renders to find what just happened to each slot. */
+function useGraftFx(state: GameState, p: PlayerState, viewer: PlayerId): Partial<Record<SlotId, GraftFx>> {
+  type Snap = { uid: string; integrity: number; cardId: string; faceDown: boolean };
+  const prev = useRef<{ grafts: Map<SlotId, Snap>; necrosis: Partial<Record<SlotId, number>> } | null>(null);
   const lastLog = useRef(state.log.length);
-  const [flashes, setFlashes] = useState<Partial<Record<SlotId, WearFlash>>>({});
+  const [fx, setFx] = useState<Partial<Record<SlotId, GraftFx>>>({});
   useEffect(() => {
-    const now = new Map(p.grafts.map((g) => [g.slot, { uid: g.uid, integrity: g.integrity }] as const));
+    const now = new Map(p.grafts.map((g) => [g.slot, { uid: g.uid, integrity: g.integrity, cardId: g.cardId, faceDown: g.faceDown }] as const));
     const fresh = state.log.slice(lastLog.current);
     lastLog.current = state.log.length;
     const before = prev.current;
-    prev.current = now;
+    prev.current = { grafts: now, necrosis: { ...p.necrosis } };
     if (!before) return;
-    const found: Partial<Record<SlotId, WearFlash>> = {};
-    for (const [slot, old] of before) {
+    const found: Partial<Record<SlotId, GraftFx>> = {};
+    for (const [slot, old] of before.grafts) {
       const cur = now.get(slot);
+      const seen = !old.faceDown || viewer === p.id ? old.cardId : null;
       if (cur && cur.uid === old.uid && cur.integrity < old.integrity) {
-        found[slot] = { key: ++flashKey, text: `−${old.integrity - cur.integrity} INT`, destroyed: false };
-      } else if (cur?.uid !== old.uid) {
-        const depleted = fresh.some((l) => l.kind === 'wear' && /integrity depleted/.test(l.text) && l.text.includes(`${p.name}'s`) && l.text.includes(` in ${SLOT_LABEL[slot]}`));
-        if (depleted) found[slot] = { key: ++flashKey, text: 'destroyed', destroyed: true };
+        found[slot] = { key: ++fxKey, kind: 'wear', amount: old.integrity - cur.integrity };
+      } else if (!cur) {
+        const ejected = fresh.some((l) => l.kind === 'reject' && l.text.includes(`${p.name} ejects `) && l.text.includes(` from ${SLOT_LABEL[slot]}`));
+        found[slot] = { key: ++fxKey, kind: ejected ? 'ejected' : 'destroyed', cardId: seen };
       }
     }
-    const entries = Object.entries(found) as [SlotId, WearFlash][];
+    for (const slot of Object.keys(p.necrosis) as SlotId[]) {
+      if ((p.necrosis[slot] ?? 0) > 0 && !(before.necrosis[slot] ?? 0) && !found[slot]) found[slot] = { key: ++fxKey, kind: 'necrosis' };
+    }
+    const entries = Object.entries(found) as [SlotId, GraftFx][];
     if (!entries.length) return;
-    setFlashes((f) => ({ ...f, ...found }));
-    setTimeout(() => {
-      setFlashes((f) => {
-        const next = { ...f };
-        for (const [slot, fl] of entries) if (next[slot]?.key === fl.key) delete next[slot];
-        return next;
-      });
-    }, FLASH_MS);
-  }, [p.grafts, p.name, state.log]);
-  return flashes;
+    setFx((f) => ({ ...f, ...found }));
+    for (const [slot, e] of entries) {
+      setTimeout(() => setFx((f) => (f[slot]?.key === e.key ? { ...f, [slot]: undefined } : f)), FX_MS[e.kind]);
+    }
+  }, [p.grafts, p.necrosis, p.name, p.id, viewer, state.log]);
+  return fx;
+}
+
+/** Hairline cracks over a worn graft plate: more of them the lower its Integrity. */
+function Cracks({ level }: { level: 0 | 1 | 2 }) {
+  if (!level) return null;
+  return (
+    <svg viewBox="0 0 100 60" preserveAspectRatio="none" className="pointer-events-none absolute inset-0 h-full w-full" aria-hidden>
+      <path d="M8,4 L22,18 L18,28 L30,40 L27,54" stroke="rgba(255,255,255,0.75)" strokeWidth="1.3" fill="none" />
+      <path d="M22,18 L34,14" stroke="rgba(255,255,255,0.55)" strokeWidth="1" fill="none" />
+      {level > 1 && (
+        <>
+          <path d="M92,6 L78,20 L84,32 L70,44 L74,58" stroke="rgba(255,120,120,0.85)" strokeWidth="1.4" fill="none" />
+          <path d="M78,20 L64,16 M84,32 L96,36" stroke="rgba(255,120,120,0.6)" strokeWidth="1" fill="none" />
+        </>
+      )}
+    </svg>
+  );
+}
+
+/** Integrity as pips (falls back to a number for unusually tough grafts). */
+function IntegrityPips({ cur, max }: { cur: number; max: number }) {
+  const color = cur >= max ? 'bg-emerald-400' : cur <= 1 ? 'bg-red-500 animate-pulse' : 'bg-amber-400';
+  if (max > 6) return <span className={`rounded px-[3px] py-px ${cur >= max ? 'bg-emerald-900/70 text-emerald-100' : cur <= 1 ? 'bg-red-700/90 text-white' : 'bg-amber-700/80 text-amber-50'}`}>⬢{cur}/{max}</span>;
+  return (
+    <span className="flex items-center gap-[2px] rounded bg-black/50 px-[3px] py-[2px]" title={`Integrity ${cur}/${max}: the graft's own HP. Clash damage and some cards wear it down; at 0 it is destroyed.`}>
+      {Array.from({ length: max }, (_, i) => (
+        <span key={i} className={`h-[5px] w-[5px] rotate-45 rounded-[1px] ${i < cur ? color : 'bg-white/15'}`} />
+      ))}
+    </span>
+  );
+}
+
+/** The lost graft's plate, shattering (destroyed) or flying off (ejected), drawn where the graft was. */
+function GraftGhost({ fx, x, y }: { fx: GraftFx; x: number; y: number }) {
+  const def = fx.cardId ? CARD_MAP[fx.cardId] : null;
+  const accent = def ? accentFor(def.faction) : '#8a948f';
+  const plate = (
+    <div className="flex h-full w-full flex-col overflow-hidden rounded-lg border bg-panel" style={{ borderColor: accent }}>
+      <div className="h-[15px] overflow-hidden">{def ? <CardArt def={def} accent={accent} className="h-full w-full" /> : <div className="h-full w-full bg-[repeating-linear-gradient(45deg,#1b2521_0_3px,#111916_3px_6px)]" />}</div>
+      <span className="truncate px-0.5 pt-0.5 text-center font-display text-[9px] font-bold">{def ? def.name : 'Graft'}</span>
+    </div>
+  );
+  const destroyed = fx.kind === 'destroyed';
+  const shards = ['polygon(0 0,55% 0,40% 55%,0 45%)', 'polygon(55% 0,100% 0,100% 50%,40% 55%)', 'polygon(0 45%,40% 55%,50% 100%,0 100%)', 'polygon(40% 55%,100% 50%,100% 100%,50% 100%)'];
+  return (
+    <div className="pointer-events-none absolute z-30 h-[40px] w-[36%] -translate-x-1/2 -translate-y-1/2 lg:w-[31%]" style={{ left: `${x}%`, top: `${y}%` }} aria-live="polite">
+      {destroyed ? (
+        <>
+          {shards.map((clip, i) => (
+            <div key={i} className={`graft-shard graft-shard-${i} absolute inset-0`} style={{ clipPath: clip }}>
+              {plate}
+            </div>
+          ))}
+          {Array.from({ length: 8 }, (_, i) => (
+            <span key={i} className="graft-spark absolute left-1/2 top-1/2 h-1.5 w-1.5 rounded-sm" style={{ background: i % 2 ? accent : '#f87171', ['--a' as string]: `${i * 45}deg` }} />
+          ))}
+          <span className="graft-stamp absolute left-1/2 top-1/2 whitespace-nowrap rounded border-2 border-red-500 bg-black/85 px-1.5 font-display text-[11px] font-bold tracking-widest text-red-400">DESTROYED</span>
+        </>
+      ) : (
+        <>
+          <div className="graft-eject absolute inset-0">{plate}</div>
+          <span className="graft-stamp absolute left-1/2 top-1/2 whitespace-nowrap rounded border-2 border-amber-400 bg-black/85 px-1.5 font-display text-[11px] font-bold tracking-widest text-amber-300">EJECTED</span>
+        </>
+      )}
+    </div>
+  );
 }
 
 // Slot anchor points on the creature artwork (percent of the square tank), placed on its anatomy:
@@ -78,6 +149,8 @@ interface Props {
   highlight?: Set<SlotId>;
   onSlot?: (slot: SlotId) => void;
   color: string;
+  /** Size to the parent's height (phone landscape board) instead of a capped width. */
+  fill?: boolean;
 }
 
 /** The bio-engineered creature in its tank, behind the graft sockets. */
@@ -93,12 +166,14 @@ export function Creature({ flip, className = '' }: { flip?: boolean; className?:
   );
 }
 
-export function Specimen({ state, player, viewer, flip, highlight, onSlot, color }: Props) {
+export function Specimen({ state, player, viewer, flip, highlight, onSlot, color, fill }: Props) {
   const p = state.players[player];
-  const flashes = useWearFlashes(state, p);
+  const fx = useGraftFx(state, p, viewer);
+  const statusEvents = useStatusEvents(state);
+  const lostOne = Object.values(fx).some((f) => f && f.kind === 'destroyed');
   return (
     <div
-      className="relative mx-auto aspect-square w-full max-w-[230px] overflow-visible rounded-[26px] border lg:max-w-[300px]"
+      className={`relative aspect-square overflow-visible rounded-[26px] border ${fill ? 'h-full' : 'mx-auto w-full max-w-[230px] lg:max-w-[300px]'} ${lostOne ? 'graft-lost-shake' : ''}`}
       style={{ borderColor: `${color}66`, boxShadow: `0 0 22px -6px ${color}88, inset 0 0 0 1px rgba(255,255,255,0.05)` }}
       aria-label={`${p.name}'s Specimen`}
     >
@@ -109,6 +184,9 @@ export function Specimen({ state, player, viewer, flip, highlight, onSlot, color
         ))}
         <div className="absolute inset-x-3 top-1.5 h-4 rounded-full bg-white/[0.05] blur-[1px]" />
       </div>
+      <StatusAura state={state} player={player} />
+      {lostOne && <div className="graft-lost-flash pointer-events-none absolute inset-0 z-20 rounded-[26px] bg-red-600/35" />}
+      <StatusBadges state={state} player={player} side={flip ? 'left' : 'right'} />
       {p.slots.map((slot) => {
         const pos = POS[slot];
         const x = flip ? 100 - pos.x : pos.x;
@@ -119,12 +197,14 @@ export function Specimen({ state, player, viewer, flip, highlight, onSlot, color
         const veteran = !!def?.signature && !!pg && pg.roundsSurvived >= veteranAt;
         const lit = highlight?.has(slot);
         const necrotic = p.necrosis[slot] ?? 0;
-        const flash = flashes[slot];
-        const maxIntegrity = def?.integrity ?? state.config.integrity.default;
-        const intStyle = !pg || pg.integrity >= maxIntegrity ? 'bg-emerald-900/70 text-emerald-100' : pg.integrity <= 1 ? 'bg-red-700/90 text-white' : 'bg-amber-700/80 text-amber-50';
+        const f = fx[slot];
+        const wear = f?.kind === 'wear' ? f : null;
+        const maxIntegrity = Math.max(def?.integrity ?? state.config.integrity.default, pg?.integrity ?? 0);
         const accent = def ? accentFor(def.faction) : '#5a6b63';
         const asleep = !!pg?.faceDown;
-        return (
+        const crack: 0 | 1 | 2 = !pg || !def || asleep || pg.integrity >= maxIntegrity ? 0 : pg.integrity <= 1 ? 2 : 1;
+        return [
+          f && (f.kind === 'destroyed' || f.kind === 'ejected') ? <GraftGhost key={`ghost-${f.key}`} fx={f} x={x} y={pos.y} /> : null,
           <button
             key={slot}
             type="button"
@@ -137,7 +217,7 @@ export function Specimen({ state, player, viewer, flip, highlight, onSlot, color
                   : necrotic > 0
                     ? 'w-[36%] rounded-lg lg:w-[31%] border-fuchsia-700 bg-fuchsia-950/75'
                     : 'rounded-full border-dashed border-cyan-200/35 bg-black/55 px-1.5 hover:border-cyan-200/70'
-            } ${pg?.poisoned ? 'ring-1 ring-fuchsia-500' : ''} ${pg?.disabled ? 'grayscale' : ''} ${flash ? 'wear-flash' : ''}`}
+            } ${pg?.poisoned ? 'graft-poisoned ring-2 ring-fuchsia-500' : ''} ${pg?.disabled ? 'grayscale' : ''} ${wear ? 'wear-flash' : ''}`}
             style={{ left: `${x}%`, top: `${pos.y}%`, borderColor: pg && !lit ? `${accent}aa` : undefined }}
             title={
               def
@@ -151,11 +231,18 @@ export function Specimen({ state, player, viewer, flip, highlight, onSlot, color
                       : `${SLOT_LABEL[slot]} (empty)`
             }
           >
-            {flash && (
-              <span key={flash.key} className={`wear-float pointer-events-none absolute -top-3 right-0 z-20 rounded px-1 text-[9px] font-bold shadow ${flash.destroyed ? 'bg-red-700 text-white' : 'bg-orange-600 text-white'}`} aria-live="polite">
-                {flash.text}
+            {wear && (
+              <span key={wear.key} className="wear-float pointer-events-none absolute -top-4 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-md border border-orange-300 bg-orange-600 px-1.5 font-display text-[12px] font-bold text-white shadow-lg" aria-live="polite">
+                −{wear.amount} ⬢
               </span>
             )}
+            {f?.kind === 'necrosis' && (
+              <span key={f.key} className="status-slam pointer-events-none absolute left-1/2 top-1/2 z-20 flex items-center gap-1 whitespace-nowrap rounded-md border-2 border-fuchsia-500 bg-black/85 px-1.5 font-display text-[11px] font-bold tracking-widest text-fuchsia-300">
+                <StatusIcon kind="necrosis" className="h-3.5 w-3.5" />
+                NECROSIS
+              </span>
+            )}
+            <Cracks level={crack} />
             {pg ? (
               <>
                 <div className={`relative h-[15px] overflow-hidden rounded-t-[7px] ${asleep ? 'opacity-40 grayscale' : ''}`}>
@@ -174,17 +261,15 @@ export function Specimen({ state, player, viewer, flip, highlight, onSlot, color
                     <span className="rounded bg-sky-900/70 px-[3px] py-[1px] text-sky-100" title="Armor">
                       ⛨{def.armor}
                     </span>
-                    <span className={`rounded px-[3px] py-[1px] ${intStyle}`} title="Integrity: the graft's own HP. Clash damage and some cards wear it down; at 0 the graft is destroyed.">
-                      ⬢{pg.integrity}/{maxIntegrity}
-                    </span>
+                    <IntegrityPips cur={pg.integrity} max={maxIntegrity} />
                   </span>
                 ) : (
                   <span className="pb-0.5 text-[7.5px] text-sky-300">asleep · ☣{pg.strain}</span>
                 )}
                 {(pg.poisoned > 0 || pg.disabled > 0) && (
-                  <span className="pb-0.5 text-[7.5px] font-semibold">
-                    {pg.poisoned > 0 && <span className="text-fuchsia-300">☠ poisoned </span>}
-                    {pg.disabled > 0 && <span className="text-ink2">⊘ disabled</span>}
+                  <span className="flex justify-center gap-1 pb-0.5 text-[8px] font-bold">
+                    {pg.poisoned > 0 && <span className="rounded bg-fuchsia-800/80 px-1 text-fuchsia-100">☠ poison {pg.poisoned}</span>}
+                    {pg.disabled > 0 && <span className="rounded bg-zinc-700/90 px-1 text-zinc-100">⊘ off {pg.disabled}</span>}
                   </span>
                 )}
               </>
@@ -199,9 +284,10 @@ export function Specimen({ state, player, viewer, flip, highlight, onSlot, color
                 {lit ? `+ ${SLOT_LABEL[slot]}` : SLOT_LABEL[slot]}
               </span>
             )}
-          </button>
-        );
+          </button>,
+        ];
       })}
+      <StatusCallouts events={statusEvents} player={player} />
     </div>
   );
 }

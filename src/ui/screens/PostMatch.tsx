@@ -1,7 +1,9 @@
 import { findNode } from '../../engine';
 import type { GameState, MatchSetup } from '../../engine';
 import { LineChart } from '../components/LineChart';
+import { newlyUnlocked } from '../achievements';
 import { FACTION_META, PLAYER_COLORS, WORLD_FACTION_META } from '../meta';
+import { activeSave, loadMatches } from '../storage';
 
 interface Props {
   state: GameState;
@@ -48,6 +50,8 @@ export function PostMatch({ state, setup, onRematch, onMenu }: Props) {
   const yStrain = Math.max(T + 3, ...strain[0], ...strain[1]);
   const key = state.log.filter((l) => ['reject', 'evolve', 'hit', 'end'].includes(l.kind) || (l.kind === 'wear' && /integrity depleted/.test(l.text)));
   const w = state.result?.winner ?? null;
+  // The match was recorded into the loaded save when it ended, so the newest record is this one.
+  const unlocked = activeSave() ? newlyUnlocked(loadMatches()) : [];
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-3xl flex-col gap-3 p-3">
@@ -77,6 +81,23 @@ export function PostMatch({ state, setup, onRematch, onMenu }: Props) {
           ))}
         </div>
       </header>
+
+      {unlocked.length > 0 && (
+        <section className="lab-panel rounded-xl border border-amber-400/60 p-3" aria-live="polite">
+          <div className="lab-label text-amber-300">Achievement{unlocked.length > 1 ? 's' : ''} unlocked</div>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {unlocked.map((a, i) => (
+              <div key={a.id} className="achievement-pop flex items-center gap-2 rounded-lg border border-amber-400/50 bg-amber-950/30 px-3 py-2" style={{ animationDelay: `${i * 0.15}s` }}>
+                <span className="grid h-9 w-9 place-items-center rounded-full bg-amber-400 font-display text-lg text-black">{a.icon}</span>
+                <span>
+                  <span className="block font-display text-sm font-bold text-amber-200">{a.name}</span>
+                  <span className="block text-xs text-ink2">{a.text}</span>
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       <LineChart title="HP by round" names={names} rounds={rounds} values={hp} yMax={state.config.specimen.hp} yStep={10} />
       <LineChart title="Strain by round" names={names} rounds={rounds} values={strain} yMax={yStrain} yStep={5} refLine={{ y: T, label: `T=${T}` }} />

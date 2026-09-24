@@ -1,0 +1,12 @@
+{
+  "name": "Specimen",
+  "short_name": "Specimen",
+  "description": "One creature. Two players. Graft it, strain it, and break theirs before yours rejects.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#090e0c",
+  "theme_color": "#090e0c",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}
