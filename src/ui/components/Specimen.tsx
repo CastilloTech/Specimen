@@ -4,6 +4,8 @@ import { CARD_MAP, publicGraft, SLOT_LABEL } from '../../engine';
 import type { GameState, PlayerId, PlayerState, SlotId } from '../../engine';
 import { CardArt } from './CardArt';
 import { accentFor } from './CardView';
+import { CastCard, ImpactBurst, usePlayFx } from './PlayFx';
+import { StrainTankFx, useStrainFx } from './StrainFx';
 import { StatusAura, StatusBadges, StatusCallouts, StatusIcon, useStatusEvents } from './StatusFx';
 
 /** A short-lived graft event on one slot: Integrity lost, the graft destroyed or ejected, or the slot necrosed. */
@@ -154,9 +156,9 @@ interface Props {
 }
 
 /** The bio-engineered creature in its tank, behind the graft sockets. */
-export function Creature({ flip, className = '' }: { flip?: boolean; className?: string }) {
+export function Creature({ flip, surge, className = '' }: { flip?: boolean; surge?: boolean; className?: string }) {
   return (
-    <div className={`absolute inset-0 overflow-hidden rounded-[inherit] ${className}`} aria-hidden>
+    <div className={`absolute inset-0 overflow-hidden rounded-[inherit] ${surge ? 'evo-surge' : ''} ${className}`} aria-hidden>
       <div className="h-full w-full" style={flip ? { transform: 'scaleX(-1)' } : undefined}>
         <img src={specimenArt} alt="" draggable={false} className="specimen-breathe h-full w-full select-none object-cover" />
       </div>
@@ -170,14 +172,18 @@ export function Specimen({ state, player, viewer, flip, highlight, onSlot, color
   const p = state.players[player];
   const fx = useGraftFx(state, p, viewer);
   const statusEvents = useStatusEvents(state);
-  const lostOne = Object.values(fx).some((f) => f && f.kind === 'destroyed');
+  const plays = usePlayFx(state, viewer);
+  const at = (slot: SlotId) => ({ x: flip ? 100 - POS[slot].x : POS[slot].x, y: POS[slot].y });
+  const strainFx = useStrainFx(state, player);
+  const lostOne = Object.values(fx).some((f) => f && f.kind === 'destroyed') || strainFx.some((e) => e.kind === 'reject');
+  const evolving = strainFx.some((e) => e.kind === 'evolve');
   return (
     <div
       className={`relative aspect-square overflow-visible rounded-[26px] border ${fill ? 'h-full' : 'mx-auto w-full max-w-[230px] lg:max-w-[300px]'} ${lostOne ? 'graft-lost-shake' : ''}`}
       style={{ borderColor: `${color}66`, boxShadow: `0 0 22px -6px ${color}88, inset 0 0 0 1px rgba(255,255,255,0.05)` }}
       aria-label={`${p.name}'s Specimen`}
     >
-      <Creature flip={flip} className="rounded-[26px]" />
+      <Creature flip={flip} surge={evolving} className="rounded-[26px]" />
       <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-[26px]" style={{ background: `linear-gradient(180deg, ${color}14, transparent 30%, transparent 75%, ${color}1f)` }}>
         {BUBBLES.map((b, i) => (
           <span key={i} className="tank-bubble absolute bottom-1 rounded-full border border-white/30" style={{ left: b.left, width: b.size, height: b.size, animationDelay: b.delay }} />
@@ -185,6 +191,7 @@ export function Specimen({ state, player, viewer, flip, highlight, onSlot, color
         <div className="absolute inset-x-3 top-1.5 h-4 rounded-full bg-white/[0.05] blur-[1px]" />
       </div>
       <StatusAura state={state} player={player} />
+      <StrainTankFx state={state} player={player} events={strainFx} flip={flip} layer="under" />
       {lostOne && <div className="graft-lost-flash pointer-events-none absolute inset-0 z-20 rounded-[26px] bg-red-600/35" />}
       <StatusBadges state={state} player={player} side={flip ? 'left' : 'right'} />
       {p.slots.map((slot) => {
@@ -288,6 +295,26 @@ export function Specimen({ state, player, viewer, flip, highlight, onSlot, color
         ];
       })}
       <StatusCallouts events={statusEvents} player={player} />
+      <StrainTankFx state={state} player={player} events={strainFx} flip={flip} layer="over" />
+      {/* Card plays: the card rises over its caster's tank and flies to where it lands... */}
+      {plays
+        .filter((e) => e.caster === player)
+        .map((e) => {
+          // The left tank is the flipped one, so the other Specimen lies to the right of it.
+          const to = e.negated ? { x: 50, y: 45 } : e.target.player !== player ? { x: flip ? 150 : -50, y: 45 } : e.target.slot ? at(e.target.slot) : { x: 50, y: 45 };
+          return <CastCard key={`cast${e.key}`} ev={e} to={to} />;
+        })}
+      {/* ...and a faction-themed impact fires there. */}
+      {plays
+        .filter((e) => !e.negated && e.target.player === player)
+        .map((e) => {
+          const pos = e.target.slot ? at(e.target.slot) : { x: 50, y: 45 };
+          return (
+            <div key={`impact${e.key}`} data-fx={e.theme} className="pointer-events-none absolute z-40 aspect-square w-[46%] -translate-x-1/2 -translate-y-1/2" style={{ left: `${pos.x}%`, top: `${pos.y}%` }}>
+              <ImpactBurst theme={e.theme} color={e.color} />
+            </div>
+          );
+        })}
     </div>
   );
 }

@@ -624,6 +624,216 @@ button:disabled {
   animation: graft-poisoned 1.5s ease-in-out infinite;
 }
 
+/* ---------- Card plays ---------- */
+/* The played card flares up over its caster's tank, then flies to where it lands and shrinks into it. */
+@keyframes cast-card {
+  0% {
+    left: 50%;
+    top: 48%;
+    transform: translate(-50%, -50%) scale(0.4) rotate(-10deg);
+    opacity: 0;
+  }
+  20% {
+    transform: translate(-50%, -50%) scale(1.08) rotate(2deg);
+    opacity: 1;
+  }
+  42% {
+    left: 50%;
+    top: 48%;
+    transform: translate(-50%, -50%) scale(1) rotate(0deg);
+    opacity: 1;
+  }
+  84% {
+    left: var(--sx);
+    top: var(--sy);
+    transform: translate(-50%, -50%) scale(0.3);
+    opacity: 1;
+  }
+  100% {
+    left: var(--sx);
+    top: var(--sy);
+    transform: translate(-50%, -50%) scale(0.15);
+    opacity: 0;
+  }
+}
+.cast-card {
+  animation: cast-card 1.1s cubic-bezier(0.3, 0.6, 0.4, 1) both;
+}
+/* Negated: the card shudders, greys out and falls apart. */
+@keyframes cast-negated {
+  0% {
+    transform: translate(-50%, -50%) scale(0.5);
+    opacity: 0;
+  }
+  18% {
+    transform: translate(-50%, -50%) scale(1.05);
+    opacity: 1;
+    filter: none;
+  }
+  30% {
+    transform: translate(calc(-50% - 5px), -50%) scale(1);
+  }
+  40% {
+    transform: translate(calc(-50% + 5px), -50%) scale(1);
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1);
+    filter: grayscale(1) brightness(0.7);
+  }
+  100% {
+    transform: translate(-50%, -30%) scale(0.9) rotate(8deg);
+    opacity: 0;
+    filter: grayscale(1) brightness(0.5);
+  }
+}
+.cast-negated {
+  left: 50%;
+  top: 48%;
+  animation: cast-negated 1.4s ease-out both;
+}
+
+/* The faction impact, fired as the card arrives. Parts animate around the burst's centre (the SVG origin). */
+.fx-impact {
+  --d: 0.45s;
+  animation: fx-impact 1s var(--d) ease-out both;
+}
+@keyframes fx-impact {
+  0% {
+    opacity: 0;
+  }
+  8%,
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+.fx-impact * {
+  transform-box: view-box;
+  transform-origin: 0 0;
+}
+@keyframes fx-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.fx-draw {
+  stroke-dasharray: 130;
+  stroke-dashoffset: 130;
+  animation: fx-draw 0.4s calc(var(--d) + var(--i, 0s)) ease-out forwards;
+}
+@keyframes fx-fly {
+  0% {
+    translate: 0 0;
+    opacity: 1;
+  }
+  100% {
+    translate: var(--x) var(--y);
+    opacity: 0;
+  }
+}
+.fx-fly {
+  animation: fx-fly 0.75s calc(var(--d) + var(--i, 0s)) ease-out both;
+}
+@keyframes fx-ring {
+  0% {
+    scale: 0.2;
+    opacity: 1;
+  }
+  100% {
+    scale: 1.6;
+    opacity: 0;
+  }
+}
+.fx-ring {
+  animation: fx-ring 0.8s calc(var(--d) + var(--i, 0s)) ease-out both;
+}
+@keyframes fx-pop {
+  0% {
+    scale: 0;
+    opacity: 0;
+  }
+  45% {
+    scale: 1.25;
+    opacity: 1;
+  }
+  100% {
+    scale: 1;
+    opacity: 1;
+  }
+}
+.fx-pop {
+  animation: fx-pop 0.45s calc(var(--d) + var(--i, 0s)) ease-out both;
+}
+@keyframes fx-spin {
+  0% {
+    rotate: -40deg;
+    scale: 0.5;
+  }
+  100% {
+    rotate: 50deg;
+    scale: 1.1;
+  }
+}
+.fx-spin {
+  animation: fx-spin 0.9s calc(var(--d) + var(--i, 0s)) ease-out both;
+}
+@keyframes fx-puff {
+  0% {
+    scale: 0.2;
+    opacity: 0;
+  }
+  35% {
+    opacity: 0.95;
+  }
+  100% {
+    scale: 1.35;
+    opacity: 0;
+  }
+}
+.fx-puff {
+  animation: fx-puff 0.95s calc(var(--d) + var(--i, 0s)) ease-out both;
+}
+@keyframes fx-rise {
+  0% {
+    translate: 0 8px;
+    opacity: 0;
+    stroke-dashoffset: 130;
+  }
+  40% {
+    opacity: 1;
+  }
+  100% {
+    translate: 0 -14px;
+    opacity: 0;
+    stroke-dashoffset: 0;
+  }
+}
+.fx-rise {
+  stroke-dasharray: 130;
+  animation: fx-rise 0.9s calc(var(--d) + var(--i, 0s)) ease-out both;
+}
+@keyframes fx-lock {
+  0% {
+    scale: 1.8;
+    rotate: 60deg;
+    opacity: 0;
+  }
+  60% {
+    scale: 0.95;
+    rotate: 0deg;
+    opacity: 1;
+  }
+  100% {
+    scale: 1;
+    opacity: 1;
+  }
+}
+.fx-lock {
+  animation: fx-lock 0.5s calc(var(--d) + var(--i, 0s)) ease-out both;
+}
+
 /* Rotate prompt: the phone outline tips over to landscape and back. */
 @keyframes rotate-hint {
   0%,
@@ -697,8 +907,399 @@ button:disabled {
 .wear-float {
   animation: wear-rise 1.6s ease-out forwards;
 }
+/* Strain: meter segments fill / drain, filled segments throb while Overclocked (faster and red past the
+   threshold), and the tank shows motes, steam, an Overclock crackle, and a Rejection alarm. */
+@keyframes strain-seg-in {
+  0% {
+    opacity: 0.3;
+    transform: scaleY(0.2);
+    filter: brightness(2.6);
+  }
+  55% {
+    opacity: 1;
+    transform: scaleY(1.6);
+    filter: brightness(1.9);
+  }
+  100% {
+    transform: scaleY(1);
+    filter: brightness(1);
+  }
+}
+.strain-seg-in {
+  animation: strain-seg-in 0.5s ease-out both;
+}
+@keyframes strain-seg-out {
+  0% {
+    opacity: 1;
+    transform: scaleY(1.5);
+    filter: brightness(3);
+  }
+  100% {
+    opacity: 0.2;
+    transform: scaleY(1);
+    filter: brightness(1);
+  }
+}
+.strain-seg-out {
+  animation: strain-seg-out 0.7s ease-out both;
+}
+@keyframes strain-hot {
+  0%,
+  100% {
+    filter: brightness(1);
+  }
+  50% {
+    filter: brightness(1.5);
+    box-shadow: 0 0 6px rgba(224, 163, 26, 0.85);
+  }
+}
+.strain-hot {
+  animation: strain-hot 1.6s ease-in-out infinite;
+}
+@keyframes strain-crit {
+  0%,
+  100% {
+    filter: brightness(1);
+  }
+  50% {
+    filter: brightness(1.9);
+    box-shadow: 0 0 8px rgba(239, 68, 68, 0.95);
+  }
+}
+.strain-crit {
+  animation: strain-crit 0.7s ease-in-out infinite;
+}
+@keyframes strain-delta {
+  0% {
+    opacity: 0;
+    translate: 0 6px;
+    scale: 0.6;
+  }
+  20% {
+    opacity: 1;
+    translate: 0 0;
+    scale: 1.3;
+  }
+  35% {
+    scale: 1;
+  }
+  75% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    translate: 0 -8px;
+  }
+}
+.strain-delta {
+  animation: strain-delta 1.4s ease-out both;
+}
+@keyframes strain-oc-aura {
+  0%,
+  100% {
+    box-shadow: inset 0 0 18px 2px rgba(224, 163, 26, 0.22);
+  }
+  50% {
+    box-shadow: inset 0 0 34px 6px rgba(224, 163, 26, 0.5);
+  }
+}
+.strain-oc-aura {
+  animation: strain-oc-aura 1.8s ease-in-out infinite;
+}
+@keyframes strain-rej-aura {
+  0%,
+  100% {
+    box-shadow: inset 0 0 20px 3px rgba(239, 68, 68, 0.35);
+    background-color: rgba(239, 68, 68, 0);
+  }
+  50% {
+    box-shadow: inset 0 0 46px 10px rgba(239, 68, 68, 0.7);
+    background-color: rgba(239, 68, 68, 0.12);
+  }
+}
+.strain-rej-aura {
+  animation: strain-rej-aura 0.8s ease-in-out infinite;
+}
+@keyframes strain-arc {
+  0%,
+  60%,
+  100% {
+    opacity: 0;
+  }
+  63% {
+    opacity: 1;
+  }
+  66% {
+    opacity: 0.2;
+  }
+  70% {
+    opacity: 0.95;
+  }
+  75% {
+    opacity: 0;
+  }
+}
+.strain-arc {
+  opacity: 0;
+  animation: strain-arc 2.4s linear infinite;
+  animation-delay: var(--i, 0s);
+}
+@keyframes strain-mote {
+  0% {
+    opacity: 0;
+    translate: 0 0;
+    scale: 0.5;
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    translate: var(--dx, 0) -80px;
+    scale: 1.1;
+  }
+}
+.strain-mote {
+  animation: strain-mote 1.2s ease-out both;
+  animation-delay: var(--i, 0s);
+}
+@keyframes strain-rise {
+  0% {
+    opacity: 0;
+    translate: -50% 10px;
+    scale: 0.6;
+  }
+  18% {
+    opacity: 1;
+    translate: -50% 0;
+    scale: 1.25;
+  }
+  30% {
+    scale: 1;
+  }
+  75% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    translate: -50% -24px;
+  }
+}
+.strain-rise {
+  translate: -50% 0;
+  animation: strain-rise 1.4s ease-out both;
+}
+@keyframes strain-steam {
+  0% {
+    opacity: 0;
+    translate: -50% 0;
+    scale: 0.4;
+  }
+  25% {
+    opacity: 0.85;
+  }
+  100% {
+    opacity: 0;
+    translate: calc(-50% + var(--dx, 0px)) -46px;
+    scale: 2.4;
+  }
+}
+.strain-steam {
+  animation: strain-steam 1.3s ease-out both;
+  animation-delay: var(--i, 0s);
+}
+@keyframes strain-alarm {
+  0%,
+  40%,
+  80%,
+  100% {
+    opacity: 0;
+  }
+  20%,
+  60% {
+    opacity: 1;
+  }
+}
+.strain-alarm {
+  animation: strain-alarm 1.3s linear both;
+}
+
+/* Evolution: a metamorphosis on the tank (flash, light pillar, rings, motes, the creature surging, the new
+   form's name), then a lasting glow; progress bars shimmer once a condition is met; the banner gets a shine. */
+@keyframes evo-flash {
+  0% {
+    opacity: 0;
+  }
+  12% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+.evo-flash {
+  animation: evo-flash 1.1s ease-out both;
+}
+@keyframes evo-pillar {
+  0% {
+    opacity: 0;
+    scale: 0.1 1;
+  }
+  25% {
+    opacity: 1;
+    scale: 1 1;
+  }
+  70% {
+    opacity: 0.8;
+  }
+  100% {
+    opacity: 0;
+    scale: 1.5 1;
+  }
+}
+.evo-pillar {
+  animation: evo-pillar 1.8s ease-out both;
+}
+@keyframes evo-ring {
+  0% {
+    opacity: 0;
+    scale: 0.1;
+  }
+  15% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    scale: 1.6;
+  }
+}
+.evo-ring {
+  animation: evo-ring 1.4s ease-out both;
+  animation-delay: var(--i, 0s);
+}
+@keyframes evo-mote {
+  0% {
+    opacity: 0;
+    translate: 0 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    translate: var(--dx, 0) -140px;
+  }
+}
+.evo-mote {
+  animation: evo-mote 1.8s ease-out both;
+  animation-delay: var(--i, 0s);
+}
+@keyframes evo-surge {
+  0% {
+    filter: none;
+    scale: 1;
+  }
+  25% {
+    filter: brightness(1.9) saturate(1.6);
+    scale: 1.06;
+  }
+  45% {
+    scale: 0.98;
+  }
+  60% {
+    filter: brightness(1.25) saturate(1.3);
+    scale: 1.02;
+  }
+  100% {
+    filter: none;
+    scale: 1;
+  }
+}
+.evo-surge {
+  animation: evo-surge 1.8s ease-out both;
+}
+@keyframes evo-stamp {
+  0% {
+    opacity: 0;
+    scale: 2.4;
+  }
+  15% {
+    opacity: 1;
+    scale: 0.92;
+  }
+  25% {
+    scale: 1.04;
+  }
+  32%,
+  84% {
+    opacity: 1;
+    scale: 1;
+  }
+  100% {
+    opacity: 0;
+    scale: 1;
+  }
+}
+.evo-stamp {
+  translate: -50% -50%;
+  animation: evo-stamp 2.5s 0.35s ease-out both;
+}
+@keyframes evo-aura {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.75;
+  }
+}
+.evo-aura {
+  animation: evo-aura 3.2s ease-in-out infinite;
+}
+@keyframes evo-ready {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+.evo-ready {
+  background-image: linear-gradient(90deg, transparent 30%, rgba(255, 255, 255, 0.7) 50%, transparent 70%);
+  background-size: 200% 100%;
+  animation: evo-ready 1.6s linear infinite;
+}
+.evo-banner {
+  position: relative;
+  overflow: hidden;
+}
+@keyframes evo-shine {
+  to {
+    translate: 130% 0;
+  }
+}
+.evo-banner::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.25) 50%, transparent 65%);
+  translate: -130% 0;
+  animation: evo-shine 1.2s 0.35s ease-out both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .evo-banner,
+  .evo-banner::after,
+  .evo-aura,
+  .evo-ready,
+  .evo-surge,
+  .strain-seg-in,
+  .strain-seg-out,
+  .strain-hot,
+  .strain-crit,
+  .strain-oc-aura,
+  .strain-rej-aura,
   .evo-glow,
   .tank-bubble,
   .specimen-breathe,
@@ -721,11 +1322,29 @@ button:disabled {
   .graft-poisoned {
     animation: none;
   }
+  /* Card-play flights and impacts are pure motion (the play toast and log still say what was played). */
+  .cast-card,
+  .cast-negated,
+  .fx-impact,
+  .strain-arc,
+  .strain-mote,
+  .strain-steam,
+  .evo-flash,
+  .evo-pillar,
+  .evo-ring,
+  .evo-mote,
+  .evo-banner::after {
+    display: none;
+  }
   /* Callouts and stamps still appear (without motion) so the information is not lost. */
   .status-slam,
   .status-tick,
   .status-expire,
-  .graft-stamp {
+  .graft-stamp,
+  .strain-delta,
+  .strain-rise,
+  .strain-alarm,
+  .evo-stamp {
     animation: none;
     opacity: 1;
   }

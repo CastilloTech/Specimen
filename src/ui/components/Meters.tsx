@@ -1,5 +1,6 @@
 import { evolutionProgress, stableMax } from '../../engine';
 import type { GameState, PlayerId } from '../../engine';
+import { StrainDelta, strainSegFx, useChange } from './StrainFx';
 
 export function HpBar({ hp, max }: { hp: number; max: number }) {
   const pct = Math.max(0, Math.min(100, (hp / max) * 100));
@@ -23,16 +24,21 @@ export function StrainMeter({ state, player }: { state: GameState; player: Playe
   const total = T + 3;
   const zoneClass = (i: number) => (i <= sMax ? 'bg-stable' : i <= T ? 'bg-oc' : 'bg-rej');
   const zone = p.strain <= sMax ? 'Stable' : p.strain <= T ? 'Overclocked' : 'REJECTION';
+  const chg = useChange(p.strain);
   return (
     <div>
       <div className="flex items-center justify-between text-[11px]">
-        <span className="font-semibold text-ink2">Strain {p.strain}</span>
+        <span className="relative font-semibold text-ink2">
+          Strain {p.strain}
+          <StrainDelta chg={chg} />
+        </span>
         <span className={p.strain <= sMax ? 'text-emerald-300' : p.strain <= T ? 'text-amber-300' : 'font-bold text-red-400'}>{zone}</span>
       </div>
       <div className="mt-0.5 flex gap-[2px]" role="meter" aria-label="Strain" aria-valuenow={p.strain} aria-valuemin={0} aria-valuemax={total}>
-        {Array.from({ length: total }, (_, k) => k + 1).map((i) => (
-          <div key={i} className={`h-3 flex-1 rounded-[2px] ${zoneClass(i)} ${i <= p.strain ? '' : 'opacity-20'}`} title={`${i}`} />
-        ))}
+        {Array.from({ length: total }, (_, k) => k + 1).map((i) => {
+          const fx = strainSegFx(state, player, i, chg);
+          return <div key={fx.key} className={`h-3 flex-1 rounded-[2px] ${zoneClass(i)} ${i <= p.strain ? '' : 'opacity-20'} ${fx.className}`} style={fx.style} title={`${i}`} />;
+        })}
       </div>
       <div className="mt-0.5 flex justify-between text-[9px] text-mute">
         <span>0–{sMax} stable</span>
@@ -80,7 +86,7 @@ export function EvolutionBars({ state, player }: { state: GameState; player: Pla
               </span>
             </div>
             <div className="h-1.5 overflow-hidden rounded bg-black/50">
-              <div className={`h-full ${e.active || e.met ? 'bg-accent' : 'bg-violet-400'}`} style={{ width: `${pct}%` }} />
+              <div className={`h-full transition-[width] duration-700 ease-out ${e.active || e.met ? 'bg-accent' : 'bg-violet-400'} ${e.met && !e.active && !evolved ? 'evo-ready' : ''}`} style={{ width: `${pct}%` }} />
             </div>
           </div>
         );

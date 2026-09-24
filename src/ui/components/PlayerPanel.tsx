@@ -4,6 +4,7 @@ import { FACTION_META, STANCE_META, WORLD_FACTION_META } from '../meta';
 import { EvolvedBadge } from './Evolution';
 import { EnergyPips, EvolutionBars, HpBar, StrainMeter } from './Meters';
 import { STATUS_META, StatusIcon } from './StatusFx';
+import { StrainDelta, strainSegFx, useChange } from './StrainFx';
 
 export function LoadoutChips({ loadout, stances = [] }: { loadout: string[]; stances?: Stance[] }) {
   return (
@@ -36,6 +37,7 @@ export function PlayerPanelCompact({ state, player, color, active }: { state: Ga
   const zone = p.strain <= sMax ? 'text-emerald-300' : p.strain <= T ? 'text-amber-300' : 'text-red-400';
   const prog = evolutionProgress(state, player);
   const hpPct = Math.max(0, Math.min(100, (p.hp / state.config.specimen.hp) * 100));
+  const chg = useChange(p.strain);
   return (
     <section className={`lab-panel flex h-full min-h-0 min-w-0 flex-col gap-1 overflow-hidden rounded-lg border p-1.5 ${active ? 'turn-glow border-accent/80' : 'border-line'}`} style={{ borderTop: `2px solid ${color}` }} aria-label={`${p.name} status`}>
       <div className="flex min-w-0 items-center gap-1">
@@ -62,14 +64,16 @@ export function PlayerPanelCompact({ state, player, color, active }: { state: Ga
       <div>
         <div className="flex justify-between text-[9px] leading-none">
           <span className="text-ink2">Strain</span>
-          <span className={`font-bold ${zone}`}>
+          <span className={`relative font-bold ${zone}`}>
+            <StrainDelta chg={chg} side="left" />
             {p.strain}/{T}
           </span>
         </div>
         <div className="mt-0.5 flex gap-px" aria-label="Strain" role="meter" aria-valuenow={p.strain}>
-          {Array.from({ length: T + 2 }, (_, k) => k + 1).map((i) => (
-            <div key={i} className={`h-1.5 flex-1 rounded-[1px] ${i <= sMax ? 'bg-stable' : i <= T ? 'bg-oc' : 'bg-rej'} ${i <= p.strain ? '' : 'opacity-20'}`} />
-          ))}
+          {Array.from({ length: T + 2 }, (_, k) => k + 1).map((i) => {
+            const fx = strainSegFx(state, player, i, chg);
+            return <div key={fx.key} className={`h-1.5 flex-1 rounded-[1px] ${i <= sMax ? 'bg-stable' : i <= T ? 'bg-oc' : 'bg-rej'} ${i <= p.strain ? '' : 'opacity-20'} ${fx.className}`} style={fx.style} />;
+          })}
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-1 text-[9px] font-bold leading-none">
@@ -104,7 +108,7 @@ export function PlayerPanelCompact({ state, player, color, active }: { state: Ga
               </div>
               {!e.active && (
                 <div className="mt-px h-1 overflow-hidden rounded bg-black/50">
-                  <div className={`h-full ${e.met ? 'bg-accent' : 'bg-violet-400'}`} style={{ width: `${Math.min(100, (e.current / e.target) * 100)}%` }} />
+                  <div className={`h-full transition-[width] duration-700 ease-out ${e.met ? 'bg-accent evo-ready' : 'bg-violet-400'}`} style={{ width: `${Math.min(100, (e.current / e.target) * 100)}%` }} />
                 </div>
               )}
             </div>
