@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { cardCost, cardOf, evolutionBoosts, findNode, other, reactionOptions, STANCES } from '../../engine';
 import type { Action, GameState, PlayerId, Stance } from '../../engine';
@@ -74,24 +73,16 @@ export function PhoneFeint({ state, me, onPick }: { state: GameState; me: Player
   );
 }
 
-export function PhoneMulligan({ state, me, onKeep, onMull }: { state: GameState; me: PlayerId; onKeep: () => void; onMull: () => void }) {
+export function PhoneMulligan({ state, me, onKeep, onMull, onInspect }: { state: GameState; me: PlayerId; onKeep: () => void; onMull: () => void; onInspect: (cardId: string) => void }) {
   const p = state.players[me];
-  // Touch has no hover tooltip: tapping a card shows its text here so you can judge the hand.
-  const [peek, setPeek] = useState<string | null>(null);
-  const peekDef = peek ? cardOf(peek) : null;
+  // Touch has no hover tooltip: tapping a card opens it in full so you can judge the hand.
   return (
     <Strip
       info={
         <>
-          {peekDef ? (
-            <span className="line-clamp-3">
-              <b className="text-ink">{peekDef.name}:</b> {peekDef.text}
-            </span>
-          ) : (
-            <span className="font-display text-[12px] font-bold text-ink">
-              Opening hand <span className="block font-sans text-[10px] font-normal text-mute">Tap a card to read it</span>
-            </span>
-          )}
+          <span className="font-display text-[12px] font-bold text-ink">
+            Opening hand <span className="block font-sans text-[10px] font-normal text-mute">Tap a card to read it</span>
+          </span>
           <div className="flex flex-col gap-1">
             <button onClick={onKeep} className={`${btn} bg-accent text-black`}>
               Keep
@@ -106,7 +97,7 @@ export function PhoneMulligan({ state, me, onKeep, onMull }: { state: GameState;
       <div className="flex min-w-0 flex-1 items-center justify-center gap-1.5 pt-1.5">
         {p.hand.map((c) => {
           const d = cardOf(c.cardId);
-          return <CardView key={c.uid} def={d} cost={cardCost(state, p, d)} size="xs" selected={peek === c.cardId} onClick={() => setPeek(peek === c.cardId ? null : c.cardId)} />;
+          return <CardView key={c.uid} def={d} cost={cardCost(state, p, d)} size="xs" onClick={() => onInspect(c.cardId)} onInspect={() => onInspect(c.cardId)} />;
         })}
       </div>
     </Strip>
@@ -142,7 +133,7 @@ export function PhoneEvolve({ state, me, onPick, onDecline }: { state: GameState
   );
 }
 
-export function PhoneReaction({ state, me, onAct }: { state: GameState; me: PlayerId; onAct: (a: Action) => void }) {
+export function PhoneReaction({ state, me, onAct, onInspect }: { state: GameState; me: PlayerId; onAct: (a: Action) => void; onInspect: (cardId: string) => void }) {
   const w = state.window!;
   const options = reactionOptions(state, me, w.play);
   const pd = cardOf(w.play.card.cardId);
@@ -176,8 +167,10 @@ export function PhoneReaction({ state, me, onAct }: { state: GameState; me: Play
           const d = cardOf(c.cardId);
           return (
             <div key={c.uid} className="flex items-center gap-1">
-              <CardView def={d} cost={cardCost(state, state.players[me], d)} size="xs" onClick={() => onAct(a)} />
-              <span className="line-clamp-4 w-[88px] text-[9px] leading-tight text-ink2">{d.text}</span>
+              <CardView def={d} cost={cardCost(state, state.players[me], d)} size="xs" onClick={() => onAct(a)} onInspect={() => onInspect(c.cardId)} />
+              <button onClick={() => onInspect(c.cardId)} className="line-clamp-4 w-[88px] text-left text-[9px] leading-tight text-ink2" title="Show the full card">
+                {d.text}
+              </button>
             </div>
           );
         })}

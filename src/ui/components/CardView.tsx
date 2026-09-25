@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import type { CardDef } from '../../engine';
 import { FACTION_META, TYPE_META, WORLD_FACTION_META } from '../meta';
 import { CardArt } from './CardArt';
@@ -29,9 +30,55 @@ interface Props {
   reason?: string;
   /** Keyboard shortcut that selects this card (shown as a small corner badge, e.g. hand slot "3"). */
   hotkey?: string;
+  /** Open the full card: fired by a press-and-hold (touch) or a right-click. */
+  onInspect?: () => void;
 }
 
-export function CardView({ def, cost, size = 'md', selected, dim, onClick, onDoubleClick, count, reason, hotkey }: Props) {
+/** Press-and-hold / right-click to inspect, without the hold also counting as a tap. */
+function useInspect(onInspect: (() => void) | undefined, onClick: (() => void) | undefined) {
+  const timer = useRef<number | null>(null);
+  const fired = useRef(false);
+  const origin = useRef<[number, number]>([0, 0]);
+  const cancel = () => {
+    if (timer.current !== null) clearTimeout(timer.current);
+    timer.current = null;
+  };
+  if (!onInspect) return { onClick };
+  return {
+    onClick: () => {
+      if (fired.current) {
+        fired.current = false;
+        return;
+      }
+      onClick?.();
+    },
+    onPointerDown: (e: React.PointerEvent) => {
+      fired.current = false;
+      origin.current = [e.clientX, e.clientY];
+      cancel();
+      timer.current = window.setTimeout(() => {
+        fired.current = true;
+        onInspect();
+      }, 450);
+    },
+    onPointerMove: (e: React.PointerEvent) => {
+      if (Math.abs(e.clientX - origin.current[0]) + Math.abs(e.clientY - origin.current[1]) > 10) cancel(); // scrolling, not holding
+    },
+    onPointerUp: cancel,
+    onPointerLeave: cancel,
+    onPointerCancel: cancel,
+    onContextMenu: (e: React.MouseEvent) => {
+      e.preventDefault();
+      cancel();
+      if (!fired.current) onInspect();
+      fired.current = false;
+    },
+    style: { WebkitTouchCallout: 'none' } as React.CSSProperties,
+  };
+}
+
+export function CardView({ def, cost, size = 'md', selected, dim, onClick, onDoubleClick, count, reason, hotkey, onInspect }: Props) {
+  const { style: holdStyle, ...hold } = useInspect(onInspect, onClick);
   const t = TYPE_META[def.type];
   const shownCost = cost ?? def.cost;
   const costChanged = cost !== undefined && cost !== def.cost;
@@ -43,11 +90,11 @@ export function CardView({ def, cost, size = 'md', selected, dim, onClick, onDou
     return (
       <button
         type="button"
-        onClick={onClick}
+        {...hold}
         onDoubleClick={onDoubleClick}
         title={tooltip}
         className={`relative flex h-[84px] w-[58px] shrink-0 flex-col overflow-visible rounded-lg border text-left transition ${selected ? '-translate-y-1.5 border-accent shadow-[0_0_0_1px_var(--color-accent)]' : 'border-line'} ${dim ? 'opacity-60 saturate-[.35]' : ''}`}
-        style={{ background: `linear-gradient(180deg, ${accent}26, transparent 45%), var(--color-panel)` }}
+        style={{ background: `linear-gradient(180deg, ${accent}26, transparent 45%), var(--color-panel)`, ...holdStyle }}
         aria-pressed={selected}
       >
         <span className={`absolute -left-1.5 -top-1.5 z-10 grid h-5 w-5 place-items-center rounded-full border border-bg font-display text-[11px] font-bold text-white ${costClass}`}>{shownCost}</span>
@@ -81,13 +128,13 @@ export function CardView({ def, cost, size = 'md', selected, dim, onClick, onDou
   return (
     <button
       type="button"
-      onClick={onClick}
+      {...hold}
       onDoubleClick={onDoubleClick}
       title={tooltip}
       className={`group relative flex shrink-0 flex-col overflow-visible rounded-xl border text-left transition duration-150 ${sm ? 'h-[150px] w-[100px]' : 'h-[198px] w-[132px]'} ${
         selected ? '-translate-y-3 border-accent shadow-[0_0_0_1px_var(--color-accent),0_10px_28px_-6px_rgba(123,224,176,0.45)]' : 'border-line hover:-translate-y-1 hover:border-mute'
       } ${dim ? 'opacity-70 saturate-[.35]' : ''}`}
-      style={{ background: `linear-gradient(180deg, ${accent}22, transparent 38%), var(--color-panel)` }}
+      style={{ background: `linear-gradient(180deg, ${accent}22, transparent 38%), var(--color-panel)`, ...holdStyle }}
       aria-pressed={selected}
     >
       <span

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { CARD_MAP, CARDS, chipRows, chipsFor, defaultConfig, FACTIONS, starterDeck, validateDeck, validateLoadout, WORLD_FACTIONS } from '../../engine';
 import type { CardDef, Faction, WorldFactionId } from '../../engine';
+import { CardDetail } from '../components/CardDetail';
 import { CardView } from '../components/CardView';
 import { ChipPicker } from '../components/ChipPicker';
 import { ChipArt, Emblem } from '../components/Emblem';
@@ -37,6 +38,7 @@ function DeckTab() {
   const [pool, setPool] = useState<Pool>('build');
   const [sheet, setSheet] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
+  const [viewing, setViewing] = useState<string | null>(null); // card id open in the full view
   const wide = useMediaQuery('(min-width: 1024px)');
 
   const deck = useMemo(() => Object.entries(counts).flatMap(([id, n]) => Array<string>(n).fill(id)), [counts]);
@@ -106,7 +108,7 @@ function DeckTab() {
         <div className="rounded-lg bg-emerald-950/40 px-2 py-1.5 text-[11px] text-emerald-300">Valid deck · {D.maxCopies} copies max, {D.signatureCopies} of a Signature ★</div>
       )}
       <ul className="divide-y divide-line/60 rounded-lg border border-line" aria-label="Cards in this deck">
-        {deck.length === 0 && <li className="p-2 text-xs text-mute">Empty. Tap cards to add them.</li>}
+        {deck.length === 0 && <li className="p-2 text-xs text-mute">Empty. Use + under a card to add it.</li>}
         {Object.entries(counts)
           .filter(([, n]) => n > 0)
           .map(([id, n]) => ({ c: CARD_MAP[id], n }))
@@ -117,10 +119,10 @@ function DeckTab() {
             return (
               <li key={c.id} className="flex items-center gap-2 px-2 py-1 text-xs">
                 <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-sky-600 text-[10px] font-bold text-white">{c.cost}</span>
-                <span className="min-w-0 flex-1 truncate font-semibold">
+                <button onClick={() => setViewing(c.id)} className="min-w-0 flex-1 truncate text-left font-semibold hover:underline" title="Show the full card">
                   {c.signature && <span className="text-amber-300">★</span>}
                   {c.name}
-                </span>
+                </button>
                 <span className="shrink-0 text-[10px]" style={{ color: TYPE_META[c.type].color }}>
                   {TYPE_META[c.type].label}
                 </span>
@@ -213,15 +215,15 @@ function DeckTab() {
             const full = n >= max || total >= D.size;
             return (
               <div key={c.id} className="flex flex-col items-center gap-1">
-                <CardView def={c} size={wide ? 'md' : 'sm'} count={n || undefined} dim={n === 0} onClick={() => !full && change(c.id, 1)} />
-                <div className={`flex items-center gap-1 ${n ? '' : 'invisible'}`}>
-                  <button onClick={() => change(c.id, -1)} className="h-6 w-7 rounded-md bg-panel2 text-sm font-bold" aria-label={`Remove ${c.name}`} tabIndex={n ? 0 : -1}>
+                <CardView def={c} size={wide ? 'md' : 'sm'} count={n || undefined} dim={n === 0} onClick={() => setViewing(c.id)} />
+                <div className="flex items-center gap-1">
+                  <button onClick={() => change(c.id, -1)} disabled={n === 0} className="h-7 w-8 rounded-md bg-panel2 text-sm font-bold disabled:opacity-30" aria-label={`Remove ${c.name}`}>
                     −
                   </button>
                   <span className="w-8 text-center text-[11px] text-ink2">
                     {n}/{max}
                   </span>
-                  <button onClick={() => change(c.id, 1)} disabled={full} className="h-6 w-7 rounded-md bg-panel2 text-sm font-bold disabled:opacity-30" aria-label={`Add ${c.name}`} tabIndex={n ? 0 : -1}>
+                  <button onClick={() => change(c.id, 1)} disabled={full} className="h-7 w-8 rounded-md bg-panel2 text-sm font-bold disabled:opacity-30" aria-label={`Add ${c.name}`}>
                     +
                   </button>
                 </div>
@@ -279,6 +281,31 @@ function DeckTab() {
           </div>
         </div>
       )}
+      {viewing && CARD_MAP[viewing] && (() => {
+        // Browse the open pool (or the deck list, for a card opened from it).
+        const list = cards.some((c) => c.id === viewing) ? cards.map((c) => c.id) : Object.keys(counts).filter((id) => counts[id] > 0);
+        const i = list.indexOf(viewing);
+        const c = CARD_MAP[viewing];
+        const n = counts[c.id] ?? 0;
+        const max = c.signature ? D.signatureCopies : D.maxCopies;
+        return (
+          <CardDetail def={c} onClose={() => setViewing(null)} onPrev={i > 0 ? () => setViewing(list[i - 1]) : undefined} onNext={i >= 0 && i < list.length - 1 ? () => setViewing(list[i + 1]) : undefined}>
+            <div className="flex items-center gap-2">
+              <button onClick={() => change(c.id, -1)} disabled={n === 0} className="h-11 flex-1 rounded-xl bg-panel2 text-lg font-bold disabled:opacity-30" aria-label={`Remove ${c.name}`}>
+                −
+              </button>
+              <span className="w-20 text-center text-sm">
+                <span className="font-display text-xl font-bold">{n}</span>
+                <span className="text-mute">/{max}</span>
+                <span className="block text-[10px] text-mute">in deck · {total}/{D.size}</span>
+              </span>
+              <button onClick={() => change(c.id, 1)} disabled={n >= max || total >= D.size} className="h-11 flex-1 rounded-xl bg-accent text-lg font-bold text-black disabled:opacity-30" aria-label={`Add ${c.name}`}>
+                +
+              </button>
+            </div>
+          </CardDetail>
+        );
+      })()}
       {flash && <div className="pop fixed left-1/2 top-4 z-50 -translate-x-1/2 rounded-full bg-emerald-600 px-4 py-1.5 text-sm font-bold text-white shadow-xl">{flash}</div>}
     </div>
   );

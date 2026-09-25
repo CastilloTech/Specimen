@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ambushText, cardCost, cardOf, chipOf, defaultConfig, evolutionBoosts, findNode, legalPlays, other, reactionOptions, SLOT_LABEL, STANCES } from '../../engine';
 import type { Action, CardDef, GameState, MatchSetup, PlayerId, PlayRecord, SlotId, Stance } from '../../engine';
+import { CardDetail } from '../components/CardDetail';
 import { CardView } from '../components/CardView';
 import { EvolutionBanners, FormList, useEvolutionEvents } from '../components/Evolution';
 import { MatchEndOverlay, RoundBanner, useArrivals } from '../components/MatchFx';
@@ -53,6 +54,7 @@ export function MatchScreen({ setup, settings, onExit, onFinish }: Props) {
   const [confirmingPass, setConfirmingPass] = useState(false);
   const [confirmExit, setConfirmExit] = useState(false);
   const [evoSheet, setEvoSheet] = useState(false);
+  const [viewCard, setViewCard] = useState<string | null>(null); // a card open in the full view
   const [evoEvents, dismissEvo] = useEvolutionEvents(state);
   const clash = useClashEvent(state);
   const arrivals = useArrivals(state.players[0].hand.map((c) => c.uid), introSeen);
@@ -62,7 +64,7 @@ export function MatchScreen({ setup, settings, onExit, onFinish }: Props) {
   const rotating = portrait && !portraitOk;
 
   const over = state.phase === 'over';
-  pausedRef.current = !introSeen || !!detail || !!playSheet || showHistory || showHelp || confirmExit || rotating || evoSheet;
+  pausedRef.current = !introSeen || !!detail || !!playSheet || showHistory || showHelp || confirmExit || rotating || evoSheet || !!viewCard;
 
   // You are always Player 1; the bot is Player 2.
   const me: PlayerId = 0;
@@ -173,7 +175,7 @@ export function MatchScreen({ setup, settings, onExit, onFinish }: Props) {
       else clearSel();
       return;
     }
-    if (!introSeen || over || !myDecision || showHelp || detail || playSheet || showHistory || confirmExit || evoSheet) return;
+    if (!introSeen || over || !myDecision || showHelp || detail || playSheet || showHistory || confirmExit || evoSheet || !!viewCard) return;
     // Stance keys (and 1 / 2 / 3, always) pick a stance; the first two also take the 1st / 2nd evolution option.
     const stanceIdx = isKey(k, 'aggress') || k === '1' ? 0 : isKey(k, 'adapt') || k === '2' ? 1 : isKey(k, 'fortify') || k === '3' ? 2 : undefined;
     if (state.phase === 'mulligan') {
@@ -338,6 +340,7 @@ export function MatchScreen({ setup, settings, onExit, onFinish }: Props) {
       <RoundBanner state={state} />
       <MatchEndOverlay state={state} me={me} />
       {showHelp && <HelpSheet state={state} keybinds={binds} onClose={() => setShowHelp(false)} />}
+      {viewCard && <CardDetail def={cardOf(viewCard)} onClose={() => setViewCard(null)} />}
       {showHistory && <PlayHistory state={state} viewer={me} onClose={() => setShowHistory(false)} onOpen={(r) => setPlaySheet(r)} />}
       {playSheet && <PlaySheet state={state} viewer={me} rec={playSheet} onClose={() => setPlaySheet(null)} />}
       {detail && (
@@ -364,7 +367,7 @@ export function MatchScreen({ setup, settings, onExit, onFinish }: Props) {
     ) : !myDecision ? (
       <div className="lab-panel grid h-full place-items-center rounded-lg border border-line text-sm text-ink2">{waitingText}</div>
     ) : state.phase === 'mulligan' ? (
-      <PhoneMulligan state={state} me={me} onKeep={() => send({ type: 'MULLIGAN', player: me, mulligan: false })} onMull={() => send({ type: 'MULLIGAN', player: me, mulligan: true })} />
+      <PhoneMulligan state={state} me={me} onInspect={setViewCard} onKeep={() => send({ type: 'MULLIGAN', player: me, mulligan: false })} onMull={() => send({ type: 'MULLIGAN', player: me, mulligan: true })} />
     ) : state.phase === 'stance' ? (
       <PhoneStance state={state} me={me} onPick={(st) => send({ type: 'PICK_STANCE', player: me, stance: st })} />
     ) : state.phase === 'feint' ? (
@@ -372,15 +375,17 @@ export function MatchScreen({ setup, settings, onExit, onFinish }: Props) {
     ) : state.phase === 'evolve' ? (
       <PhoneEvolve state={state} me={me} onPick={(id) => send({ type: 'CHOOSE_EVOLUTION', player: me, id })} onDecline={() => send({ type: 'CHOOSE_EVOLUTION', player: me, id: null })} />
     ) : reacting && state.window ? (
-      <PhoneReaction state={state} me={me} onAct={(a) => send(a)} />
+      <PhoneReaction state={state} me={me} onAct={(a) => send(a)} onInspect={setViewCard} />
     ) : (
       <section className={`lab-panel flex h-full min-h-0 gap-1.5 rounded-lg border p-1.5 ${myTurn ? 'border-accent/70' : 'border-line'}`} aria-label="Your hand">
         {selDef && selected ? (
           <div className="flex min-w-0 flex-1 items-center gap-2 pt-1">
-            <CardView def={selDef} cost={cardCost(state, mine, selDef)} size="xs" selected onClick={clearSel} />
+            <CardView def={selDef} cost={cardCost(state, mine, selDef)} size="xs" selected onClick={() => setViewCard(selDef.id)} />
             <div className="min-w-0 flex-1 text-[10px] leading-snug">
               <div className="font-display text-[12px] font-bold">{selDef.name}</div>
-              <div className="line-clamp-2 text-ink2">{selDef.text}</div>
+              <button onClick={() => setViewCard(selDef.id)} className="line-clamp-2 text-left text-ink2" title="Show the full card">
+                {selDef.text} <span className="text-accent">· full card</span>
+              </button>
               <div className="mt-1 flex flex-wrap items-center gap-1.5">{selectedActions(true)}</div>
             </div>
             <button onClick={clearSel} className="self-start rounded border border-line px-1.5 py-0.5 text-xs text-ink2" aria-label="Put the card back">
@@ -391,7 +396,7 @@ export function MatchScreen({ setup, settings, onExit, onFinish }: Props) {
           <div className="flex min-w-0 flex-1 flex-col">
             <div className="flex items-center justify-between gap-2 px-0.5 text-[9px] leading-none">
               <span className="text-mute">
-                Hand {mine.hand.length}/{state.config.match.maxHand}
+                Hand {mine.hand.length}/{state.config.match.maxHand} · hold a card to read it
                 {mine.hand.length >= state.config.match.maxHand && <span className="ml-1 text-amber-300">full</span>}
               </span>
               {myTurn && <span className="truncate text-accent">{cycleMode ? 'Pick a card to cycle' : playableNow ? 'Tap a card' : 'Nothing playable: Pass or Cycle'}</span>}
@@ -404,7 +409,7 @@ export function MatchScreen({ setup, settings, onExit, onFinish }: Props) {
                 const dim = !cycleMode && !playable.has(c.uid);
                 return (
                   <div key={c.uid} className={`${i > 0 ? (fan ? '-ml-3' : 'ml-1') : ''} ${arrivals.has(c.uid) ? 'card-draw' : ''}`} style={arrivals.has(c.uid) ? ({ '--i': `${arrivals.get(c.uid)! * 90}ms` } as React.CSSProperties) : undefined}>
-                    <CardView def={d} cost={cardCost(state, mine, d)} size="xs" dim={dim} reason={dim ? (whyNot(c.uid) ?? undefined) : undefined} onClick={() => onHandClick(c.uid)} onDoubleClick={() => onHandDoubleClick(c.uid)} />
+                    <CardView def={d} cost={cardCost(state, mine, d)} size="xs" dim={dim} reason={dim ? (whyNot(c.uid) ?? undefined) : undefined} onClick={() => onHandClick(c.uid)} onDoubleClick={() => onHandDoubleClick(c.uid)} onInspect={() => setViewCard(c.cardId)} />
                   </div>
                 );
               })}
@@ -645,7 +650,7 @@ export function MatchScreen({ setup, settings, onExit, onFinish }: Props) {
         ) : !myDecision ? (
           <div className="rounded-xl border border-line bg-panel p-3 text-center text-sm text-ink2">{waitingText}</div>
         ) : state.phase === 'mulligan' ? (
-          <MulliganPrompt hand={mine.hand} onKeep={() => send({ type: 'MULLIGAN', player: me, mulligan: false })} onMull={() => send({ type: 'MULLIGAN', player: me, mulligan: true })} state={state} me={me} seconds={defaultConfig.timers.enabled ? state.config.timers.mulliganSeconds : null} />
+          <MulliganPrompt onInspect={setViewCard} hand={mine.hand} onKeep={() => send({ type: 'MULLIGAN', player: me, mulligan: false })} onMull={() => send({ type: 'MULLIGAN', player: me, mulligan: true })} state={state} me={me} seconds={defaultConfig.timers.enabled ? state.config.timers.mulliganSeconds : null} />
         ) : state.phase === 'stance' ? (
           <StancePrompt state={state} me={me} onPick={(st) => send({ type: 'PICK_STANCE', player: me, stance: st })} />
         ) : state.phase === 'feint' ? (
@@ -658,13 +663,14 @@ export function MatchScreen({ setup, settings, onExit, onFinish }: Props) {
             onDecline={() => send({ type: 'CHOOSE_EVOLUTION', player: me, id: null })}
           />
         ) : reacting && state.window ? (
-          <ReactionPrompt state={state} me={me} onAct={(a) => send(a)} />
+          <ReactionPrompt state={state} me={me} onAct={(a) => send(a)} onInspect={setViewCard} />
         ) : (
           <section className={`lab-panel shrink-0 rounded-xl border p-2 ${myTurn ? 'border-accent/70' : 'border-line'}`} aria-label="Your hand">
             <div className="min-w-0">
               <div className="flex items-center justify-between gap-2 px-1">
                 <span className="lab-label">
                   Hand · {mine.hand.length}/{state.config.match.maxHand}
+                  <span className="ml-2 normal-case tracking-normal text-mute">right-click or hold a card to read it</span>
                   {mine.hand.length >= state.config.match.maxHand && <span className="ml-2 normal-case tracking-normal text-amber-300">full: new draws are burned</span>}
                 </span>
                 {myTurn && !cycleMode && (
@@ -687,6 +693,7 @@ export function MatchScreen({ setup, settings, onExit, onFinish }: Props) {
                       hotkey={i < 9 ? String(i + 1) : undefined}
                       onClick={() => onHandClick(c.uid)}
                       onDoubleClick={() => onHandDoubleClick(c.uid)}
+                      onInspect={() => setViewCard(c.cardId)}
                       size={mine.hand.length > 7 ? 'sm' : 'md'}
                     />
                     </div>
@@ -699,6 +706,9 @@ export function MatchScreen({ setup, settings, onExit, onFinish }: Props) {
               <div className="mb-2 rounded-lg bg-black/30 p-2 text-xs">
                 <div className="font-bold">
                   {selDef.name} <span className="font-normal text-ink2">— {selDef.text}</span>
+                  <button onClick={() => setViewCard(selDef.id)} className="ml-2 rounded border border-line px-1.5 py-0.5 text-[10px] font-semibold text-ink2 hover:border-mute">
+                    Full card
+                  </button>
                 </div>
                 <div className="mt-1.5 flex flex-wrap items-center gap-2">{selectedActions(false)}</div>
               </div>
@@ -789,13 +799,13 @@ function PromptBox({ title, children }: { title: string; children: React.ReactNo
   );
 }
 
-function MulliganPrompt({ hand, onKeep, onMull, state, me, seconds }: { hand: { uid: string; cardId: string }[]; onKeep: () => void; onMull: () => void; state: GameState; me: PlayerId; seconds: number | null }) {
+function MulliganPrompt({ hand, onKeep, onMull, state, me, seconds, onInspect }: { hand: { uid: string; cardId: string }[]; onKeep: () => void; onMull: () => void; state: GameState; me: PlayerId; seconds: number | null; onInspect: (cardId: string) => void }) {
   return (
     <PromptBox title={`Opening hand: keep it or take your free mulligan (redraw all 5)?${seconds ? ` Take your time: you have ${seconds} seconds.` : ''}`}>
       <div className="scroll-thin flex gap-2 overflow-x-auto px-1 pb-2 pt-3">
         {hand.map((c) => {
           const d = cardOf(c.cardId);
-          return <CardView key={c.uid} def={d} cost={cardCost(state, state.players[me], d)} />;
+          return <CardView key={c.uid} def={d} cost={cardCost(state, state.players[me], d)} onClick={() => onInspect(c.cardId)} onInspect={() => onInspect(c.cardId)} />;
         })}
       </div>
       <div className="flex gap-2">
@@ -884,7 +894,7 @@ function EvolvePrompt({ state, me, onPick, onDecline }: { state: GameState; me: 
   );
 }
 
-function ReactionPrompt({ state, me, onAct }: { state: GameState; me: PlayerId; onAct: (a: Action) => void }) {
+function ReactionPrompt({ state, me, onAct, onInspect }: { state: GameState; me: PlayerId; onAct: (a: Action) => void; onInspect: (cardId: string) => void }) {
   const w = state.window!;
   const options = reactionOptions(state, me, w.play);
   const pd = cardOf(w.play.card.cardId);
@@ -906,7 +916,7 @@ function ReactionPrompt({ state, me, onAct }: { state: GameState; me: PlayerId; 
           }
           const c = state.players[me].hand.find((x) => x.uid === a.uid)!;
           const d = cardOf(c.cardId);
-          return <CardView key={c.uid} def={d} cost={cardCost(state, state.players[me], d)} onClick={() => onAct(a)} />;
+          return <CardView key={c.uid} def={d} cost={cardCost(state, state.players[me], d)} onClick={() => onAct(a)} onInspect={() => onInspect(c.cardId)} />;
         })}
       </div>
       <button onClick={() => onAct({ type: 'DECLINE_REACTION', player: me })} className="w-full rounded-lg bg-panel2 px-3 py-2 text-sm font-semibold">
@@ -922,32 +932,39 @@ function DetailSheet({ detail, state, me, myTurn, onClose, onReveal }: { detail:
   const g = detail.slot ? owner.grafts.find((x) => x.slot === detail.slot) : undefined;
   const ambush = ambushText(state.config, owner.faction);
   const canAmbush = !!g && g.faceDown && (g.sleptSince ?? state.round) < state.round;
+  const wake = detail.faceDown && detail.owner === me && detail.slot && (
+    <button disabled={!myTurn} onClick={() => onReveal(detail.slot!)} className="w-full rounded-lg bg-sky-700 px-3 py-2 text-sm font-semibold disabled:opacity-40">
+      Wake{canAmbush ? ` (Ambush: ${ambush})` : ''} (uses your turn)
+    </button>
+  );
+  // A known card opens in the full card view, with what matters about it on the board underneath.
+  if (def) {
+    return (
+      <CardDetail def={def} onClose={onClose}>
+        <div className="space-y-1.5 text-[11px]">
+          <div className="text-mute">
+            {owner.name}'s graft{detail.slot ? ` · ${SLOT_LABEL[detail.slot]}` : ''} · <span className="text-amber-300">Strain on the Specimen: {detail.strain}</span>
+          </div>
+          {detail.faceDown && detail.owner === me && (
+            <div className="text-sky-300">
+              Asleep: no attack, armor or text until it wakes, and your opponent sees only its slot and Strain. Waking adds {g?.dormantStrain ?? 0} Strain.{' '}
+              {canAmbush ? `Wake it now for an Ambush: ${ambush} this round.` : `Wake it after it has slept through a round for an Ambush (${ambush}).`}
+            </div>
+          )}
+          {g && g.poisoned > 0 && <div className="text-fuchsia-300">Poisoned: 0 stats for {g.poisoned} more round(s).</div>}
+          {g && g.disabled > 0 && <div className="text-ink2">Disabled: text off for {g.disabled} more round(s).</div>}
+          {wake}
+        </div>
+      </CardDetail>
+    );
+  }
   return (
     <div className="fixed inset-0 z-40 grid place-items-end bg-black/60 p-2 sm:place-items-center" onClick={onClose}>
       <div className="pop w-full max-w-sm rounded-2xl border border-line bg-panel p-4" onClick={(e) => e.stopPropagation()}>
         <div className="text-[11px] uppercase tracking-wide text-mute">
           {owner.name}'s graft · {detail.slot ? SLOT_LABEL[detail.slot] : ''}
         </div>
-        {def ? (
-          <div className="mt-2 flex gap-3">
-            <CardView def={def} />
-            <div className="text-sm leading-snug">
-              <div className="font-bold">{def.name}</div>
-              <div className="mt-1 text-ink2">{def.text}</div>
-              <div className="mt-2 text-[11px] text-amber-300">Strain on the Specimen: {detail.strain}</div>
-              {detail.faceDown && detail.owner === me && (
-                <div className="mt-1 text-[11px] text-sky-300">
-                  Asleep: no attack, armor or text until it wakes, and your opponent sees only its slot and Strain. Waking adds {g?.dormantStrain ?? 0} Strain.{' '}
-                  {canAmbush ? `Wake it now for an Ambush: ${ambush} this round.` : `Wake it after it has slept through a round for an Ambush (${ambush}).`}
-                </div>
-              )}
-              {g && g.poisoned > 0 && <div className="mt-1 text-[11px] text-fuchsia-300">Poisoned: 0 stats for {g.poisoned} more round(s).</div>}
-              {g && g.disabled > 0 && <div className="mt-1 text-[11px] text-ink2">Disabled: text off for {g.disabled} more round(s).</div>}
-            </div>
-          </div>
-        ) : (
-          <div className="mt-2 text-sm text-ink2">A face-down graft. It is asleep, so it adds no attack, armor or text yet. All you can see is its slot and its Strain ({detail.strain}). A Scanner Probe or a Sabotage forces it awake.</div>
-        )}
+        <div className="mt-2 text-sm text-ink2">A face-down graft. It is asleep, so it adds no attack, armor or text yet. All you can see is its slot and its Strain ({detail.strain}). A Scanner Probe or a Sabotage forces it awake.</div>
         <div className="mt-3 flex gap-2">
           {detail.faceDown && detail.owner === me && detail.slot && (
             <button disabled={!myTurn} onClick={() => onReveal(detail.slot!)} className="flex-1 rounded-lg bg-sky-700 px-3 py-2 text-sm font-semibold disabled:opacity-40">

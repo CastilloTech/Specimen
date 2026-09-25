@@ -1,7 +1,7 @@
 import { CARD_MAP, publicGraft, publicPlay, SLOT_LABEL } from '../../engine';
 import type { CardDef, GameState, PlayerId, PlayRecord } from '../../engine';
 import { PLAYER_COLORS, TYPE_META } from '../meta';
-import { CardView } from './CardView';
+import { CardDetail } from './CardDetail';
 
 // Everything here goes through publicPlay(), so a face-down graft played by the opponent is never named.
 
@@ -141,23 +141,26 @@ export function PlaySheet({ state, viewer, rec, onClose }: { state: GameState; v
   const owner = state.players[rec.player];
   const g = rec.slot ? owner.grafts.find((x) => x.slot === rec.slot) : undefined;
   const pg = g ? publicGraft(g, viewer === rec.player) : undefined;
+  if (v.def) {
+    return (
+      <CardDetail def={v.def} onClose={onClose}>
+        <div className="space-y-0.5 text-[11px]">
+          <div className="text-mute">
+            Round {rec.round} · {v.who} {rec.kind === 'react' ? 'responded with it' : rec.kind === 'cycle' ? 'cycled it' : 'played it'}
+          </div>
+          {v.where && <div className="text-amber-300">{v.where}</div>}
+          {pg && <div className="text-mute">Still on the board: Strain {pg.strain}</div>}
+        </div>
+      </CardDetail>
+    );
+  }
   return (
     <div className="fixed inset-0 z-40 grid place-items-end bg-black/60 p-2 sm:place-items-center" onClick={onClose}>
       <div className="pop w-full max-w-sm rounded-2xl border border-line bg-panel p-4" onClick={(e) => e.stopPropagation()}>
         <div className="text-[11px] uppercase tracking-wide text-mute">
           Round {rec.round} · {v.who} {rec.kind === 'react' ? 'responded with' : rec.kind === 'cycle' ? 'cycled' : 'played'}
         </div>
-        {v.def ? (
-          <div className="mt-2 flex gap-3">
-            <CardView def={v.def} />
-            <div className="text-sm leading-snug">
-              <div className="font-bold">{v.def.name}</div>
-              <div className="mt-1 text-ink2">{v.def.text}</div>
-              {v.where && <div className="mt-2 text-[11px] text-amber-300">{v.where}</div>}
-              {pg && <div className="mt-1 text-[11px] text-mute">Still on the board: Strain {pg.strain}</div>}
-            </div>
-          </div>
-        ) : rec.kind === 'cycle' ? (
+        {rec.kind === 'cycle' ? (
           <div className="mt-2 text-sm text-ink2">A card was cycled. The discarded card stays private.</div>
         ) : rec.kind === 'valve' ? (
           <div className="mt-2 text-sm text-ink2">Pressure Valve: vented Strain as a reaction.</div>

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import specimenArt from '../../assets/specimen.jpg';
 import { CARD_MAP, defaultConfig, STANCES } from '../../engine';
+import { CardDetail } from '../components/CardDetail';
 import { CardView } from '../components/CardView';
 import { Emblem } from '../components/Emblem';
 import { FACTION_META, STANCE_META, WORLD_FACTION_META } from '../meta';
@@ -47,11 +48,13 @@ function StanceTriangle() {
 }
 
 function Cards({ ids }: { ids: string[] }) {
+  const [open, setOpen] = useState<string | null>(null);
   return (
     <div className="flex flex-wrap justify-center gap-3 pt-2">
       {ids.filter((id) => CARD_MAP[id]).map((id) => (
-        <CardView key={id} def={CARD_MAP[id]} size="sm" />
+        <CardView key={id} def={CARD_MAP[id]} size="sm" onClick={() => setOpen(id)} />
       ))}
+      {open && <CardDetail def={CARD_MAP[open]} onClose={() => setOpen(null)} />}
     </div>
   );
 }
