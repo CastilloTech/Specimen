@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { computeStats, condOk, evolutionProgress, evoNum, findNode, stableMax } from '../../engine';
 import type { GameState, PlayerId, Stance } from '../../engine';
 import { FACTION_META, STANCE_META, WORLD_FACTION_META } from '../meta';
-import { EvolvedBadge } from './Evolution';
+import { Emblem } from './Emblem';
+import { EvolutionSheet, EvolvedBadge } from './Evolution';
 import { EnergyPips, EvolutionBars, HpBar, HpFlash, HpGhost, StrainMeter } from './Meters';
 import { STATUS_META, StatusIcon, statusCount } from './StatusFx';
 import { StrainDelta, strainSegFx, useChange } from './StrainFx';
@@ -38,7 +40,7 @@ export function LoadoutChips({ loadout, stances = [], state, player }: { loadout
 }
 
 /** Phone landscape: the same information squeezed into a narrow column beside the tanks. */
-export function PlayerPanelCompact({ state, player, color, active }: { state: GameState; player: PlayerId; color: string; active: boolean }) {
+export function PlayerPanelCompact({ state, player, color, active, onSheet }: { state: GameState; player: PlayerId; color: string; active: boolean; /** Told when the evolution sheet opens/closes (the match pauses its timer). */ onSheet?: (open: boolean) => void }) {
   const p = state.players[player];
   const fm = FACTION_META[p.faction];
   const wfm = WORLD_FACTION_META[p.worldFaction];
@@ -50,6 +52,11 @@ export function PlayerPanelCompact({ state, player, color, active }: { state: Ga
   const hpPct = Math.max(0, Math.min(100, (p.hp / state.config.specimen.hp) * 100));
   const chg = useChange(p.strain);
   const hpChg = useChange(p.hp, 900);
+  const [evoOpen, setEvoOpenRaw] = useState(false);
+  const setEvoOpen = (open: boolean) => {
+    setEvoOpenRaw(open);
+    onSheet?.(open);
+  };
   const enChg = useChange(p.energy);
   return (
     <section className={`lab-panel flex h-full min-h-0 min-w-0 flex-col gap-1 overflow-hidden rounded-lg border p-1.5 ${active ? 'turn-glow border-accent/80' : 'border-line'}`} style={{ borderTop: `2px solid ${color}` }} aria-label={`${p.name} status`}>
@@ -59,14 +66,15 @@ export function PlayerPanelCompact({ state, player, color, active }: { state: Ga
         </span>
         <span className="shrink-0 text-[9px] text-mute">✋{p.hand.length}</span>
       </div>
-      <div className="flex min-w-0 gap-1 text-[8.5px] font-semibold leading-none">
-        <span className="truncate" style={{ color: fm.color }}>
-          {fm.name}
-          {p.evolution ? '★' : ''}
+      {/* Too narrow for the names: the two symbols (names on hover / in the briefing and setup). */}
+      <div className="flex min-w-0 items-center gap-1 text-[8.5px] font-semibold leading-none">
+        <span title={`${fm.name}: ${fm.tagline}`}>
+          <Emblem id={p.faction} size={20} />
         </span>
-        <span className="truncate" style={{ color: wfm.color }}>
-          {wfm.name}
+        <span title={`${wfm.name}: ${wfm.tagline}`}>
+          <Emblem id={p.worldFaction} size={20} />
         </span>
+        {p.evolution && <span className="truncate text-accent">★ evolved</span>}
       </div>
       <div className="relative h-4 overflow-hidden rounded border border-black/60 bg-black/60" role="meter" aria-label="HP" aria-valuenow={p.hp}>
         <HpGhost pct={hpPct} />
@@ -111,7 +119,12 @@ export function PlayerPanelCompact({ state, player, color, active }: { state: Ga
             </span>
           ))}
       </div>
-      <div className="mt-auto space-y-0.5">
+      {/* Tap for each form's condition, progress and boosts (no hover on a phone, and no room for the text). */}
+      <button type="button" onClick={() => setEvoOpen(true)} className="mt-auto -mx-0.5 space-y-0.5 rounded px-0.5 text-left active:bg-white/5" aria-label={`${p.name}'s evolutions: conditions and progress`}>
+        <div className="flex items-center justify-between text-[8px] font-semibold uppercase tracking-wider leading-none text-mute">
+          <span>Evolve</span>
+          <span className="grid h-3 w-3 place-items-center rounded-full border border-mute/70 text-[7px] normal-case">i</span>
+        </div>
         {prog.map((e) => {
           const locked = p.evolution !== null && !e.active;
           if (locked) return null;
@@ -129,7 +142,8 @@ export function PlayerPanelCompact({ state, player, color, active }: { state: Ga
             </div>
           );
         })}
-      </div>
+      </button>
+      {evoOpen && <EvolutionSheet state={state} player={player} onClose={() => setEvoOpen(false)} />}
     </section>
   );
 }
@@ -156,11 +170,13 @@ export function PlayerPanel({ state, player, color, active }: { state: GameState
         </span>
       </div>
       <div className="mt-1.5 flex flex-wrap items-center gap-1">
-        <span className="rounded px-1.5 py-0.5 font-display text-[10px] font-semibold" style={{ background: `${fm.color}2e`, color: fm.color }} title={fm.tagline}>
+        <span className="flex items-center gap-1 rounded py-0.5 pl-1 pr-1.5 font-display text-[10px] font-semibold" style={{ background: `${fm.color}2e`, color: fm.color }} title={fm.tagline}>
+          <Emblem id={p.faction} size={16} />
           {fm.name}
           {p.evolution && ' · evolved'}
         </span>
-        <span className="rounded px-1.5 py-0.5 font-display text-[10px] font-semibold" style={{ background: `${wfm.color}2e`, color: wfm.color }} title={wfm.tagline}>
+        <span className="flex items-center gap-1 rounded py-0.5 pl-1 pr-1.5 font-display text-[10px] font-semibold" style={{ background: `${wfm.color}2e`, color: wfm.color }} title={wfm.tagline}>
+          <Emblem id={p.worldFaction} size={16} />
           {wfm.name}
         </span>
       </div>

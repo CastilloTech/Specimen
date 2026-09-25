@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react';
-import { chipRows, chipsFor, defaultConfig, FACTIONS, makeRng, starterDeck, validateChipChoice, validateDeck, validateLoadout, WORLD_FACTIONS } from '../../engine';
+import { chipRows, chipsFor, findNode, FACTIONS, makeRng, starterDeck, validateChipChoice, validateDeck, validateLoadout, WORLD_FACTIONS } from '../../engine';
 import type { Faction, MatchSetup, WorldFactionId } from '../../engine';
 import { ChipPicker } from '../components/ChipPicker';
+import { ChipArt, Emblem } from '../components/Emblem';
+import { Pills } from '../components/Pills';
 import { LoadoutPicker } from '../components/LoadoutPicker';
 import { FACTION_META, PLAYER_COLORS, WORLD_FACTION_META } from '../meta';
 import { activeSave, loadChipLoadouts, loadDecks, loadLastSetup, saveChipLoadout, saveLastSetup } from '../storage';
@@ -71,83 +73,61 @@ export function quickBotSetup(): MatchSetup {
   };
 }
 
-function PlayerSetup({ idx, cfg, onChange, isBot, nameLocked }: { idx: 0 | 1; cfg: PlayerCfg; onChange: (c: PlayerCfg) => void; isBot?: boolean; nameLocked?: boolean }) {
+const buildOptions = FACTIONS.map((f) => ({ id: f, label: FACTION_META[f].name, color: FACTION_META[f].color, title: FACTION_META[f].tagline, icon: <ChipArt id={f} size={34} /> }));
+const worldOptions = WORLD_FACTIONS.map((wf) => ({ id: wf, label: WORLD_FACTION_META[wf].name, color: WORLD_FACTION_META[wf].color, title: WORLD_FACTION_META[wf].tagline, icon: <ChipArt id={wf} size={30} /> }));
+
+/** Build, World Faction, deck, Chip and (for you) the loadout, as compact pickers. */
+function PlayerPicks({ cfg, onChange, isBot }: { cfg: PlayerCfg; onChange: (c: PlayerCfg) => void; isBot?: boolean }) {
   const decks = loadDecks().filter((d) => d.faction === cfg.faction && d.worldFaction === cfg.worldFaction);
   const set = (patch: Partial<PlayerCfg>) => onChange({ ...cfg, ...patch });
-  const changeFaction = (f: Faction) => set({ faction: f, deckId: 'starter' });
   const changeWorldFaction = (wf: WorldFactionId) => {
     const chip = defaultChip(wf);
     set({ worldFaction: wf, chip, deckId: 'starter', loadout: isBot ? randomLoadout(chip) : defaultLoadout(chip) });
   };
   const changeChip = (chip: string) => set({ chip, loadout: isBot ? randomLoadout(chip) : defaultLoadout(chip) });
   return (
-    <section className="lab-panel rounded-xl border border-line p-3" style={{ borderLeft: `4px solid ${PLAYER_COLORS[idx]}` }}>
-      <div className="flex items-center gap-2">
-        <input value={cfg.name} onChange={(e) => set({ name: e.target.value })} readOnly={nameLocked} title={nameLocked ? 'Your save name (rename it on the Save screen)' : undefined} maxLength={16} aria-label="Player name" className={`w-40 rounded-md border border-line px-2 py-1 text-sm font-bold ${nameLocked ? 'bg-transparent text-accent' : 'bg-black/30'}`} />
-        {isBot && <span className="rounded bg-black/40 px-1.5 py-0.5 text-[10px] text-mute">bot</span>}
-        {isBot && (
-          <button onClick={() => onChange(randomCfg(cfg.name))} className="ml-auto rounded-md bg-panel2 px-3 py-1 text-xs font-semibold hover:bg-accent/20" title="Random Build, World Faction, Chip and loadout">
-            Randomize opponent
+    <div className="space-y-3">
+      <Pills label="Build" cols={3} options={buildOptions} value={cfg.faction} onChange={(f) => set({ faction: f, deckId: 'starter' })} hint={FACTION_META[cfg.faction].tagline} />
+      <Pills label="World Faction" cols={4} options={worldOptions} value={cfg.worldFaction} onChange={changeWorldFaction} hint={WORLD_FACTION_META[cfg.worldFaction].tagline} />
+      {!isBot && (
+        <label className="block">
+          <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-mute">Deck</span>
+          <select value={cfg.deckId} onChange={(e) => set({ deckId: e.target.value })} className="block min-h-9 w-full rounded-lg border border-line bg-black/30 px-2 text-[13px]">
+            <option value="starter">Starter deck</option>
+            {decks.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      <ChipPicker worldFaction={cfg.worldFaction} value={cfg.chip} onChange={changeChip} />
+      {isBot ? (
+        <div className="flex items-center gap-2 text-[11px] text-ink2">
+          <span className="min-w-0 flex-1 truncate">Loadout: {cfg.loadout.map((id) => findNode(id)?.name ?? id).join(' · ')}</span>
+          <button onClick={() => set({ loadout: randomLoadout(cfg.chip) })} className="shrink-0 rounded-md border border-line px-2 py-1 font-semibold hover:border-mute">
+            Re-roll
           </button>
-        )}
-      </div>
-      <div className="mt-2 text-[11px] font-semibold uppercase tracking-wide text-mute">Build (Strain, cards, evolutions)</div>
-      <div className="mt-1 grid grid-cols-3 gap-2">
-        {FACTIONS.map((f) => (
-          <button key={f} onClick={() => changeFaction(f)} aria-pressed={cfg.faction === f} className={`rounded-lg border p-2 text-left ${cfg.faction === f ? 'bg-black/30' : 'border-line hover:border-mute'}`} style={cfg.faction === f ? { borderColor: FACTION_META[f].color } : undefined}>
-            <div className="text-sm font-bold" style={{ color: FACTION_META[f].color }}>
-              {FACTION_META[f].name}
-            </div>
-            <div className="text-[10px] leading-snug text-ink2">{FACTION_META[f].tagline}</div>
-          </button>
-        ))}
-      </div>
-      <div className="mt-2 text-[11px] font-semibold uppercase tracking-wide text-mute">World Faction (a second card pool and Chip tree)</div>
-      <div className="mt-1 grid grid-cols-2 gap-2 sm:grid-cols-4">
-        {WORLD_FACTIONS.map((wf) => (
-          <button
-            key={wf}
-            onClick={() => changeWorldFaction(wf)}
-            aria-pressed={cfg.worldFaction === wf}
-            className={`rounded-lg border p-2 text-left ${cfg.worldFaction === wf ? 'bg-black/30' : 'border-line hover:border-mute'}`}
-            style={cfg.worldFaction === wf ? { borderColor: WORLD_FACTION_META[wf].color } : undefined}
-          >
-            <div className="text-sm font-bold" style={{ color: WORLD_FACTION_META[wf].color }}>
-              {WORLD_FACTION_META[wf].name}
-            </div>
-            <div className="text-[10px] leading-snug text-ink2">{WORLD_FACTION_META[wf].tagline}</div>
-          </button>
-        ))}
-      </div>
-      <label className="mt-2 block text-[11px] font-semibold uppercase tracking-wide text-mute">
-        Deck
-        <select value={cfg.deckId} onChange={(e) => set({ deckId: e.target.value })} disabled={isBot} className="mt-1 block w-full rounded-md border border-line bg-black/30 px-2 py-1.5 text-sm normal-case text-ink">
-          <option value="starter">
-            {FACTION_META[cfg.faction].name} / {WORLD_FACTION_META[cfg.worldFaction].name} starter deck
-          </option>
-          {decks.map((d) => (
-            <option key={d.id} value={d.id}>
-              {d.name}
-            </option>
-          ))}
-        </select>
-      </label>
-      <div className="mt-2 text-[11px] font-semibold uppercase tracking-wide text-mute">Chip {isBot && '(random)'}</div>
-      <div className="mt-1">
-        {isBot ? (
-          <button onClick={() => set({ loadout: randomLoadout(cfg.chip) })} className="mb-1.5 rounded-md bg-panel2 px-3 py-1.5 text-xs font-semibold">
-            Re-roll bot loadout
-          </button>
-        ) : null}
-        <ChipPicker worldFaction={cfg.worldFaction} value={cfg.chip} onChange={changeChip} />
-      </div>
-      <details className="mt-2" open={!isBot}>
-        <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-wide text-mute">Chip loadout {isBot && '(random)'}</summary>
-        <div className="mt-2">
-          <LoadoutPicker rows={chipRows(cfg.chip)} errors={validateLoadout(cfg.chip, cfg.loadout)} value={cfg.loadout} onChange={(l) => set({ loadout: l })} />
         </div>
-      </details>
-    </section>
+      ) : (
+        <LoadoutPicker rows={chipRows(cfg.chip)} errors={validateLoadout(cfg.chip, cfg.loadout)} value={cfg.loadout} onChange={(l) => set({ loadout: l })} />
+      )}
+    </div>
+  );
+}
+
+/** "Predator / Corrosion · Acid Fang" in the identity colors. */
+function Identity({ cfg }: { cfg: PlayerCfg }) {
+  return (
+    <span className="min-w-0 truncate text-[13px] font-semibold">
+      <Emblem id={cfg.faction} size={16} className="mr-0.5 -mt-0.5 align-middle" />
+      <span style={{ color: FACTION_META[cfg.faction].color }}>{FACTION_META[cfg.faction].name}</span>
+      <span className="text-mute"> / </span>
+      <Emblem id={cfg.worldFaction} size={16} className="mr-0.5 -mt-0.5 align-middle" />
+      <span style={{ color: WORLD_FACTION_META[cfg.worldFaction].color }}>{WORLD_FACTION_META[cfg.worldFaction].name}</span>
+      <span className="text-mute"> · {chipsFor(cfg.worldFaction).find((c) => c.id === cfg.chip)?.name}</span>
+    </span>
   );
 }
 
@@ -161,6 +141,7 @@ export function Setup({ onStart, onBack }: { onStart: (s: MatchSetup) => void; o
   const [p1, setP1] = useState<PlayerCfg>(myDefaults);
   const [p2, setP2] = useState<PlayerCfg>(() => fromPick(loadLastSetup()?.[1], true) ?? makeDefaultCfg('Bot', 'bastion', 'aegis', true));
   const [seedText, setSeedText] = useState('');
+  const [editBot, setEditBot] = useState(false);
 
   const errors = useMemo(
     () => [
@@ -189,17 +170,57 @@ export function Setup({ onStart, onBack }: { onStart: (s: MatchSetup) => void; o
   };
 
   return (
-    <div className="mx-auto flex min-h-dvh max-w-3xl flex-col gap-3 p-3 pb-0">
-      <div>
-        <div className="lab-label">{save ? `Save: ${save.meta.name} · your picks become your defaults` : 'No save loaded · picks are remembered on this device only'}</div>
-        <h1 className="font-display text-2xl font-bold">Vs Bot</h1>
-      </div>
-      <PlayerSetup idx={0} cfg={p1} onChange={setP1} nameLocked={!!save} />
-      <PlayerSetup idx={1} cfg={p2} onChange={setP2} isBot />
-      <label className="text-xs text-ink2">
-        Seed (optional, for exact replays)
-        <input value={seedText} onChange={(e) => setSeedText(e.target.value)} inputMode="numeric" placeholder="random" className="ml-2 w-32 rounded-md border border-line bg-black/30 px-2 py-1 text-sm" />
-      </label>
+    <div className="mx-auto flex min-h-dvh max-w-2xl flex-col gap-3 p-3 pb-0">
+      <header className="flex items-center gap-2">
+        <button onClick={onBack} className="rounded-lg border border-line px-2.5 py-1.5 text-sm text-ink2 hover:border-mute" aria-label="Back to menu">
+          ←
+        </button>
+        <h1 className="font-display text-xl font-bold">Vs Bot</h1>
+        <span className="ml-auto truncate text-[11px] text-mute">{save ? `Save: ${save.meta.name}` : 'No save loaded'}</span>
+      </header>
+
+      <section className="lab-panel rounded-xl border border-line p-3" style={{ borderTop: `3px solid ${PLAYER_COLORS[0]}` }} aria-label="Your Specimen">
+        <div className="mb-2 flex items-center gap-2">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-mute">You</span>
+          {save ? (
+            <span className="font-display text-sm font-bold text-accent" title="Your save name (rename it on the Save screen)">
+              {p1.name}
+            </span>
+          ) : (
+            <input value={p1.name} onChange={(e) => setP1({ ...p1, name: e.target.value })} maxLength={16} aria-label="Player name" className="w-36 rounded-md border border-line bg-black/30 px-2 py-0.5 text-sm font-bold" />
+          )}
+        </div>
+        <PlayerPicks cfg={p1} onChange={setP1} />
+      </section>
+
+      <section className="lab-panel rounded-xl border border-line p-3" style={{ borderTop: `3px solid ${PLAYER_COLORS[1]}` }} aria-label="Opponent">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-mute">Opponent</span>
+          <Identity cfg={p2} />
+          <div className="ml-auto flex shrink-0 gap-1.5">
+            <button onClick={() => setP2(randomCfg(p2.name))} className="rounded-lg border border-line px-2.5 py-1 text-xs font-semibold hover:border-mute" title="Random Build, World Faction, Chip and loadout">
+              🎲 Random
+            </button>
+            <button onClick={() => setEditBot((v) => !v)} aria-expanded={editBot} className={`rounded-lg border px-2.5 py-1 text-xs font-semibold ${editBot ? 'border-accent text-accent' : 'border-line hover:border-mute'}`}>
+              {editBot ? 'Done' : 'Edit'}
+            </button>
+          </div>
+        </div>
+        {editBot && (
+          <div className="mt-3">
+            <PlayerPicks cfg={p2} onChange={setP2} isBot />
+          </div>
+        )}
+      </section>
+
+      <details className="text-xs text-ink2">
+        <summary className="cursor-pointer select-none text-mute">Advanced</summary>
+        <label className="mt-2 flex items-center gap-2">
+          Seed (for exact replays)
+          <input value={seedText} onChange={(e) => setSeedText(e.target.value)} inputMode="numeric" placeholder="random" className="w-32 rounded-md border border-line bg-black/30 px-2 py-1 text-sm" />
+        </label>
+      </details>
+
       {errors.length > 0 && (
         <ul className="rounded-lg border border-red-500/40 bg-red-950/30 p-2 text-xs text-red-300" role="alert">
           {errors.map((e) => (
@@ -207,22 +228,15 @@ export function Setup({ onStart, onBack }: { onStart: (s: MatchSetup) => void; o
           ))}
         </ul>
       )}
-      {/* Sticky so Start is always one click away, however far down the loadouts go. */}
-      <div className="sticky bottom-0 z-20 -mx-3 mt-auto flex gap-2 border-t border-line bg-bg/90 px-3 py-3 backdrop-blur">
-        <button onClick={onBack} className="rounded-xl bg-panel2 px-4 py-3 font-semibold">
-          Back
-        </button>
-        <div className="hidden min-w-0 flex-1 items-center gap-2 text-xs text-ink2 sm:flex">
-          <span className="truncate" style={{ color: FACTION_META[p1.faction].color }}>
-            {FACTION_META[p1.faction].name}/{WORLD_FACTION_META[p1.worldFaction].name}
-          </span>
-          <span className="text-mute">vs</span>
-          <span className="truncate" style={{ color: FACTION_META[p2.faction].color }}>
-            {FACTION_META[p2.faction].name}/{WORLD_FACTION_META[p2.worldFaction].name}
-          </span>
+      {/* Sticky so Start is always one tap away. */}
+      <div className="sticky bottom-0 z-20 -mx-3 mt-auto flex items-center gap-2 border-t border-line bg-bg/90 px-3 pt-2.5 backdrop-blur" style={{ paddingBottom: 'max(10px, env(safe-area-inset-bottom))' }}>
+        <div className="hidden min-w-0 flex-1 items-center gap-2 text-xs sm:flex">
+          <Identity cfg={p1} />
+          <span className="shrink-0 text-mute">vs</span>
+          <Identity cfg={p2} />
         </div>
-        <button disabled={errors.length > 0} onClick={start} className="flex-1 rounded-xl bg-accent px-4 py-3 font-display font-bold text-black disabled:opacity-40 sm:flex-none sm:px-8">
-          Start ({defaultConfig.match.maxRounds} rounds max)
+        <button disabled={errors.length > 0} onClick={start} className="flex-1 rounded-xl bg-accent px-4 py-3 font-display font-bold text-black disabled:opacity-40 sm:flex-none sm:px-10">
+          Start match
         </button>
       </div>
     </div>

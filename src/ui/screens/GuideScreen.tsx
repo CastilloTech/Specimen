@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import specimenArt from '../../assets/specimen.jpg';
 import { CARD_MAP, defaultConfig, STANCES } from '../../engine';
 import { CardView } from '../components/CardView';
+import { Emblem } from '../components/Emblem';
 import { FACTION_META, STANCE_META, WORLD_FACTION_META } from '../meta';
 import { keyLabel, loadSettings } from '../storage';
 
@@ -184,6 +185,7 @@ const STEPS: Step[] = [
             {(Object.keys(FACTION_META) as (keyof typeof FACTION_META)[]).map((f, i) => (
               <span key={f}>
                 {i > 0 && ', '}
+                <Emblem id={f} size={16} className="mr-0.5 -mt-0.5 align-middle" />
                 <span style={{ color: FACTION_META[f].color }}>{FACTION_META[f].name}</span>
               </span>
             ))}
@@ -194,6 +196,7 @@ const STEPS: Step[] = [
             {(Object.keys(WORLD_FACTION_META) as (keyof typeof WORLD_FACTION_META)[]).map((f, i) => (
               <span key={f}>
                 {i > 0 && ', '}
+                <Emblem id={f} size={16} className="mr-0.5 -mt-0.5 align-middle" />
                 <span style={{ color: WORLD_FACTION_META[f].color }}>{WORLD_FACTION_META[f].name}</span>
               </span>
             ))}

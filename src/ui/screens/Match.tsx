@@ -4,6 +4,7 @@ import type { Action, CardDef, GameState, MatchSetup, PlayerId, PlayRecord, Slot
 import { CardView } from '../components/CardView';
 import { EvolutionBanners, FormList, useEvolutionEvents } from '../components/Evolution';
 import { MatchEndOverlay, RoundBanner, useArrivals } from '../components/MatchFx';
+import { ChipArt } from '../components/Emblem';
 import { HelpSheet } from '../components/HelpSheet';
 import { LogPanel } from '../components/LogPanel';
 import { PlayHistory, PlaySheet, PlaysStrip, PlayToast } from '../components/Plays';
@@ -51,6 +52,7 @@ export function MatchScreen({ setup, settings, onExit, onFinish }: Props) {
   const [showHelp, setShowHelp] = useState(false);
   const [confirmingPass, setConfirmingPass] = useState(false);
   const [confirmExit, setConfirmExit] = useState(false);
+  const [evoSheet, setEvoSheet] = useState(false);
   const [evoEvents, dismissEvo] = useEvolutionEvents(state);
   const clash = useClashEvent(state);
   const arrivals = useArrivals(state.players[0].hand.map((c) => c.uid), introSeen);
@@ -60,7 +62,7 @@ export function MatchScreen({ setup, settings, onExit, onFinish }: Props) {
   const rotating = portrait && !portraitOk;
 
   const over = state.phase === 'over';
-  pausedRef.current = !introSeen || !!detail || !!playSheet || showHistory || showHelp || confirmExit || rotating;
+  pausedRef.current = !introSeen || !!detail || !!playSheet || showHistory || showHelp || confirmExit || rotating || evoSheet;
 
   // You are always Player 1; the bot is Player 2.
   const me: PlayerId = 0;
@@ -171,7 +173,7 @@ export function MatchScreen({ setup, settings, onExit, onFinish }: Props) {
       else clearSel();
       return;
     }
-    if (!introSeen || over || !myDecision || showHelp || detail || playSheet || showHistory || confirmExit) return;
+    if (!introSeen || over || !myDecision || showHelp || detail || playSheet || showHistory || confirmExit || evoSheet) return;
     // Stance keys (and 1 / 2 / 3, always) pick a stance; the first two also take the 1st / 2nd evolution option.
     const stanceIdx = isKey(k, 'aggress') || k === '1' ? 0 : isKey(k, 'adapt') || k === '2' ? 1 : isKey(k, 'fortify') || k === '3' ? 2 : undefined;
     if (state.phase === 'mulligan') {
@@ -475,7 +477,7 @@ export function MatchScreen({ setup, settings, onExit, onFinish }: Props) {
         {error && <div className="pointer-events-none fixed left-1/2 top-10 z-50 -translate-x-1/2 rounded-lg border border-red-500/50 bg-red-950/90 px-3 py-1 text-xs text-red-200">{error}</div>}
 
         <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] gap-1">
-          <PlayerPanelCompact state={state} player={me} color={PLAYER_COLORS[me]} active={myDecision} />
+          <PlayerPanelCompact state={state} player={me} color={PLAYER_COLORS[me]} active={myDecision} onSheet={setEvoSheet} />
           <section className="relative flex h-full min-h-0 items-center gap-1" aria-label="Arena">
             <PlayToast state={state} viewer={me} recs={toastRecs} onDismiss={() => setSeenPlays(playCount)} onOpen={setPlaySheet} />
             {tank(me, 'left')}
@@ -485,7 +487,7 @@ export function MatchScreen({ setup, settings, onExit, onFinish }: Props) {
             </div>
             {tank(opp, 'right')}
           </section>
-          <PlayerPanelCompact state={state} player={opp} color={PLAYER_COLORS[opp]} active={state.phase === 'actions' && (state.window ? state.window.reactor : state.turn) === opp} />
+          <PlayerPanelCompact state={state} player={opp} color={PLAYER_COLORS[opp]} active={state.phase === 'actions' && (state.window ? state.window.reactor : state.turn) === opp} onSheet={setEvoSheet} />
         </div>
 
         <div className="h-[100px] shrink-0">{strip}</div>
@@ -973,14 +975,19 @@ function Intro({ state, onGo, onExit }: { state: GameState; onGo: () => void; on
         {state.players.map((p) => (
           <section key={p.id} className="lab-panel rounded-xl border border-line p-3 phone:p-2 phone:text-[11px]" style={{ borderTop: `3px solid ${PLAYER_COLORS[p.id]}` }}>
             <div className="flex items-center gap-2">
-              <span className="h-3 w-3 rounded-full" style={{ background: PLAYER_COLORS[p.id] }} />
-              <span className="font-bold">{p.name}</span>
-              <span className="text-xs" style={{ color: FACTION_META[p.faction].color }}>
-                {FACTION_META[p.faction].name}
-              </span>
-              <span className="text-xs" style={{ color: WORLD_FACTION_META[p.worldFaction].color }}>
-                {WORLD_FACTION_META[p.worldFaction].name}
-              </span>
+              <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: PLAYER_COLORS[p.id] }} />
+              <span className="min-w-0 truncate font-bold">{p.name}</span>
+              <div className="ml-auto flex shrink-0 items-center gap-1.5">
+                {[
+                  { id: p.faction, meta: FACTION_META[p.faction] },
+                  { id: p.worldFaction, meta: WORLD_FACTION_META[p.worldFaction] },
+                ].map(({ id, meta }) => (
+                  <span key={id} className="flex flex-col items-center text-[10px] font-semibold leading-none" style={{ color: meta.color }} title={meta.tagline}>
+                    <ChipArt id={id} size={40} className="phone:h-7! phone:w-7!" />
+                    {meta.name}
+                  </span>
+                ))}
+              </div>
             </div>
             <div className="mt-2 text-[10px] font-bold uppercase tracking-wide text-mute">Evolutions (with their boosts)</div>
             <div className="mt-1">

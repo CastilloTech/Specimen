@@ -1,6 +1,7 @@
 import type { CardDef } from '../../engine';
 import { FACTION_META, TYPE_META, WORLD_FACTION_META } from '../meta';
 import { CardArt } from './CardArt';
+import { Emblem } from './Emblem';
 
 export function accentFor(faction: CardDef['faction']): string {
   if (faction === 'tech') return '#8a948f';
@@ -107,11 +108,13 @@ export function CardView({ def, cost, size = 'md', selected, dim, onClick, onDou
           {def.signature && <span className="mr-0.5 text-amber-300" title="Signature (one copy per deck)">★</span>}
           {def.name}
         </div>
-        <div className={`mt-0.5 flex items-center gap-1 font-display font-semibold uppercase tracking-wider ${sm ? 'text-[8px]' : 'text-[9px]'}`}>
+        <div className={`mt-0.5 flex items-center gap-1 whitespace-nowrap font-display font-semibold uppercase tracking-wider ${sm ? 'text-[8px]' : 'text-[9px]'}`}>
           <span style={{ color: t.color }}>{t.label}</span>
           {def.slot && <span className="text-ink2">· {def.slot}</span>}
-          <span className="ml-auto truncate normal-case tracking-normal" style={{ color: accent }}>
-            {factionName(def.faction)}
+          {/* The small card has room for the faction symbol only. */}
+          <span className="ml-auto flex min-w-0 items-center gap-0.5 normal-case tracking-normal" style={{ color: accent }} title={factionName(def.faction)}>
+            <Emblem id={def.faction} size={sm ? 13 : 12} />
+            {!sm && <span className="truncate">{factionName(def.faction)}</span>}
           </span>
         </div>
         {(def.type === 'graft' || def.strain > 0) && (

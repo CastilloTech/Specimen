@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { evolutionBoosts, evolutionDefs, evolutionProgress } from '../../engine';
 import type { GameState, PlayerId } from '../../engine';
 import { FACTION_META, PLAYER_COLORS } from '../meta';
@@ -124,5 +125,62 @@ export function FormList({ state, player, only }: { state: GameState; player: Pl
           );
         })}
     </ul>
+  );
+}
+
+/**
+ * Both forms with their condition, live progress and boosts: opened by tapping the evolution block on the
+ * phone board, where there is no room (and no hover) for the condition text.
+ */
+export function EvolutionSheet({ state, player, onClose }: { state: GameState; player: PlayerId; onClose: () => void }) {
+  const p = state.players[player];
+  const progress = evolutionProgress(state, player);
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 phone:items-center" onClick={onClose}>
+      <div className="pop w-full max-w-md rounded-t-2xl border border-line bg-bg p-3 phone:max-h-[92dvh] phone:overflow-y-auto phone:rounded-2xl" style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }} onClick={(e) => e.stopPropagation()} role="dialog" aria-label={`${p.name}'s evolutions`}>
+        <div className="mb-2 flex items-center gap-2">
+          <span className="h-2.5 w-2.5 rounded-full" style={{ background: PLAYER_COLORS[player] }} />
+          <span className="font-display text-base font-bold">{p.name}'s evolutions</span>
+          <button onClick={onClose} className="ml-auto rounded-md border border-line px-2.5 py-1 text-xs text-ink2">
+            Close
+          </button>
+        </div>
+        <p className="mb-2 text-[11px] text-mute">Meet a form's condition to be offered it at the Strain check. Evolving is permanent and one per match.</p>
+        <ul className="space-y-2">
+          {evolutionDefs(state, p).map((d) => {
+            const pr = progress.find((x) => x.id === d.id)!;
+            const locked = p.evolution !== null && !pr.active;
+            const pct = Math.min(100, (pr.current / pr.target) * 100);
+            return (
+              <li key={d.id} className={`rounded-xl border p-2.5 ${pr.active ? 'border-accent bg-accent/10' : 'border-line'} ${locked ? 'opacity-50' : ''}`}>
+                <div className="flex items-baseline gap-2">
+                  <span className="font-display text-sm font-bold" style={{ color: FACTION_META[p.faction].color }}>
+                    {d.name}
+                  </span>
+                  <span className={`ml-auto text-[11px] font-semibold ${pr.active ? 'text-accent' : pr.met ? 'text-emerald-300' : 'text-mute'}`}>{pr.active ? 'EVOLVED' : locked ? 'locked' : pr.met ? 'condition met' : `${Math.min(pr.current, pr.target)}/${pr.target}`}</span>
+                </div>
+                <div className="mt-1 text-[12px] text-ink">
+                  <span className="text-mute">Condition: </span>
+                  {pr.target} {pr.label}
+                </div>
+                {!pr.active && (
+                  <div className="mt-1 h-1.5 overflow-hidden rounded bg-black/50">
+                    <div className={`h-full ${pr.met ? 'bg-accent evo-ready' : 'bg-violet-400'}`} style={{ width: `${pct}%` }} />
+                  </div>
+                )}
+                <ul className="mt-1.5 space-y-0.5 text-[11px] text-ink2">
+                  {evolutionBoosts(state, p, d.id).map((b) => (
+                    <li key={b}>
+                      <span className="text-accent">▲</span> {b}
+                    </li>
+                  ))}
+                </ul>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    </div>,
+    document.body,
   );
 }

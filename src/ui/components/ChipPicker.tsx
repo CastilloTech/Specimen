@@ -1,33 +1,11 @@
 import { chipsFor } from '../../engine';
 import type { WorldFactionId } from '../../engine';
+import { ChipArt } from './Emblem';
+import { Pills } from './Pills';
 
-/** Pick one of the 3 Chips your World Faction offers. Each Chip carries its own 3-row x 2-node tree. */
-export function ChipPicker({ worldFaction, value, onChange }: { worldFaction: WorldFactionId; value: string; onChange: (chipId: string) => void }) {
+/** Pick one of the 3 Chips your World Faction offers; the chosen Chip's idea is shown underneath. */
+export function ChipPicker({ worldFaction, value, onChange, label = 'Chip' }: { worldFaction: WorldFactionId; value: string; onChange: (chipId: string) => void; label?: string }) {
   const chips = chipsFor(worldFaction);
-  return (
-    <div className="grid gap-2 sm:grid-cols-3">
-      {chips.map((c) => {
-        const on = c.id === value;
-        return (
-          <button
-            key={c.id}
-            type="button"
-            onClick={() => onChange(c.id)}
-            aria-pressed={on}
-            className={`rounded-xl border p-2 text-left ${on ? 'border-accent bg-accent/10' : 'border-line bg-panel hover:border-mute'}`}
-          >
-            <div className="text-sm font-bold">{c.name}</div>
-            <div className="mt-0.5 text-[11px] leading-snug text-ink2">{c.text}</div>
-            <ul className="mt-1.5 space-y-0.5 text-[10px] text-mute">
-              {c.tree.map((row) => (
-                <li key={row.id}>
-                  {row.name}: {row.nodes.map((n) => n.name).join(' / ')}
-                </li>
-              ))}
-            </ul>
-          </button>
-        );
-      })}
-    </div>
-  );
+  const cur = chips.find((c) => c.id === value);
+  return <Pills label={label} labelIcon={<ChipArt id={worldFaction} size={18} />} cols={3} options={chips.map((c) => ({ id: c.id, label: c.name, title: c.text }))} value={value} onChange={onChange} hint={cur?.text} />;
 }

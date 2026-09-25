@@ -1,5 +1,6 @@
 import { findNode } from '../../engine';
 import type { GameState, MatchSetup } from '../../engine';
+import { Emblem } from '../components/Emblem';
 import { LineChart } from '../components/LineChart';
 import { newlyUnlocked } from '../achievements';
 import { FACTION_META, PLAYER_COLORS, WORLD_FACTION_META } from '../meta';
@@ -66,7 +67,7 @@ export function PostMatch({ state, setup, onRematch, onMenu }: Props) {
             <div key={p.id} className="rounded-lg bg-black/30 p-2">
               <div className="flex items-center gap-1.5 font-bold">
                 <span className="h-2.5 w-2.5 rounded-full" style={{ background: PLAYER_COLORS[p.id] }} />
-                {p.name} <span style={{ color: FACTION_META[p.faction].color }}>{FACTION_META[p.faction].name}</span> <span style={{ color: WORLD_FACTION_META[p.worldFaction].color }}>{WORLD_FACTION_META[p.worldFaction].name}</span>
+                {p.name} <Emblem id={p.faction} size={16} /> <span style={{ color: FACTION_META[p.faction].color }}>{FACTION_META[p.faction].name}</span> <Emblem id={p.worldFaction} size={16} /> <span style={{ color: WORLD_FACTION_META[p.worldFaction].color }}>{WORLD_FACTION_META[p.worldFaction].name}</span>
               </div>
               <div className="mt-1 text-ink2">
                 HP {p.hp} · Strain {p.strain}
