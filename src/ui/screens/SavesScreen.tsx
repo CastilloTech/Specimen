@@ -4,6 +4,7 @@ import { ACHIEVEMENTS, achievementStates } from '../achievements';
 import { FACTION_META, STANCE_META, WORLD_FACTION_META } from '../meta';
 import type { Analysis, Split, StanceUse } from '../stats';
 import { analyze, pct } from '../stats';
+import { ComboGuide } from '../components/ComboGuide';
 import type { MatchRecord } from '../storage';
 import { createSave, deleteSave, loadDecks, loadLastSetup, loadMatches, loadSaveIndex, renameSave, SAVE_SLOTS, setActiveSave } from '../storage';
 
@@ -128,6 +129,8 @@ export function SavesScreen({ onBack }: { onBack: () => void }) {
       ) : (
         <div className="lab-panel rounded-xl border border-line p-4 text-sm text-ink2">No matches recorded for this save yet. Finish a match and your stats and tips will show up here.</div>
       )}
+
+      {active !== null && <ComboGuide records={matches} />}
     </div>
   );
 }

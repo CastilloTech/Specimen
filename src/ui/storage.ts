@@ -151,6 +151,14 @@ export interface MatchSide {
   chip: string;
   evolution: string | null;
 }
+/** How one card fared in one match (all counts; absent = 0). */
+export interface CardUse {
+  played: number;
+  rejected?: number;
+  /** Destroyed (Integrity 0), severed or necrosed. */
+  lost?: number;
+  negated?: number;
+}
 export interface MatchRecord {
   at: number;
   result: 'win' | 'loss' | 'draw';
@@ -177,6 +185,9 @@ export interface MatchRecord {
     stanceLost?: number;
     stanceTied?: number;
     evolvedRound?: number | null;
+    /** The 20 card ids you brought, and per card id how it fared (added later; absent in older records). */
+    deck?: string[];
+    cards?: Record<string, CardUse>;
   };
   opp: MatchSide & { hpLeft: number };
   ko?: boolean;

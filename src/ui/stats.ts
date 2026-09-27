@@ -1,7 +1,7 @@
 import { beats, chipOf, defaultConfig, STANCES } from '../engine';
 import type { GameState, PlayerId, Stance } from '../engine';
 import { FACTION_META, STANCE_META, WORLD_FACTION_META } from './meta';
-import type { MatchRecord } from './storage';
+import type { CardUse, MatchRecord } from './storage';
 
 export function matchRecord(s: GameState, me: PlayerId): MatchRecord {
   const p = s.players[me];
@@ -20,6 +20,17 @@ export function matchRecord(s: GameState, me: PlayerId): MatchRecord {
   const depleted = (name: string) => s.log.filter((l) => l.kind === 'wear' && /integrity depleted/.test(l.text) && l.text.includes(`${name}'s`)).length;
   const evolvedAt = s.log.find((l) => l.kind === 'evolve' && l.text.startsWith(`EVOLUTION: ${p.name} evolves`))?.round ?? null;
   const gap = defaultConfig.match.catchUpHpGap;
+  // Card by card: plays (including Protocols) and what happened to it (from the discard pile's reasons).
+  const cards: Record<string, CardUse> = {};
+  const use = (id: string) => (cards[id] ??= { played: 0 });
+  for (const r of s.plays) if (r.player === me && r.cardId && (r.kind === 'play' || r.kind === 'react')) use(r.cardId).played++;
+  for (const d of p.discard) {
+    if (d.why === 'rejected') use(d.cardId).rejected = (use(d.cardId).rejected ?? 0) + 1;
+    else if (d.why === 'destroyed' || d.why === 'severed' || d.why === 'necrosed') use(d.cardId).lost = (use(d.cardId).lost ?? 0) + 1;
+    else if (d.why === 'negated') use(d.cardId).negated = (use(d.cardId).negated ?? 0) + 1;
+  }
+  // Every card is somewhere at the end: together they are the deck you brought.
+  const deck = [...p.deck, ...p.hand, ...p.discard, ...p.grafts].map((c) => c.cardId);
   return {
     at: Date.now(),
     result,
@@ -51,6 +62,8 @@ export function matchRecord(s: GameState, me: PlayerId): MatchRecord {
       stanceLost: lost,
       stanceTied: tied,
       evolvedRound: evolvedAt,
+      deck,
+      cards,
     },
     opp: { faction: o.faction, worldFaction: o.worldFaction, chip: o.chip, evolution: o.evolution, hpLeft: o.hp },
   };
