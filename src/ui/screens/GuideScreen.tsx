@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import specimenArt from '../../assets/specimen.jpg';
 import { CARD_MAP, defaultConfig, STANCES } from '../../engine';
@@ -191,7 +191,7 @@ const STEPS: Step[] = [
     body: (
       <ol className="list-decimal space-y-1 pl-5">
         <li>
-          <b>Draw.</b> You draw a card and get Energy: {c.energy.min} in the first rounds, then one more each round up to {c.energy.cap}. Unspent Energy is lost.
+          <b>Draw.</b> You draw {c.match.drawPerRound === 1 ? 'a card' : `${c.match.drawPerRound} cards`} ({c.match.drawPerRound + c.match.lateDraw} from round {c.match.lateDrawFromRound}) and refill Energy: {c.energy.min} at first, then one more each round up to {c.energy.cap}. Unspent Energy is lost.
         </li>
         <li>
           <b>Pick a stance</b> in secret. Both are revealed together; the winner acts first.
@@ -251,7 +251,32 @@ const STEPS: Step[] = [
       </ul>
     ),
     visual: <Cards ids={['pred_maw_crown', 'pred_overclock_serum', 'pred_bile_spit', 'pred_blood_scent', 'pred_rending_claw']} />,
-    tip: 'Tap a card to pick it up, then tap a glowing slot. Double-tap plays an instant card straight away.',
+    tip: `Tap a card to pick it up, then tap a glowing slot. Hold (or right-click) a card to read it in full. ★ Signature cards are one per deck and become Veteran after ${c.veterancy.signatureThreshold} Strain checks; Mastery Signatures, unlocked by Faction achievements, go on to Elite at ${c.veterancy.eliteThreshold}.`,
+  },
+  {
+    title: 'More moves',
+    body: (
+      <ul className="space-y-1.5">
+        <li>
+          <b>Hold</b>: give up your Clash damage this round for +{c.strain.holdArmor} armor and an instant vent of {c.strain.holdVent} Strain. You can still play cards.
+        </li>
+        <li>
+          <b>Cycle</b> (once a round): discard a card to vent {c.cycle.ventAmount} Strain or draw {c.cycle.drawAmount}.
+        </li>
+        <li>
+          <b>Face-down graft</b>: play a graft asleep. It gives nothing yet, costs {c.dormant.quietStrain} less Strain, and hides from the opponent. Wake it after it has slept a round for an <b>Ambush</b> bonus that round.
+        </li>
+        {c.replace.enabled && (
+          <li>
+            <b>Replace</b>: a graft on an occupied slot swaps out the old one for {c.replace.extraCost} extra Energy; the old one leaves with its Strain.
+          </li>
+        )}
+        <li>
+          <b>Hand limit</b>: {c.match.maxHand} cards. A card drawn into a full hand is burned, so play or Cycle rather than hoard.
+        </li>
+      </ul>
+    ),
+    tip: 'Hold is your best move when you are about to take a big hit anyway, or are close to rejecting.',
   },
   {
     title: 'Integrity: grafts can break',
@@ -301,11 +326,14 @@ const STEPS: Step[] = [
     tip: 'Any Build works with any World Faction. Try a few combinations; your Save shows which ones win for you.',
   },
   {
-    title: 'The three Builds',
+    title: 'Builds and evolution',
     body: (
       <>
         <p>
           Your <b>Build</b> decides how your Specimen treats Strain and which two forms it can evolve into. Predator races, Parasite wears the opponent down, Bastion out-lasts.
+        </p>
+        <p>
+          <b>Evolving</b>: the two bars under your HP track each form's condition. When one is met you choose to evolve now (permanent, one per match) or hold off for the other. Steer toward whichever bar is closer; on a phone, tap the Evolve block to see the conditions.
         </p>
       </>
     ),
@@ -313,7 +341,7 @@ const STEPS: Step[] = [
     tip: "The Save screen's Combo guide has a fuller plan for every Build / World Faction pairing, plus tips from your own matches.",
   },
   {
-    title: 'Status effects',
+    title: 'World Factions and status effects',
     body: (
       <>
         <p>Three World Factions put <b>status effects</b> on the opponent; the fourth, Aegis, is the cure. A status shows as an aura on the afflicted tank and a badge with the rounds left.</p>
@@ -326,17 +354,6 @@ const STEPS: Step[] = [
     tip: "Statuses tick down at the end of each round. Purge clears them all at once, so save it for when you're carrying more than one.",
   },
   {
-    title: 'Evolution',
-    body: (
-      <>
-        <p>
-          Each Build has two forms. The two bars under your HP track their conditions (for example, deal damage, or vent Strain). When one is met you choose: <b>evolve now</b> (permanent, one per match) or hold off for the other form.
-        </p>
-        <p>Evolving is a big boost. Steer your play toward whichever bar is closer.</p>
-      </>
-    ),
-  },
-  {
     title: "You're ready",
     body: (
       <>
@@ -344,49 +361,115 @@ const STEPS: Step[] = [
           Start with <b>Quick match</b> from the menu. Press <HelpKey /> in a match for the full rules and your key bindings (change them in Settings).
         </p>
         <p>
-          Create a <b>Save</b> to keep your decks and default picks, and to see stats and tips from your own matches.
+          Create a <b>Save</b> to keep your decks and default picks, and to see stats and tips from your own matches. A Save also tracks <b>Faction mastery</b>: master a Build or World Faction to unlock its Mastery Signature card.
         </p>
       </>
     ),
   },
 ];
 
+const STEP_KEY = 'specimen.guide.step';
+const readStep = () => {
+  try {
+    const n = Number(localStorage.getItem(STEP_KEY));
+    return Number.isInteger(n) && n > 0 && n < STEPS.length ? n : 0;
+  } catch {
+    return 0;
+  }
+};
+
 export function GuideScreen({ onBack, onPlay }: { onBack: () => void; onPlay: () => void }) {
-  const [i, setI] = useState(0);
+  const [i, setIRaw] = useState(readStep); // reopens where you left off
+  const [toc, setToc] = useState(false);
   const step = STEPS[i];
   const last = i === STEPS.length - 1;
+  const setI = (f: number | ((v: number) => number)) =>
+    setIRaw((v) => {
+      const n = Math.max(0, Math.min(STEPS.length - 1, typeof f === 'function' ? f(v) : f));
+      try {
+        localStorage.setItem(STEP_KEY, String(n));
+      } catch {
+        /* not remembered this time */
+      }
+      return n;
+    });
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowRight') setI((v) => Math.min(STEPS.length - 1, v + 1));
-      if (e.key === 'ArrowLeft') setI((v) => Math.max(0, v - 1));
-      if (e.key === 'Escape') onBack();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onBack]);
+    window.scrollTo(0, 0); // each page starts at its top
+  }, [i]);
+  const keyRef = useRef<(e: KeyboardEvent) => void>(() => {});
+  keyRef.current = (e) => {
+    if (e.key === 'ArrowRight') setI((v) => v + 1);
+    if (e.key === 'ArrowLeft') setI((v) => v - 1);
+    if (e.key === 'Escape') {
+      if (toc) setToc(false);
+      else onBack();
+    }
+  };
+  useEffect(() => {
+    const f = (e: KeyboardEvent) => keyRef.current(e);
+    window.addEventListener('keydown', f);
+    return () => window.removeEventListener('keydown', f);
+  }, []);
+  // Swipe left / right on touch screens (a mostly horizontal swipe of 60px or more).
+  const touch = useRef<[number, number] | null>(null);
+  const onTouchEnd = (e: React.TouchEvent) => {
+    if (!touch.current) return;
+    const dx = e.changedTouches[0].clientX - touch.current[0];
+    const dy = e.changedTouches[0].clientY - touch.current[1];
+    touch.current = null;
+    if (Math.abs(dx) >= 60 && Math.abs(dx) > Math.abs(dy) * 1.5) setI((v) => v + (dx < 0 ? 1 : -1));
+  };
   return (
-    <div className="mx-auto flex min-h-dvh max-w-2xl flex-col gap-4 p-4">
+    <div className="mx-auto flex min-h-dvh max-w-2xl flex-col gap-3 p-4 pb-0" onTouchStart={(e) => (touch.current = [e.touches[0].clientX, e.touches[0].clientY])} onTouchEnd={onTouchEnd}>
       <div className="flex items-center gap-2">
-        <div>
+        <div className="min-w-0">
           <div className="lab-label">Game guide · {i + 1} of {STEPS.length}</div>
-          <h1 className="font-display text-2xl font-bold">{step.title}</h1>
+          <h1 className="font-display text-2xl font-bold phone:text-xl">{step.title}</h1>
         </div>
-        <button onClick={onBack} className="ml-auto rounded-md border border-line px-3 py-1.5 text-sm text-ink2 hover:border-mute">
-          Close
-        </button>
+        <div className="ml-auto flex shrink-0 gap-1.5">
+          <button onClick={() => setToc((v) => !v)} aria-expanded={toc} className={`rounded-md border px-3 py-1.5 text-sm ${toc ? 'border-accent text-accent' : 'border-line text-ink2 hover:border-mute'}`}>
+            Contents
+          </button>
+          <button onClick={onBack} className="rounded-md border border-line px-3 py-1.5 text-sm text-ink2 hover:border-mute">
+            Close
+          </button>
+        </div>
       </div>
-      <div className="flex gap-1" aria-hidden>
-        {STEPS.map((_, k) => (
-          <button key={k} onClick={() => setI(k)} className={`h-1.5 flex-1 rounded-full ${k <= i ? 'bg-accent' : 'bg-line'}`} tabIndex={-1} />
+      <nav className="flex gap-1" aria-label="Guide pages">
+        {STEPS.map((st, k) => (
+          <button key={k} onClick={() => setI(k)} aria-label={`Page ${k + 1}: ${st.title}`} aria-current={k === i ? 'step' : undefined} title={st.title} className="group flex-1 py-1.5">
+            <span className={`block h-1.5 rounded-full transition ${k === i ? 'bg-accent' : k < i ? 'bg-accent/50' : 'bg-line group-hover:bg-mute'}`} />
+          </button>
         ))}
-      </div>
-      <section key={i} className="pop lab-panel flex flex-col gap-4 rounded-2xl border border-line p-5">
-        {step.visual && <div className="flex justify-center">{step.visual}</div>}
-        <div className="space-y-2 text-sm leading-relaxed text-ink">{step.body}</div>
-        {step.tip && <div className="rounded-lg border-l-2 border-accent bg-black/25 px-3 py-2 text-xs text-ink2">Tip: {step.tip}</div>}
-      </section>
-      <div className="mt-auto flex gap-2">
-        <button onClick={() => setI((v) => Math.max(0, v - 1))} disabled={i === 0} className="rounded-xl bg-panel2 px-5 py-3 font-semibold disabled:opacity-40">
+      </nav>
+      {toc ? (
+        <ol className="pop lab-panel divide-y divide-line/60 rounded-2xl border border-line" aria-label="Contents">
+          {STEPS.map((st, k) => (
+            <li key={k}>
+              <button
+                onClick={() => {
+                  setI(k);
+                  setToc(false);
+                }}
+                className={`flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm ${k === i ? 'text-accent' : 'text-ink hover:bg-white/5'}`}
+              >
+                <span className="w-5 shrink-0 text-right font-display text-xs text-mute">{k + 1}</span>
+                <span className="font-semibold">{st.title}</span>
+                {k === i && <span className="ml-auto text-[10px] uppercase tracking-wider">here</span>}
+              </button>
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <section key={i} className="pop lab-panel flex flex-col gap-4 rounded-2xl border border-line p-5 phone:p-3">
+          {step.visual && <div className="flex justify-center">{step.visual}</div>}
+          <div className="space-y-2 text-sm leading-relaxed text-ink">{step.body}</div>
+          {step.tip && <div className="rounded-lg border-l-2 border-accent bg-black/25 px-3 py-2 text-xs text-ink2">Tip: {step.tip}</div>}
+        </section>
+      )}
+      {/* Always reachable, however long the page. */}
+      <div className="sticky bottom-0 z-10 -mx-4 mt-auto flex gap-2 border-t border-line bg-bg/90 px-4 pt-3 backdrop-blur" style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}>
+        <button onClick={() => setI((v) => v - 1)} disabled={i === 0} className="rounded-xl bg-panel2 px-5 py-3 font-semibold disabled:opacity-40">
           Back
         </button>
         {last ? (
@@ -394,8 +477,8 @@ export function GuideScreen({ onBack, onPlay }: { onBack: () => void; onPlay: ()
             Play a Quick match
           </button>
         ) : (
-          <button onClick={() => setI((v) => v + 1)} autoFocus className="flex-1 rounded-xl bg-accent px-4 py-3 font-display font-bold text-black">
-            Next
+          <button onClick={() => setI((v) => v + 1)} autoFocus className="min-w-0 flex-1 truncate rounded-xl bg-accent px-4 py-3 font-display font-bold text-black">
+            Next<span className="hidden sm:inline phone:inline">: {STEPS[i + 1].title}</span>
           </button>
         )}
       </div>
