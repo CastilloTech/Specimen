@@ -4,6 +4,7 @@ import { ALL_COMBOS, BUILD_GUIDE, comboNote, comboReport, formName, WORLD_GUIDE 
 import { FACTION_META, TYPE_META, WORLD_FACTION_META } from '../meta';
 import type { MatchRecord } from '../storage';
 import { CardDetail } from './CardDetail';
+import { Collapsible } from './Collapsible';
 import { ChipArt, Emblem } from './Emblem';
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
@@ -34,9 +35,8 @@ export function ComboGuide({ records }: { records: MatchRecord[] }) {
   const forms = (defaultConfig.evolutions as Record<string, { id: string; name: string; text: string }[]>)[combo.faction];
 
   return (
-    <section className="lab-panel flex flex-col gap-4 rounded-xl border border-line p-4" aria-label="Combo guide">
+    <Collapsible id="combo" title="Combo guide" meta={`${counts.size} of ${ALL_COMBOS.length} combos played`} bodyClass="flex flex-col gap-4">
       <div>
-        <h2 className="font-display text-lg font-bold">Combo guide</h2>
         <p className="text-xs text-mute">Pick a Build / World Faction combo for its game plan and what your matches with it say, card by card.</p>
       </div>
 
@@ -208,6 +208,6 @@ export function ComboGuide({ records }: { records: MatchRecord[] }) {
         )}
       </div>
       {open && CARD_MAP[open] && <CardDetail def={CARD_MAP[open]} onClose={() => setOpen(null)} />}
-    </section>
+    </Collapsible>
   );
 }

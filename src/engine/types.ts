@@ -85,6 +85,8 @@ export interface CardDef {
   integrity?: number;
   text: string;
   signature: boolean;
+  /** A Mastery Signature: locked until every Faction achievement of its Build / World Faction is done (UI-side unlock). */
+  mastery?: boolean;
   effect: CardEffect;
   budgetNote: string;
 }
@@ -179,6 +181,13 @@ export interface PlayerStats {
   graftsPlayed: number;
   cardsPlayed: number;
   hpHealed: number;
+  /** Numb / Fever you put on the opponent (applications, refreshes included). */
+  numbDealt: number;
+  feverDealt: number;
+  /** Enemy slots you necrosed. */
+  necrosisDealt: number;
+  /** Energy the opponent actually lost to your drains (including carried-over drains paid next round). */
+  energyDrained: number;
 }
 
 export interface PlayerState {

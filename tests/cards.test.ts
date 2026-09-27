@@ -40,6 +40,8 @@ describe('Graft cards', () => {
 });
 
 describe('Graft veterancy (Signature grafts only)', () => {
+  // Long enough to reach Elite: keep both Specimens alive (the test Specimens only have 30 HP).
+  const heal = (st: GameState) => setHp(setHp(st, 0, 30), 1, 30);
   // Several rounds of real Clash damage can incidentally satisfy the (deliberately easy) frozen test
   // evolution conditions; strip any evolution before reading stats so only veterancy is under test here.
   const atk = (st: GameState) => {
@@ -66,6 +68,29 @@ describe('Graft veterancy (Signature grafts only)', () => {
     s = endRound(s);
     for (let i = 0; i < 4; i++) s = nextRound(s);
     expect(atk(s)).toBe(before);
+  });
+
+  it('a Mastery Signature keeps going: Elite adds more attack and armor at the elite threshold', () => {
+    const arm = (st: GameState) => computeStats(edit(st, (d) => void (d.players[0].evolution = null)), st.players[0]).armor;
+    let s = attached(hands(arena(), []), 0, 't_pred_mastery_graft', 'organ');
+    const v = s.config.veterancy;
+    const [a0, r0] = [atk(s), arm(s)];
+    s = endRound(s);
+    for (let i = 1; i < v.signatureThreshold; i++) s = nextRound(heal(s));
+    expect([atk(s), arm(s)]).toEqual([a0 + v.signatureAttackBonus, r0]); // Veteran
+    for (let i = v.signatureThreshold; i < v.eliteThreshold; i++) s = nextRound(heal(s));
+    expect([atk(s), arm(s)]).toEqual([a0 + v.signatureAttackBonus + v.eliteAttackBonus, r0 + v.eliteArmorBonus]); // Elite
+    expect(s.log.some((l) => l.text.startsWith('Elite: Test Mastery Graft'))).toBe(true);
+  });
+
+  it('an ordinary Signature stops at Veteran', () => {
+    let s = attached(hands(arena(), []), 0, 't_pred_sig_graft', 'organ');
+    const v = s.config.veterancy;
+    s = endRound(s);
+    for (let i = 1; i < v.signatureThreshold; i++) s = nextRound(heal(s));
+    const veteran = atk(s);
+    for (let i = v.signatureThreshold; i < v.eliteThreshold + 1; i++) s = nextRound(heal(s));
+    expect(atk(s)).toBe(veteran);
   });
 
   it('a fresh graft in a new slot starts at zero, even if another one on the board is a veteran', () => {

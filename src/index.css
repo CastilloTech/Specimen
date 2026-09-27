@@ -1831,8 +1831,47 @@ button:disabled {
   animation: flatline 1.6s 1.1s linear both;
 }
 
+/* Elite (a Mastery Signature past Veteran): a two-tone sweep and a slow pulsing halo. */
+.elite-shine {
+  background: linear-gradient(100deg, transparent, rgba(252, 211, 77, 0.9), rgba(232, 121, 249, 0.9), transparent);
+  animation: veteran-shine 1.1s 0.1s ease-in-out both;
+}
+@keyframes elite-ring {
+  0%,
+  100% {
+    box-shadow: 0 0 6px 1px rgba(232, 121, 249, 0.45);
+  }
+  50% {
+    box-shadow: 0 0 14px 3px rgba(252, 211, 77, 0.6);
+  }
+}
+.elite-ring {
+  animation: elite-ring 2.4s ease-in-out infinite;
+}
+
+/* Veteran: a steady gold glow around the plate. The rank-up flash plays once on the plate itself. */
+.veteran-ring {
+  box-shadow: 0 0 8px 1px rgba(252, 211, 77, 0.55);
+}
+@keyframes rank-flash {
+  0% {
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+.rank-flash {
+  animation: rank-flash 1.2s ease-out both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .evo-banner,
+  .elite-shine,
+  .elite-ring,
   .stance-flip,
   .stance-flip.stance-win,
   .graft-reveal,
@@ -1900,7 +1939,8 @@ button:disabled {
   .reveal-shell-r,
   .heal-glow,
   .heal-cross,
-  .end-rays {
+  .end-rays,
+  .rank-flash {
     display: none;
   }
   /* Callouts and stamps still appear (without motion) so the information is not lost. */

@@ -47,7 +47,7 @@ describe('Card pool', () => {
 
   for (const f of FACTIONS) {
     describe(f, () => {
-      const pool = CARDS.filter((c) => c.faction === f);
+      const pool = CARDS.filter((c) => c.faction === f && !c.mastery);
       it('has 14 standard cards and exactly 1 Signature', () => {
         expect(pool.filter((c) => !c.signature)).toHaveLength(14);
         expect(pool.filter((c) => c.signature)).toHaveLength(1);
@@ -61,6 +61,19 @@ describe('Card pool', () => {
       });
     });
   }
+
+  it('gives every Build and World Faction exactly one Mastery Signature (unlocked by its Faction achievements), and Tech none', () => {
+    for (const f of [...FACTIONS, ...WORLD_FACTIONS]) {
+      const m = CARDS.filter((c) => c.faction === f && c.mastery);
+      expect(m, f).toHaveLength(1);
+      expect(m[0].signature, m[0].id).toBe(true);
+    }
+    expect(CARDS.some((c) => c.faction === 'tech' && c.mastery)).toBe(false);
+  });
+
+  it('keeps Mastery Signatures out of every starter deck', () => {
+    for (const f of FACTIONS) for (const w of WORLD_FACTIONS) for (const id of starterDeck(f, w)) expect(CARDS.find((c) => c.id === id)?.mastery, id).toBeFalsy();
+  });
 
   it('tech covers anti-Toxin, graft removal, vent, card draw and anti-armor', () => {
     const tech = CARDS.filter((c) => c.faction === 'tech');

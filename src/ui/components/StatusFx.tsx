@@ -20,7 +20,7 @@ export const STATUS_META: Record<StatusKind, { name: string; color: string; verb
   fever: { name: 'Fever', color: '#fb923c', verb: 'FEVER', text: (n, s) => `Grafts cost ${s.config.status.feverCostIncrease} more Energy for ${n} more round(s).` },
 };
 
-export function StatusIcon({ kind, className = 'h-3 w-3' }: { kind: StatusKind | 'purge' | 'necrosis'; className?: string }) {
+export function StatusIcon({ kind, className = 'h-3 w-3' }: { kind: StatusKind | 'purge' | 'necrosis' | 'drain'; className?: string }) {
   switch (kind) {
     case 'bleed':
       return (
@@ -38,6 +38,14 @@ export function StatusIcon({ kind, className = 'h-3 w-3' }: { kind: StatusKind |
       return (
         <svg viewBox="0 0 12 12" className={className} aria-hidden>
           <path d="M6 0.8 C6.5 3 9.6 4.2 9.6 7.4 A3.6 3.6 0 0 1 2.4 7.4 C2.4 5.6 3.6 4.9 4 3.6 C4.6 4.8 5.2 5 5.4 5 C5.4 3.6 5.2 2.2 6 0.8 Z" fill="currentColor" />
+        </svg>
+      );
+    case 'drain':
+      // An Energy orb with a bite taken out and an arrow leaving it.
+      return (
+        <svg viewBox="0 0 12 12" className={className} aria-hidden>
+          <path d="M6 1.2 A4.8 4.8 0 1 0 10.8 6 H6 Z" fill="currentColor" />
+          <path d="M7.6 1.6 L10.6 1.6 L10.6 4.6 M10.6 1.6 L7.4 4.8" stroke="currentColor" strokeWidth="1.2" fill="none" strokeLinecap="round" />
         </svg>
       );
     case 'necrosis':

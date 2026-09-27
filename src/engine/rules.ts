@@ -16,6 +16,7 @@ import {
   momentum,
   overclockBonus,
   sumLoadoutParam,
+  veteranRank,
   zoneOf,
 } from './stats';
 import type { Ability, AttachedGraft, CardInstance, DiscardReason, GameState, LogKind, Op, PendingPlay, PlayerId, PlayerState, PlayRecord, SlotId, Trigger } from './types';
@@ -235,6 +236,7 @@ function sabotage(s: GameState, ctx: OpCtx, op: Extract<Op, { op: 'sabotage' }>)
     destroyGraft(s, victim, g, 'necrosed', ctx.source);
     const rounds = (op.rounds ?? cfg.necrosisRounds) + sumLoadoutParam(s, caster, 'necrosisRoundsBonus');
     victim.necrosis[g.slot] = Math.max(victim.necrosis[g.slot] ?? 0, rounds);
+    if (ctx.caster !== ctx.victim) caster.stats.necrosisDealt++;
     logMsg(s, 'play', ctx.caster, `${ctx.source} necroses ${victim.name}'s ${card.name} from ${SLOT_LABEL[g.slot]}: the slot cannot be refilled for ${rounds} round(s).`);
     const v = sumLoadoutParam(s, caster, 'necrosisVent');
     if (v > 0) {
@@ -335,9 +337,11 @@ function applyStatus(s: GameState, ctx: OpCtx, op: Extract<Op, { op: 'status' }>
     const stacks = t.bleedStacks > 1 ? ` x${t.bleedStacks} (${cfg.bleedDamage * t.bleedStacks} damage a round)` : '';
     logMsg(s, 'strain', t.id, `${ctx.source}: ${t.name} is bleeding for ${t.bleed} round(s)${stacks}.`);
   } else if (op.kind === 'numb') {
+    if (t.id !== caster.id) caster.stats.numbDealt++;
     t.numb = Math.max(t.numb, (op.rounds ?? cfg.numbRounds) + sumLoadoutParam(s, caster, 'numbRoundsBonus'));
     logMsg(s, 'info', t.id, `${ctx.source}: ${t.name} is numbed and cannot play Protocols for ${t.numb} round(s).`);
   } else {
+    if (t.id !== caster.id) caster.stats.feverDealt++;
     t.fever = Math.max(t.fever, (op.rounds ?? cfg.feverRounds) + sumLoadoutParam(s, caster, 'feverRoundsBonus'));
     logMsg(s, 'info', t.id, `${ctx.source}: ${t.name}'s grafts cost ${cfg.feverCostIncrease} more Energy for ${t.fever} round(s) (Fever).`);
   }
@@ -436,6 +440,7 @@ export function runOps(s: GameState, ops: Op[], ctx: OpCtx): void {
         } else {
           const lost = Math.min(op.amount, pl.energy);
           pl.energy -= lost;
+          if (ctx.caster !== ctx.victim) s.players[ctx.caster].stats.energyDrained += lost;
           logMsg(s, 'info', ctx.victim, lost > 0 ? `${pl.name} loses ${lost} Energy (${ctx.source}).` : `${pl.name} has no Energy left to lose (${ctx.source}).`);
         }
         break;
@@ -620,6 +625,7 @@ export function beginRound(s: GameState): void {
     if (pl.energyDebt <= 0) continue;
     const lost = Math.min(pl.energyDebt, pl.energy);
     pl.energy -= lost;
+    s.players[other(pl.id)].stats.energyDrained += lost; // a debt only ever comes from the opponent's drains
     logMsg(s, 'info', pl.id, `${pl.name} starts the round ${lost} Energy down (drained last round).`);
     pl.energyDebt = 0;
   }
@@ -889,9 +895,10 @@ export function strainCheck(s: GameState): void {
     for (const g of pl.grafts) {
       g.roundsSurvived++;
       const def = cardOf(g.cardId);
-      if (def.signature && g.roundsSurvived === cfg.veterancy.signatureThreshold) {
-        logMsg(s, 'info', p, `Veterancy: ${def.name} has held on through ${g.roundsSurvived} Strain checks and hardens (+${cfg.veterancy.signatureAttackBonus} attack).`);
-      }
+      const rank = veteranRank(s, pl, g);
+      const was = veteranRank(s, pl, { cardId: g.cardId, roundsSurvived: g.roundsSurvived - 1 });
+      if (rank === 1 && was === 0) logMsg(s, 'info', p, `Veterancy: ${def.name} has held on through ${g.roundsSurvived} Strain checks and hardens (+${cfg.veterancy.signatureAttackBonus} attack).`);
+      if (rank === 2 && was < 2) logMsg(s, 'info', p, `Elite: ${def.name} has held on through ${g.roundsSurvived} Strain checks and becomes Elite (+${cfg.veterancy.eliteAttackBonus} more attack, +${cfg.veterancy.eliteArmorBonus} armor).`);
     }
   }
   if (endIfDead(s)) return;

@@ -207,11 +207,11 @@ describe('Ambush is per faction', () => {
 });
 
 describe('Signature cards', () => {
-  it('each Build has exactly one and it costs at most 4, so it can be cast (and replace a graft) well before the cap', () => {
+  it('each Build has exactly one (plus its unlockable Mastery one) and they cost at most 4, so they can be cast (and replace a graft) well before the cap', () => {
     for (const f of FACTIONS) {
       const sigs = CARDS.filter((c) => c.faction === f && c.signature);
-      expect(sigs, f).toHaveLength(1);
-      expect(sigs[0].cost, sigs[0].id).toBeLessThanOrEqual(4);
+      expect(sigs.filter((c) => !c.mastery), f).toHaveLength(1);
+      for (const c of sigs) expect(c.cost, c.id).toBeLessThanOrEqual(4);
     }
   });
 });

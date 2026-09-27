@@ -4,7 +4,9 @@ import { ACHIEVEMENTS, achievementStates } from '../achievements';
 import { FACTION_META, STANCE_META, WORLD_FACTION_META } from '../meta';
 import type { Analysis, Split, StanceUse } from '../stats';
 import { analyze, pct } from '../stats';
+import { Collapsible } from '../components/Collapsible';
 import { ComboGuide } from '../components/ComboGuide';
+import { FactionMastery } from '../components/FactionMastery';
 import type { MatchRecord } from '../storage';
 import { createSave, deleteSave, loadDecks, loadLastSetup, loadMatches, loadSaveIndex, renameSave, SAVE_SLOTS, setActiveSave } from '../storage';
 
@@ -40,6 +42,7 @@ export function SavesScreen({ onBack }: { onBack: () => void }) {
       </div>
       <p className="text-xs text-ink2">A save keeps your player name, your decks and Chip loadouts, your default Build / World Faction / Chip (your last picks), and the stats of every match you finish while it is loaded.</p>
 
+      <Collapsible id="slots" title="Save slots" meta={active !== null ? `Loaded: ${idx.slots[active]?.name}` : 'none loaded'}>
       <div className="grid gap-3 md:grid-cols-3">
         {Array.from({ length: SAVE_SLOTS }, (_, slot) => {
           const meta = idx.slots[slot];
@@ -119,8 +122,10 @@ export function SavesScreen({ onBack }: { onBack: () => void }) {
           );
         })}
       </div>
+      </Collapsible>
 
       {active !== null && <AchievementGallery records={matches} />}
+      {active !== null && <FactionMastery records={matches} />}
 
       {active === null ? (
         <div className="lab-panel rounded-xl border border-line p-4 text-sm text-ink2">No save is loaded. You can still play, but decks and picks are kept only as unsaved defaults on this device, and match stats and achievements are not recorded. Create or load a save to track your progress.</div>
@@ -141,14 +146,8 @@ function AchievementGallery({ records }: { records: MatchRecord[] }) {
   // Unlocked first (newest first), then locked by how close they are.
   const sorted = [...states].sort((x, y) => (x.unlocked === y.unlocked ? (x.unlocked ? (y.at ?? 0) - (x.at ?? 0) : y.have / y.need - x.have / x.need) : x.unlocked ? -1 : 1));
   return (
-    <section className="lab-panel rounded-xl border border-line p-4">
-      <div className="flex items-baseline gap-3">
-        <h2 className="font-display text-lg font-bold">Achievements</h2>
-        <span className="text-xs text-mute">
-          {got} of {states.length} unlocked
-        </span>
-      </div>
-      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+    <Collapsible id="achievements" title="Achievements" meta={`${got} of ${states.length} unlocked`}>
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {sorted.map(({ a, have, need, unlocked, at }) => (
           <div key={a.id} className={`flex items-center gap-3 rounded-lg border px-3 py-2 ${unlocked ? 'border-amber-400/50 bg-amber-950/25' : 'border-line bg-black/20'}`}>
             <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-full font-display text-lg ${unlocked ? 'bg-amber-400 text-black' : 'bg-panel2 text-mute'}`}>{a.icon}</span>
@@ -171,7 +170,7 @@ function AchievementGallery({ records }: { records: MatchRecord[] }) {
           </div>
         ))}
       </div>
-    </section>
+    </Collapsible>
   );
 }
 
@@ -215,11 +214,7 @@ function StatsPanel({ name, a, recent }: { name: string; a: Analysis; recent: Ma
     ['Cards burned', num(a.avg.burned), `drawn into a full ${defaultConfig.match.maxHand}-card hand`],
   ];
   return (
-    <section className="lab-panel flex flex-col gap-4 rounded-xl border border-line p-4">
-      <div className="flex flex-wrap items-baseline gap-x-3">
-        <h2 className="font-display text-lg font-bold">{name}'s record</h2>
-        <span className="text-xs text-mute">{a.games} matches</span>
-      </div>
+    <Collapsible id="record" title={`${name}'s record`} meta={`${a.games} matches`} bodyClass="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <Stat label="Win rate" value={pct(a.rate)} sub={`${a.wins}W ${a.losses}L ${a.draws}D`} />
         <Stat label="Last 10" value={a.recentRate === null ? '—' : pct(a.recentRate)} sub={a.recentRate === null ? 'after 10 matches' : a.recentRate > a.rate ? 'trending up' : a.recentRate < a.rate ? 'trending down' : 'steady'} />
@@ -279,7 +274,7 @@ function StatsPanel({ name, a, recent }: { name: string; a: Analysis; recent: Ma
           ))}
         </ul>
       </div>
-    </section>
+    </Collapsible>
   );
 }
 

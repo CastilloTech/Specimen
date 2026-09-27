@@ -104,7 +104,12 @@ export function CardDetail({ def, onClose, onPrev, onNext, children }: { def: Ca
             </div>
           )}
           <p className="text-[15px] leading-snug text-ink">{def.text}</p>
-          {def.signature && <p className="text-[11px] text-amber-200">Signature: one copy per deck. Surviving {defaultConfig.veterancy.signatureThreshold} Strain checks makes it a Veteran (+{defaultConfig.veterancy.signatureAttackBonus} attack).</p>}
+          {def.signature && (
+            <p className="text-[11px] text-amber-200">
+              Signature: one copy per deck. Surviving {defaultConfig.veterancy.signatureThreshold} Strain checks makes it a Veteran (+{defaultConfig.veterancy.signatureAttackBonus} attack).
+              {def.mastery && ` Mastery: at ${defaultConfig.veterancy.eliteThreshold} it becomes Elite (+${defaultConfig.veterancy.eliteAttackBonus} more attack, +${defaultConfig.veterancy.eliteArmorBonus} armor).`}
+            </p>
+          )}
           {keywords.length > 0 && (
             <ul className="space-y-1 rounded-lg bg-black/30 p-2 text-[11px] leading-snug text-ink2">
               {keywords.map(([, name, text]) => (

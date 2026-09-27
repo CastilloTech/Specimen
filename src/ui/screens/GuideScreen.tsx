@@ -4,8 +4,10 @@ import specimenArt from '../../assets/specimen.jpg';
 import { CARD_MAP, defaultConfig, STANCES } from '../../engine';
 import { CardDetail } from '../components/CardDetail';
 import { CardView } from '../components/CardView';
-import { Emblem } from '../components/Emblem';
+import { ChipArt, Emblem } from '../components/Emblem';
 import { FACTION_META, STANCE_META, WORLD_FACTION_META } from '../meta';
+import { StatusIcon } from '../components/StatusFx';
+import { BUILD_GUIDE } from '../comboGuide';
 import { keyLabel, loadSettings } from '../storage';
 
 const c = defaultConfig;
@@ -74,6 +76,91 @@ function SpecimenPicture() {
         <span key={i} className="absolute -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-cyan-200/60 bg-black/65 px-1.5 py-0.5 font-display text-[9px] font-semibold uppercase tracking-wider text-cyan-100" style={{ left: x, top: y }}>
           {t}
         </span>
+      ))}
+    </div>
+  );
+}
+
+type Wf = keyof typeof WORLD_FACTION_META;
+const ST = c.status;
+/** Each World Faction's status effects (and Aegis's answer to them), with the icons used on the board. */
+const STATUS_BY_FACTION: { wf: Wf; items: { icon: 'bleed' | 'numb' | 'fever' | 'necrosis' | 'purge' | 'drain'; color: string; name: string; text: string }[] }[] = [
+  {
+    wf: 'corrosion',
+    items: [
+      { icon: 'bleed', color: '#ef4444', name: 'Bleed', text: `${ST.bleedDamage} damage per stack at each Strain check for ${ST.bleedRounds} rounds. Bleeding again adds a stack (up to ${ST.bleedMaxStacks}) and refreshes it.` },
+    ],
+  },
+  {
+    wf: 'miasma',
+    items: [
+      { icon: 'numb', color: '#a78bfa', name: 'Numb', text: `No Protocols for ${ST.numbRounds} rounds: they can't answer your plays.` },
+      { icon: 'fever', color: '#fb923c', name: 'Fever', text: `Their grafts cost ${ST.feverCostIncrease} more Energy for ${ST.feverRounds} rounds.` },
+    ],
+  },
+  {
+    wf: 'hollow',
+    items: [
+      { icon: 'necrosis', color: '#e879f9', name: 'Necrosis', text: `Destroys a graft and locks its slot: nothing can be attached there for ${c.sabotage.necrosisRounds} rounds.` },
+      { icon: 'drain', color: '#38bdf8', name: 'Energy Drain', text: 'The opponent loses Energy: right away on your turn, or off their next refill when it lands during the Clash or Strain check.' },
+    ],
+  },
+  {
+    wf: 'aegis',
+    items: [{ icon: 'purge', color: '#7be0b0', name: 'Purge & repair', text: 'Inflicts no status: Purge clears your own Bleed, Numb, Fever and Necrosis, and Aegis heals graft Integrity.' }],
+  },
+];
+
+function StatusTable() {
+  return (
+    <div className="grid gap-2 sm:grid-cols-2">
+      {STATUS_BY_FACTION.map(({ wf, items }) => (
+        <div key={wf} className="rounded-lg border border-line bg-black/25 p-2.5">
+          <div className="mb-1.5 flex items-center gap-1.5 font-display text-sm font-bold" style={{ color: WORLD_FACTION_META[wf].color }}>
+            <Emblem id={wf} size={20} />
+            {WORLD_FACTION_META[wf].name}
+          </div>
+          <ul className="space-y-1.5">
+            {items.map((it) => (
+              <li key={it.name} className="flex gap-2 text-[12px] leading-snug">
+                <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full" style={{ background: `${it.color}33`, color: it.color }}>
+                  <StatusIcon kind={it.icon} className="h-3 w-3" />
+                </span>
+                <span>
+                  <b style={{ color: it.color }}>{it.name}</b> <span className="text-ink2">{it.text}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** The three Builds: how each plays and its two evolutions (with their conditions). */
+function BuildTable() {
+  const forms = c.evolutions as Record<string, { id: string; name: string; text: string }[]>;
+  return (
+    <div className="grid gap-2 lg:grid-cols-3">
+      {(Object.keys(FACTION_META) as (keyof typeof FACTION_META)[]).map((f) => (
+        <div key={f} className="rounded-lg border border-line bg-black/25 p-2.5">
+          <div className="mb-1 flex items-center gap-2">
+            <ChipArt id={f} size={36} />
+            <span className="font-display text-base font-bold" style={{ color: FACTION_META[f].color }}>
+              {FACTION_META[f].name}
+            </span>
+          </div>
+          <p className="text-[12px] leading-snug text-ink">{BUILD_GUIDE[f].plan}</p>
+          <div className="mt-1.5 text-[10px] font-semibold uppercase tracking-wider text-mute">Evolutions</div>
+          <ul className="mt-0.5 space-y-1">
+            {forms[f].map((d) => (
+              <li key={d.id} className="text-[11.5px] leading-snug">
+                <b style={{ color: FACTION_META[f].color }}>{d.name}</b> <span className="text-ink2">{d.text}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
       ))}
     </div>
   );
@@ -212,6 +299,31 @@ const STEPS: Step[] = [
       </>
     ),
     tip: 'Any Build works with any World Faction. Try a few combinations; your Save shows which ones win for you.',
+  },
+  {
+    title: 'The three Builds',
+    body: (
+      <>
+        <p>
+          Your <b>Build</b> decides how your Specimen treats Strain and which two forms it can evolve into. Predator races, Parasite wears the opponent down, Bastion out-lasts.
+        </p>
+      </>
+    ),
+    visual: <BuildTable />,
+    tip: "The Save screen's Combo guide has a fuller plan for every Build / World Faction pairing, plus tips from your own matches.",
+  },
+  {
+    title: 'Status effects',
+    body: (
+      <>
+        <p>Three World Factions put <b>status effects</b> on the opponent; the fourth, Aegis, is the cure. A status shows as an aura on the afflicted tank and a badge with the rounds left.</p>
+        <p>
+          Parasite's Build trait, <b>Infect</b>, adds {ST.parasiteInfectStrain} Strain whenever it gives a status the opponent didn't already have, so Parasite pairs well with any of them.
+        </p>
+      </>
+    ),
+    visual: <StatusTable />,
+    tip: "Statuses tick down at the end of each round. Purge clears them all at once, so save it for when you're carrying more than one.",
   },
   {
     title: 'Evolution',

@@ -33,7 +33,10 @@
   },
   "veterancy": {
     "signatureThreshold": 2,
-    "signatureAttackBonus": 1
+    "signatureAttackBonus": 1,
+    "eliteThreshold": 3,
+    "eliteAttackBonus": 1,
+    "eliteArmorBonus": 1
   },
   "integrity": {
     "default": 3,

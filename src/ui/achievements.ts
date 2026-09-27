@@ -1,4 +1,5 @@
-import { CHIPS, defaultConfig, FACTIONS, WORLD_FACTIONS } from '../engine';
+import { CARDS, CARD_MAP, CHIPS, chipsFor, defaultConfig, FACTIONS, WORLD_FACTIONS } from '../engine';
+import type { CardDef, Faction, WorldFactionId } from '../engine';
 import type { MatchRecord } from './storage';
 
 // Achievements are derived entirely from a save's match history, so they also count matches played
@@ -6,6 +7,8 @@ import type { MatchRecord } from './storage';
 
 export interface Achievement {
   id: string;
+  /** Set on Faction achievements: the Build / World Faction they belong to. */
+  faction?: Faction | WorldFactionId;
   name: string;
   text: string;
   icon: string;
@@ -53,6 +56,69 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'centurion', name: 'Head Researcher', icon: '⚜', text: 'Finish 100 matches.', progress: (rs) => [Math.min(100, rs.length), 100] },
 ];
 
+// ---------- Faction achievements and Mastery Signatures ----------
+// Five per Build and per World Faction, counting only matches played with it, and meant to take a long
+// commitment: completing all five of one unlocks that faction's Mastery Signature card for the deck builder.
+
+type Id = Faction | WorldFactionId;
+const isBuild = (f: Id): f is Faction => (FACTIONS as readonly string[]).includes(f);
+const playedAs = (f: Id) => (r: MatchRecord) => (isBuild(f) ? r.me.faction === f : r.me.worldFaction === f);
+const NAMES: Record<Id, string> = { predator: 'Predator', parasite: 'Parasite', bastion: 'Bastion', corrosion: 'Corrosion', aegis: 'Aegis', miasma: 'Miasma', hollow: 'Hollow' };
+const FORMS = defaultConfig.evolutions as Record<string, { id: string; name: string }[]>;
+const count = (rs: MatchRecord[], pred: (r: MatchRecord) => boolean, need: number): [number, number] => [Math.min(need, rs.filter(pred).length), need];
+/** `per` wins in each of `keys` (progress capped per key, so every key has to be done). */
+const eachTimes = (rs: MatchRecord[], key: (r: MatchRecord) => string, keys: string[], per: number): [number, number] => [keys.reduce((n, k) => n + Math.min(per, wins(rs).filter((r) => key(r) === k).length), 0), keys.length * per];
+
+// Feat targets are set from bot-vs-bot measurements so each takes roughly 30-40 matches as that faction on
+// average (Parasite heals rarely, so its bar is low; Corrosion kills grafts often, so it needs many).
+const FEATS: Record<Id, { name: string; icon: string; text: string; progress: (mine: MatchRecord[]) => [number, number] }> = {
+  predator: { name: 'Blood Frenzy', icon: '✹', text: 'Deal 45+ damage in a win as Predator, 5 times.', progress: (m) => count(m, (r) => r.result === 'win' && r.me.dealt >= 45, 5) },
+  parasite: { name: 'Gorged Host', icon: '✚', text: 'Heal 6+ HP in one match as Parasite, 5 times.', progress: (m) => count(m, (r) => (r.me.hpHealed ?? 0) >= 6, 5) },
+  bastion: { name: 'Immovable', icon: '⛨', text: 'Block 40+ damage in a win as Bastion, 5 times.', progress: (m) => count(m, (r) => r.result === 'win' && r.me.blocked >= 40, 5) },
+  corrosion: { name: 'Acid Bath', icon: '⬢', text: "Destroy 3+ of the opponent's grafts through Integrity in one match as Corrosion, 10 times.", progress: (m) => count(m, (r) => (r.me.graftsKilled ?? 0) >= 3, 10) },
+  aegis: { name: 'Pristine', icon: '◇', text: 'Win 10 matches as Aegis without losing a graft to Integrity damage.', progress: (m) => count(m, (r) => r.result === 'win' && r.me.graftsLost === 0, 10) },
+  miasma: { name: 'Suffocation', icon: '☁', text: 'Win a match as Miasma in which you numbed the opponent twice and gave them Fever twice, 8 times.', progress: (m) => count(m, (r) => r.result === 'win' && (r.me.numbDealt ?? 0) >= 2 && (r.me.feverDealt ?? 0) >= 2, 8) },
+  hollow: { name: 'Emptied Vessel', icon: '◌', text: 'Win a match as Hollow in which you drained 5+ Energy and necrosed a slot, 5 times.', progress: (m) => count(m, (r) => r.result === 'win' && (r.me.energyDrained ?? 0) >= 5 && (r.me.necrosisDealt ?? 0) >= 1, 5) },
+};
+
+function factionSet(f: Id): Achievement[] {
+  const mine = (rs: MatchRecord[]) => rs.filter(playedAs(f));
+  const name = NAMES[f];
+  const winsAs = (need: number) => (rs: MatchRecord[]): [number, number] => [Math.min(need, wins(mine(rs)).length), need];
+  const mastery: Achievement = isBuild(f)
+    ? { id: `${f}.forms`, faction: f, name: `${name} Metamorphosis`, icon: '⟁', text: `Win 3 matches in each ${name} form (${FORMS[f].map((d) => d.name).join(' and ')}).`, progress: (rs) => eachTimes(mine(rs), (r) => r.me.evolution ?? '', FORMS[f].map((d) => d.id), 3) }
+    : { id: `${f}.chips`, faction: f, name: `${name} Engineer`, icon: '▦', text: `Win 3 matches with each of ${name}'s 3 Chips.`, progress: (rs) => eachTimes(mine(rs), (r) => r.me.chip, chipsFor(f as WorldFactionId).map((c) => c.id), 3) };
+  const spectrum: Achievement = isBuild(f)
+    ? { id: `${f}.spectrum`, faction: f, name: `${name} Everywhere`, icon: '✺', text: `Win as ${name} with every World Faction.`, progress: (rs) => distinct(wins(mine(rs)), (r) => r.me.worldFaction, [...WORLD_FACTIONS]) }
+    : { id: `${f}.spectrum`, faction: f, name: `${name} Everywhere`, icon: '✺', text: `Win as ${name} with every Build.`, progress: (rs) => distinct(wins(mine(rs)), (r) => r.me.faction, [...FACTIONS]) };
+  const feat = FEATS[f];
+  return [
+    { id: `${f}.wins`, faction: f, name: `${name} Adept`, icon: '♞', text: `Win 10 matches as ${name}.`, progress: winsAs(10) },
+    { id: `${f}.champion`, faction: f, name: `${name} Champion`, icon: '♛', text: `Win 30 matches as ${name}.`, progress: winsAs(30) },
+    mastery,
+    spectrum,
+    { id: `${f}.feat`, faction: f, name: feat.name, icon: feat.icon, text: feat.text, progress: (rs) => feat.progress(mine(rs)) },
+  ];
+}
+
+export const FACTION_IDS: Id[] = [...FACTIONS, ...WORLD_FACTIONS];
+export const FACTION_ACHIEVEMENTS: Achievement[] = FACTION_IDS.flatMap(factionSet);
+const ALL_ACHIEVEMENTS = [...ACHIEVEMENTS, ...FACTION_ACHIEVEMENTS];
+
+/** The Mastery Signature a faction's achievements unlock. */
+export const masteryCard = (f: Id): CardDef | undefined => CARDS.find((c) => c.mastery && c.faction === f);
+export const masteryDone = (rs: MatchRecord[], f: Id) => FACTION_ACHIEVEMENTS.filter((a) => a.faction === f).every((a) => done(a, rs));
+/** Mastery card ids this history has unlocked. */
+export function unlockedMastery(rs: MatchRecord[]): Set<string> {
+  return new Set(FACTION_IDS.filter((f) => masteryDone(rs, f)).map((f) => masteryCard(f)?.id).filter((x): x is string => !!x));
+}
+/** Mastery cards the most recent match unlocked. */
+export function newlyUnlockedMastery(rs: MatchRecord[]): CardDef[] {
+  if (!rs.length) return [];
+  const before = unlockedMastery(rs.slice(0, -1));
+  return [...unlockedMastery(rs)].filter((id) => !before.has(id)).map((id) => CARD_MAP[id]);
+}
+
 export interface AchievementState {
   a: Achievement;
   have: number;
@@ -67,8 +133,8 @@ const done = (a: Achievement, rs: MatchRecord[]) => {
   return have >= need;
 };
 
-export function achievementStates(rs: MatchRecord[]): AchievementState[] {
-  return ACHIEVEMENTS.map((a) => {
+export function achievementStates(rs: MatchRecord[], list: Achievement[] = ACHIEVEMENTS): AchievementState[] {
+  return list.map((a) => {
     const [have, need] = a.progress(rs);
     const unlocked = have >= need;
     let at: number | null = null;
@@ -88,5 +154,5 @@ export function achievementStates(rs: MatchRecord[]): AchievementState[] {
 export function newlyUnlocked(rs: MatchRecord[]): Achievement[] {
   if (!rs.length) return [];
   const before = rs.slice(0, -1);
-  return ACHIEVEMENTS.filter((a) => done(a, rs) && !done(a, before));
+  return ALL_ACHIEVEMENTS.filter((a) => done(a, rs) && !done(a, before));
 }

@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react';
-import { chipRows, chipsFor, findNode, FACTIONS, makeRng, starterDeck, validateChipChoice, validateDeck, validateLoadout, WORLD_FACTIONS } from '../../engine';
+import { CARD_MAP, chipRows, chipsFor, findNode, FACTIONS, makeRng, starterDeck, validateChipChoice, validateDeck, validateLoadout, WORLD_FACTIONS } from '../../engine';
 import type { Faction, MatchSetup, WorldFactionId } from '../../engine';
 import { ChipPicker } from '../components/ChipPicker';
 import { ChipArt, Emblem } from '../components/Emblem';
 import { Pills } from '../components/Pills';
 import { LoadoutPicker } from '../components/LoadoutPicker';
 import { FACTION_META, PLAYER_COLORS, WORLD_FACTION_META } from '../meta';
-import { activeSave, loadChipLoadouts, loadDecks, loadLastSetup, saveChipLoadout, saveLastSetup } from '../storage';
+import { activeSave, loadChipLoadouts, loadDecks, loadLastSetup, loadMatches, saveChipLoadout, saveLastSetup } from '../storage';
+import { unlockedMastery } from '../achievements';
 import type { LastPlayerPick } from '../storage';
 
 interface PlayerCfg {
@@ -146,6 +147,7 @@ export function Setup({ onStart, onBack }: { onStart: (s: MatchSetup) => void; o
   const errors = useMemo(
     () => [
       ...validateDeck(p1.faction, p1.worldFaction, deckOf(p1)).map((e) => `${p1.name}: ${e}`),
+      ...[...new Set(deckOf(p1))].filter((id) => CARD_MAP[id]?.mastery && !unlockedMastery(loadMatches()).has(id)).map((id) => `${p1.name}: ${CARD_MAP[id].name} is a locked Mastery Signature.`),
       ...validateChipChoice(p1.worldFaction, p1.chip).map((e) => `${p1.name}: ${e}`),
       ...validateLoadout(p1.chip, p1.loadout).map((e) => `${p1.name}: ${e}`),
       ...validateDeck(p2.faction, p2.worldFaction, deckOf(p2)).map((e) => `${p2.name}: ${e}`),

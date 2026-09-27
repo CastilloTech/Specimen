@@ -185,6 +185,10 @@ export interface MatchRecord {
     stanceLost?: number;
     stanceTied?: number;
     evolvedRound?: number | null;
+    numbDealt?: number;
+    feverDealt?: number;
+    necrosisDealt?: number;
+    energyDrained?: number;
     /** The 20 card ids you brought, and per card id how it fared (added later; absent in older records). */
     deck?: string[];
     cards?: Record<string, CardUse>;

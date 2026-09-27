@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import specimenArt from '../../assets/specimen.jpg';
-import { CARD_MAP, publicGraft, SLOT_LABEL } from '../../engine';
+import { CARD_MAP, publicGraft, SLOT_LABEL, veteranRank } from '../../engine';
 import type { GameState, PlayerId, PlayerState, SlotId } from '../../engine';
 import { CardArt } from './CardArt';
 import { accentFor } from './CardView';
@@ -223,8 +223,12 @@ export function Specimen({ state, player, viewer, flip, highlight, onSlot, color
         const g = p.grafts.find((gr) => gr.slot === slot);
         const pg = g ? publicGraft(g, viewer === player) : null;
         const def = pg?.cardId ? CARD_MAP[pg.cardId] : null;
-        const veteranAt = state.config.veterancy.signatureThreshold;
-        const veteran = !!def?.signature && !!pg && pg.roundsSurvived >= veteranAt;
+        const v = state.config.veterancy;
+        const rank = def && pg ? veteranRank(state, p, { cardId: def.id, roundsSurvived: pg.roundsSurvived }) : 0;
+        const veteran = rank >= 1;
+        const elite = rank >= 2;
+        const bonusAtk = (veteran ? v.signatureAttackBonus : 0) + (elite ? v.eliteAttackBonus : 0);
+        const bonusArm = elite ? v.eliteArmorBonus : 0;
         const lit = highlight?.has(slot);
         const necrotic = p.necrosis[slot] ?? 0;
         const f = fx[slot];
@@ -248,11 +252,11 @@ export function Specimen({ state, player, viewer, flip, highlight, onSlot, color
                   : necrotic > 0
                     ? 'w-[36%] rounded-lg lg:w-[31%] border-fuchsia-700 bg-fuchsia-950/75'
                     : 'rounded-full border-dashed border-cyan-200/35 bg-black/55 px-1.5 hover:border-cyan-200/70'
-            } ${f?.kind === 'reveal' ? 'graft-reveal' : ''} ${veteran ? 'ring-1 ring-amber-300/70' : ''} ${pg?.poisoned ? 'graft-poisoned ring-2 ring-fuchsia-500' : ''} ${pg?.disabled ? 'grayscale' : ''} ${wear ? 'wear-flash' : ''}`}
+            } ${f?.kind === 'reveal' ? 'graft-reveal' : ''} ${elite ? 'elite-ring ring-2 ring-fuchsia-300' : veteran ? 'veteran-ring ring-2 ring-amber-300' : ''} ${pg?.poisoned ? 'graft-poisoned ring-2 ring-fuchsia-500' : ''} ${pg?.disabled ? 'grayscale' : ''} ${wear ? 'wear-flash' : ''}`}
             style={{ left: `${x}%`, top: `${pos.y}%`, borderColor: pg && !lit ? `${accent}aa` : undefined }}
             title={
               def
-                ? `${def.name}${asleep ? ' (asleep)' : ''}: ${def.text}${veteran ? ` (Veteran: +${state.config.veterancy.signatureAttackBonus} attack for surviving ${pg!.roundsSurvived} Strain checks)` : ''}`
+                ? `${def.name}${asleep ? ' (asleep)' : ''}: ${def.text}${elite ? ` (Elite: +${bonusAtk} attack, +${bonusArm} armor for surviving ${pg!.roundsSurvived} Strain checks)` : veteran ? ` (Veteran: +${bonusAtk} attack for surviving ${pg!.roundsSurvived} Strain checks)` : ''}`
                 : pg
                   ? 'Face-down graft (asleep)'
                   : necrotic > 0
@@ -274,12 +278,11 @@ export function Specimen({ state, player, viewer, flip, highlight, onSlot, color
               </span>
             )}
             <Cracks level={crack} />
+            {/* Rank-up moment, on the plate itself (no floating label): a flash and a sweep, replayed when the rank changes. */}
             {veteran && (
-              <span key={`vet-${pg!.uid}`} className="pointer-events-none absolute inset-0 z-10" aria-hidden>
-                <span className="absolute inset-0 overflow-hidden rounded-lg">
-                  <span className="veteran-shine absolute inset-y-0 -left-1/2 w-1/2" />
-                </span>
-                <span className="veteran-stamp absolute -top-4 left-1/2 whitespace-nowrap rounded-md border border-amber-300 bg-amber-500 px-1.5 font-display text-[10px] font-bold tracking-wider text-black shadow-lg">★ VETERAN</span>
+              <span key={`rank-${pg!.uid}-${rank}`} className="pointer-events-none absolute inset-0 z-10 overflow-hidden rounded-lg" aria-hidden>
+                <span className={`rank-flash absolute inset-0 ${elite ? 'bg-fuchsia-300/50' : 'bg-amber-300/50'}`} />
+                <span className={`${elite ? 'elite-shine' : 'veteran-shine'} absolute inset-y-0 -left-1/2 w-1/2`} />
               </span>
             )}
             {pg ? (
@@ -287,18 +290,23 @@ export function Specimen({ state, player, viewer, flip, highlight, onSlot, color
                 <div className={`relative h-[15px] overflow-hidden rounded-t-[7px] ${asleep ? 'opacity-40 grayscale' : ''}`}>
                   {def ? <CardArt def={def} accent={accent} className="h-full w-full" /> : <div className="h-full w-full bg-[repeating-linear-gradient(45deg,#1b2521_0_3px,#111916_3px_6px)]" />}
                   <span className="absolute left-1 top-0 font-display text-[7px] font-semibold uppercase tracking-wider text-white/80 drop-shadow">{SLOT_LABEL[slot]}</span>
+                  {veteran && (
+                    <span className={`absolute inset-y-0 right-0 flex items-center gap-px rounded-bl-md px-1 font-display text-[7.5px] font-bold tracking-wider text-black ${elite ? 'bg-linear-to-r from-amber-300 to-fuchsia-400' : 'bg-amber-400'}`}>
+                      {elite ? '★★ ELITE' : '★ VET'}
+                    </span>
+                  )}
                 </div>
                 <span className="flex min-w-0 items-center justify-center gap-0.5 px-0.5 pt-0.5 font-display text-[9px] font-bold lg:text-[10px]">
-                  {veteran && <span className="text-amber-300">★</span>}
+                  {elite ? <span className="text-fuchsia-300">★★</span> : veteran && <span className="text-amber-300">★</span>}
                   <span className="min-w-0 truncate">{def ? def.name : 'Dormant graft'}</span>
                 </span>
                 {def && !asleep ? (
                   <span className="flex justify-center gap-[2px] px-0.5 pb-0.5 pt-[2px] text-[7.5px] font-bold leading-none lg:text-[8.5px]">
-                    <span className="rounded bg-red-900/70 px-[3px] py-[1px] text-red-100" title="Attack">
-                      ⚔{def.attack + (veteran ? state.config.veterancy.signatureAttackBonus : 0)}
+                    <span className={`rounded px-[3px] py-[1px] ${bonusAtk ? 'bg-amber-400 text-black' : 'bg-red-900/70 text-red-100'}`} title={bonusAtk ? `Attack (+${bonusAtk} from ${elite ? 'Elite' : 'Veteran'})` : 'Attack'}>
+                      ⚔{def.attack + bonusAtk}
                     </span>
-                    <span className="rounded bg-sky-900/70 px-[3px] py-[1px] text-sky-100" title="Armor">
-                      ⛨{def.armor}
+                    <span className={`rounded px-[3px] py-[1px] ${bonusArm ? 'bg-fuchsia-300 text-black' : 'bg-sky-900/70 text-sky-100'}`} title={bonusArm ? `Armor (+${bonusArm} from Elite)` : 'Armor'}>
+                      ⛨{def.armor + bonusArm}
                     </span>
                     <IntegrityPips cur={pg.integrity} max={maxIntegrity} />
                   </span>

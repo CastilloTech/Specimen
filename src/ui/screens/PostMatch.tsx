@@ -1,8 +1,11 @@
-import { findNode } from '../../engine';
+import { useState } from 'react';
+import { CARD_MAP, findNode } from '../../engine';
 import type { GameState, MatchSetup } from '../../engine';
 import { Emblem } from '../components/Emblem';
 import { LineChart } from '../components/LineChart';
-import { newlyUnlocked } from '../achievements';
+import { newlyUnlocked, newlyUnlockedMastery } from '../achievements';
+import { CardDetail } from '../components/CardDetail';
+import { CardView, factionName } from '../components/CardView';
 import { FACTION_META, PLAYER_COLORS, WORLD_FACTION_META } from '../meta';
 import { activeSave, loadMatches } from '../storage';
 
@@ -55,6 +58,8 @@ export function PostMatch({ state, setup, onRematch, onNext, onMenu }: Props) {
   const w = state.result?.winner ?? null;
   // The match was recorded into the loaded save when it ended, so the newest record is this one.
   const unlocked = activeSave() ? newlyUnlocked(loadMatches()) : [];
+  const newCards = activeSave() ? newlyUnlockedMastery(loadMatches()) : [];
+  const [viewCard, setViewCard] = useState<string | null>(null);
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-3xl flex-col gap-3 p-3 pt-0">
@@ -96,6 +101,21 @@ export function PostMatch({ state, setup, onRematch, onNext, onMenu }: Props) {
           ))}
         </div>
       </header>
+
+      {newCards.length > 0 && (
+        <section className="lab-panel rounded-xl border-2 border-amber-400 p-3 text-center" aria-live="polite">
+          <div className="lab-label text-amber-300">Faction mastered · new card unlocked</div>
+          <div className="mt-2 flex flex-wrap justify-center gap-3">
+            {newCards.map((c) => (
+              <div key={c.id} className="achievement-pop flex flex-col items-center gap-1">
+                <CardView def={c} onClick={() => setViewCard(c.id)} />
+                <span className="text-xs text-ink2">Now in the {factionName(c.faction)} pool of the deck builder.</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+      {viewCard && <CardDetail def={CARD_MAP[viewCard]} onClose={() => setViewCard(null)} />}
 
       {unlocked.length > 0 && (
         <section className="lab-panel rounded-xl border border-amber-400/60 p-3" aria-live="polite">

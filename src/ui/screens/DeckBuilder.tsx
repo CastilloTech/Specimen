@@ -9,7 +9,11 @@ import { LoadoutPicker } from '../components/LoadoutPicker';
 import { Pills } from '../components/Pills';
 import { FACTION_META, TYPE_META, WORLD_FACTION_META } from '../meta';
 import type { SavedDeck } from '../storage';
-import { activeSave, loadChipLoadouts, loadDecks, saveChipLoadout, saveDecks } from '../storage';
+import { activeSave, loadChipLoadouts, loadDecks, loadMatches, saveChipLoadout, saveDecks } from '../storage';
+import { FACTION_ACHIEVEMENTS, unlockedMastery } from '../achievements';
+import { factionName } from '../components/CardView';
+
+type FactionId = Faction | WorldFactionId;
 import { useMediaQuery } from '../useMediaQuery';
 
 const D = defaultConfig.deck;
@@ -40,6 +44,9 @@ function DeckTab() {
   const [flash, setFlash] = useState<string | null>(null);
   const [viewing, setViewing] = useState<string | null>(null); // card id open in the full view
   const wide = useMediaQuery('(min-width: 1024px)');
+  // Mastery Signatures stay locked until their faction's achievements are done in the loaded save.
+  const unlocked = useMemo(() => unlockedMastery(loadMatches()), []);
+  const locked = (c: CardDef) => !!c.mastery && !unlocked.has(c.id);
 
   const deck = useMemo(() => Object.entries(counts).flatMap(([id, n]) => Array<string>(n).fill(id)), [counts]);
   const errors = validateDeck(faction, worldFaction, deck);
@@ -130,7 +137,7 @@ function DeckTab() {
                   −
                 </button>
                 <span className="w-5 shrink-0 text-center font-bold">{n}</span>
-                <button onClick={() => change(c.id, 1)} disabled={n >= max || total >= D.size} className="h-7 w-7 shrink-0 rounded-md bg-panel2 font-bold disabled:opacity-30" aria-label={`Add ${c.name}`}>
+                <button onClick={() => change(c.id, 1)} disabled={n >= max || total >= D.size || locked(c)} className="h-7 w-7 shrink-0 rounded-md bg-panel2 font-bold disabled:opacity-30" aria-label={`Add ${c.name}`}>
                   +
                 </button>
               </li>
@@ -212,10 +219,16 @@ function DeckTab() {
           {cards.map((c) => {
             const n = counts[c.id] ?? 0;
             const max = c.signature ? D.signatureCopies : D.maxCopies;
-            const full = n >= max || total >= D.size;
+            const lock = locked(c);
+            const full = n >= max || total >= D.size || lock;
             return (
-              <div key={c.id} className="flex flex-col items-center gap-1">
+              <div key={c.id} className="relative flex flex-col items-center gap-1">
                 <CardView def={c} size={wide ? 'md' : 'sm'} count={n || undefined} dim={n === 0} onClick={() => setViewing(c.id)} />
+                {c.mastery && (
+                  <span className={`pointer-events-none absolute left-1/2 top-[38%] -translate-x-1/2 whitespace-nowrap rounded-md border px-1.5 py-0.5 font-display text-[9px] font-bold tracking-wider shadow-lg ${lock ? 'border-mute bg-black/85 text-ink2' : 'border-amber-300 bg-amber-500 text-black'}`}>
+                    {lock ? '🔒 MASTERY' : '★ MASTERY'}
+                  </span>
+                )}
                 <div className="flex items-center gap-1">
                   <button onClick={() => change(c.id, -1)} disabled={n === 0} className="h-7 w-8 rounded-md bg-panel2 text-sm font-bold disabled:opacity-30" aria-label={`Remove ${c.name}`}>
                     −
@@ -288,8 +301,35 @@ function DeckTab() {
         const c = CARD_MAP[viewing];
         const n = counts[c.id] ?? 0;
         const max = c.signature ? D.signatureCopies : D.maxCopies;
+        const lock = locked(c);
+        const f = c.faction as FactionId;
+        const reqs = FACTION_ACHIEVEMENTS.filter((a) => a.faction === f);
+        const recs = loadMatches();
         return (
           <CardDetail def={c} onClose={() => setViewing(null)} onPrev={i > 0 ? () => setViewing(list[i - 1]) : undefined} onNext={i >= 0 && i < list.length - 1 ? () => setViewing(list[i + 1]) : undefined}>
+            {c.mastery && (
+              <div className={`mb-2 rounded-lg border p-2 text-[11px] ${lock ? 'border-line bg-black/30' : 'border-amber-400/50 bg-amber-950/25 text-amber-100'}`}>
+                <div className="mb-1 font-semibold">{lock ? `🔒 Mastery Signature: complete every ${factionName(c.faction)} achievement to unlock` : `★ Mastery Signature unlocked`}</div>
+                {lock && (
+                  <ul className="space-y-0.5">
+                    {reqs.map((a) => {
+                      const [have, need] = a.progress(recs);
+                      const ok = have >= need;
+                      return (
+                        <li key={a.id} className="flex gap-1.5">
+                          <span className={ok ? 'text-emerald-300' : 'text-mute'}>{ok ? '✓' : '○'}</span>
+                          <span className={ok ? 'text-ink2 line-through' : 'text-ink'}>
+                            {a.text}
+                            {!ok && need > 1 && <span className="text-mute"> ({Math.min(have, need)}/{need})</span>}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+                {lock && !activeSave() && <div className="mt-1 text-mute">Load a save to track achievements.</div>}
+              </div>
+            )}
             <div className="flex items-center gap-2">
               <button onClick={() => change(c.id, -1)} disabled={n === 0} className="h-11 flex-1 rounded-xl bg-panel2 text-lg font-bold disabled:opacity-30" aria-label={`Remove ${c.name}`}>
                 −
@@ -299,7 +339,7 @@ function DeckTab() {
                 <span className="text-mute">/{max}</span>
                 <span className="block text-[10px] text-mute">in deck · {total}/{D.size}</span>
               </span>
-              <button onClick={() => change(c.id, 1)} disabled={n >= max || total >= D.size} className="h-11 flex-1 rounded-xl bg-accent text-lg font-bold text-black disabled:opacity-30" aria-label={`Add ${c.name}`}>
+              <button onClick={() => change(c.id, 1)} disabled={n >= max || total >= D.size || lock} className="h-11 flex-1 rounded-xl bg-accent text-lg font-bold text-black disabled:opacity-30" aria-label={`Add ${c.name}`}>
                 +
               </button>
             </div>

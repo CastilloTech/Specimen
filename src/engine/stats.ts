@@ -177,6 +177,20 @@ export interface DerivedStats {
   armor: number;
 }
 
+/**
+ * Veterancy rank of an attached graft: 0 none, 1 Veteran (a Signature that survived signatureThreshold Strain
+ * checks), 2 Elite (a Mastery Signature that survived eliteThreshold checks: a step above Veteran). Chip nodes
+ * with veteranThresholdReduction shorten both waits, never below 1 check.
+ */
+export function veteranRank(s: GameState, p: PlayerState, g: { cardId: string; roundsSurvived: number }): 0 | 1 | 2 {
+  const card = cardOf(g.cardId);
+  if (!card.signature) return 0;
+  const cut = sumLoadoutParam(s, p, 'veteranThresholdReduction');
+  const v = s.config.veterancy;
+  if (card.mastery && g.roundsSurvived >= Math.max(1, v.eliteThreshold - cut)) return 2;
+  return g.roundsSurvived >= Math.max(1, v.signatureThreshold - cut) ? 1 : 0;
+}
+
 export function computeStats(s: GameState, p: PlayerState): DerivedStats {
   const cfg = s.config;
   let attack = cfg.specimen.attack;
@@ -188,10 +202,14 @@ export function computeStats(s: GameState, p: PlayerState): DerivedStats {
     if (g.poisoned <= 0) {
       attack += card.attack;
       armor += card.armor;
-      // Veterancy: a Signature graft that has survived enough Strain checks unrejected hardens in place.
-      // Some chip nodes shorten that wait (veteranThresholdReduction), never below 1 check.
-      const threshold = Math.max(1, cfg.veterancy.signatureThreshold - sumLoadoutParam(s, p, 'veteranThresholdReduction'));
-      if (card.signature && g.roundsSurvived >= threshold) attack += cfg.veterancy.signatureAttackBonus;
+      // Veterancy: a Signature graft that has survived enough Strain checks unrejected hardens in place;
+      // a Mastery Signature keeps going to Elite.
+      const rank = veteranRank(s, p, g);
+      if (rank >= 1) attack += cfg.veterancy.signatureAttackBonus;
+      if (rank >= 2) {
+        attack += cfg.veterancy.eliteAttackBonus;
+        armor += cfg.veterancy.eliteArmorBonus;
+      }
     }
     if (g.disabled <= 0) {
       for (const ab of card.effect.abilities ?? []) {
