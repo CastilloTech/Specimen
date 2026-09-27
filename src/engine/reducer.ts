@@ -14,6 +14,7 @@ import {
   hurt,
   logMsg,
   recordPlay,
+  toDiscard,
   resolvePlay,
   revealGraft,
   resolveStances,
@@ -319,7 +320,7 @@ function apply(s: GameState, a: Action): void {
         const def = cardOf(card.cardId);
         pl.energy -= cardCost(s, pl, def);
         pl.stats.cardsPlayed++;
-        recordPlay(s, { player: a.player, kind: 'react', uid: card.uid, cardId: card.cardId });
+        recordPlay(s, { player: a.player, kind: 'react', uid: card.uid, cardId: card.cardId, ...(against ? { against: against.card.uid } : {}) });
         logMsg(s, 'play', a.player, `${pl.name} responds with ${def.name}.`);
         const entry: PendingPlay = { player: a.player, card, negated: false, reflected: false, against };
         s.stack.push(entry);
@@ -336,7 +337,7 @@ function apply(s: GameState, a: Action): void {
     case 'CYCLE': {
       const idx = pl.hand.findIndex((c) => c.uid === a.uid);
       const cycled = pl.hand.splice(idx, 1)[0];
-      pl.discard.push(cycled);
+      toDiscard(s, pl, cycled, 'cycled');
       recordPlay(s, { player: a.player, kind: 'cycle', uid: cycled.uid }); // the card itself stays private
       pl.cycledThisRound++;
       s.passStreak = 0;

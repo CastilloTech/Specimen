@@ -10,6 +10,8 @@ interface Props {
   state: GameState;
   setup: MatchSetup;
   onRematch: () => void;
+  /** Straight into a quick match: your defaults against a new random bot. */
+  onNext: () => void;
   onMenu: () => void;
 }
 
@@ -41,7 +43,7 @@ function download(name: string, text: string) {
   URL.revokeObjectURL(url);
 }
 
-export function PostMatch({ state, setup, onRematch, onMenu }: Props) {
+export function PostMatch({ state, setup, onRematch, onNext, onMenu }: Props) {
   const [a, b] = state.players;
   const names: [string, string] = [a.name, b.name];
   const rounds = state.snapshots.map((s) => s.round);
@@ -55,7 +57,19 @@ export function PostMatch({ state, setup, onRematch, onMenu }: Props) {
   const unlocked = activeSave() ? newlyUnlocked(loadMatches()) : [];
 
   return (
-    <div className="mx-auto flex min-h-dvh max-w-3xl flex-col gap-3 p-3">
+    <div className="mx-auto flex min-h-dvh max-w-3xl flex-col gap-3 p-3 pt-0">
+      {/* Always on top: straight into the next match without scrolling past the report. */}
+      <nav className="sticky top-0 z-20 -mx-3 flex gap-2 border-b border-line bg-bg/90 px-3 pb-2 backdrop-blur" style={{ paddingTop: 'max(8px, env(safe-area-inset-top))' }} aria-label="After the match">
+        <button onClick={onMenu} className="rounded-xl bg-panel2 px-4 py-2.5 text-sm font-semibold">
+          Menu
+        </button>
+        <button onClick={onRematch} className="flex-1 rounded-xl border border-accent/60 px-3 py-2.5 text-sm font-semibold text-accent" title="Same Builds, World Factions, Chips and decks">
+          Rematch
+        </button>
+        <button onClick={onNext} autoFocus className="flex-1 rounded-xl bg-accent px-3 py-2.5 font-display text-sm font-bold text-black" title="Your defaults against a new random opponent">
+          Next match ▸
+        </button>
+      </nav>
       <header className="lab-panel rounded-xl border border-accent/60 p-4 text-center">
         <div className="lab-label">Specimen report · {state.round} rounds</div>
         <div className="mt-1 font-display text-3xl font-bold" style={{ color: w === null ? 'var(--color-accent)' : PLAYER_COLORS[w] }}>
@@ -116,15 +130,9 @@ export function PostMatch({ state, setup, onRematch, onMenu }: Props) {
         </ul>
       </section>
 
-      <div className="mt-auto flex flex-wrap gap-2">
-        <button onClick={() => download(`specimen-match-seed${state.seed}.json`, exportMatchJson(state, setup))} className="flex-1 rounded-lg bg-panel2 px-4 py-3 text-sm font-semibold">
+      <div className="mt-auto pb-3">
+        <button onClick={() => download(`specimen-match-seed${state.seed}.json`, exportMatchJson(state, setup))} className="w-full rounded-lg bg-panel2 px-4 py-3 text-sm font-semibold">
           Export match log (JSON)
-        </button>
-        <button onClick={onMenu} className="flex-1 rounded-lg bg-panel2 px-4 py-3 text-sm font-semibold">
-          Menu
-        </button>
-        <button onClick={onRematch} autoFocus className="flex-1 rounded-lg bg-accent px-4 py-3 font-display text-sm font-bold text-black">
-          Rematch (same builds)
         </button>
       </div>
     </div>

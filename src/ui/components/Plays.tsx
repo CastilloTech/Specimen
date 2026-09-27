@@ -25,10 +25,27 @@ export function viewPlay(state: GameState, raw: PlayRecord, viewer: PlayerId): P
   else if (hiddenGraft) title = 'Face-down graft';
   else title = def?.name ?? 'A card';
   let where = '';
+  const nameOf = (r: PlayRecord) => {
+    const pr = publicPlay(r, viewer);
+    return pr.cardId ? (CARD_MAP[pr.cardId]?.name ?? 'a card') : pr.faceDown ? 'face-down graft' : 'a play';
+  };
   if (rec.slot) where = `→ ${SLOT_LABEL[rec.slot]}${rec.faceDown && rec.cardId ? ' (face-down)' : ''}`;
   else if (rec.target) where = `→ ${mine ? 'their' : 'your'} ${SLOT_LABEL[rec.target]}`;
-  else if (rec.kind === 'react') where = 'response';
-  if (rec.negated) where = where ? `${where} · negated` : 'negated';
+  else if (rec.kind === 'react') {
+    // A Protocol: say what it answered and what came of it.
+    const ans = rec.against ? state.plays.find((r) => r.uid === rec.against) : undefined;
+    if (ans) {
+      const whose = ans.player === viewer ? 'your' : 'their';
+      const outcome = ans.negated ? ' · stopped it' : ans.reflected ? ' · sent it back' : '';
+      where = `↩ vs ${whose} ${nameOf(ans)}${outcome}`;
+    } else where = 'response';
+  }
+  // A play that a Protocol answered: say which one.
+  const answeredBy = state.plays.find((r) => r.kind === 'react' && r.against === rec.uid);
+  const byName = answeredBy ? ` by ${nameOf(answeredBy)}` : '';
+  if (rec.negated) where = where ? `${where} · negated${byName}` : `negated${byName}`;
+  else if (rec.reflected) where = where ? `${where} · reflected${byName}` : `reflected${byName}`;
+  else if (answeredBy && rec.kind !== 'react') where = where ? `${where} · answered${byName}` : `answered${byName}`;
   return { rec, def, hiddenGraft, title, where, who: mine ? 'You' : state.players[rec.player].name };
 }
 
@@ -96,7 +113,7 @@ export function PlayToast({ state, viewer, recs, onDismiss, onOpen }: { state: G
         title="Dismiss"
       >
         <span className="truncate" style={{ color }}>
-          {who.name} played
+          {who.name} {recs.every((r) => r.kind === 'react') ? 'responded' : 'played'}
         </span>
         <span className="shrink-0 text-mute" aria-hidden>
           ✕
@@ -125,7 +142,7 @@ export function PlayToast({ state, viewer, recs, onDismiss, onOpen }: { state: G
                   {v.title}
                 </span>
               </div>
-              {v.where && <div className={`text-[9px] ${r.negated ? 'text-amber-300 line-through' : 'text-amber-300'}`}>{v.where}</div>}
+              {v.where && <div className="text-[9px] text-amber-300">{v.where}</div>}
               {effect && <div className="mt-0.5 line-clamp-2 text-[10px] leading-snug text-ink2">{effect}</div>}
             </button>
           );

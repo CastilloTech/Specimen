@@ -12,6 +12,7 @@ import { PlayHistory, PlaySheet, PlaysStrip, PlayToast } from '../components/Pla
 import { ClashBurst, ClashDamage, clashClasses, useClashEvent } from '../components/ClashFx';
 import { PhoneEvolve, PhoneFeint, PhoneMulligan, PhoneReaction, PhoneStance } from '../components/PhonePrompts';
 import { PlayerPanel, PlayerPanelCompact } from '../components/PlayerPanel';
+import { incomingInfo, protocolVerdict, VERDICT_CLASS } from '../components/Reaction';
 import { Specimen } from '../components/Specimen';
 import { PHONE_LANDSCAPE, PHONE_PORTRAIT, tryLandscapeFullscreen, useMediaQuery } from '../useMediaQuery';
 import { FACTION_META, PLAYER_COLORS, STANCE_META, WORLD_FACTION_META } from '../meta';
@@ -482,7 +483,7 @@ export function MatchScreen({ setup, settings, onExit, onFinish }: Props) {
         {error && <div className="pointer-events-none fixed left-1/2 top-10 z-50 -translate-x-1/2 rounded-lg border border-red-500/50 bg-red-950/90 px-3 py-1 text-xs text-red-200">{error}</div>}
 
         <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] gap-1">
-          <PlayerPanelCompact state={state} player={me} color={PLAYER_COLORS[me]} active={myDecision} onSheet={setEvoSheet} />
+          <PlayerPanelCompact state={state} player={me} viewer={me} color={PLAYER_COLORS[me]} active={myDecision} onSheet={setEvoSheet} />
           <section className="relative flex h-full min-h-0 items-center gap-1" aria-label="Arena">
             <PlayToast state={state} viewer={me} recs={toastRecs} onDismiss={() => setSeenPlays(playCount)} onOpen={setPlaySheet} />
             {tank(me, 'left')}
@@ -492,7 +493,7 @@ export function MatchScreen({ setup, settings, onExit, onFinish }: Props) {
             </div>
             {tank(opp, 'right')}
           </section>
-          <PlayerPanelCompact state={state} player={opp} color={PLAYER_COLORS[opp]} active={state.phase === 'actions' && (state.window ? state.window.reactor : state.turn) === opp} onSheet={setEvoSheet} />
+          <PlayerPanelCompact state={state} player={opp} color={PLAYER_COLORS[opp]} active={state.phase === 'actions' && (state.window ? state.window.reactor : state.turn) === opp} onSheet={setEvoSheet} viewer={me} />
         </div>
 
         <div className="h-[100px] shrink-0">{strip}</div>
@@ -596,7 +597,7 @@ export function MatchScreen({ setup, settings, onExit, onFinish }: Props) {
         {/* Mobile: opponent, arena, me stacked. Desktop: me | arena | opponent on one row. */}
         <div className="flex flex-col gap-2 lg:grid lg:min-h-0 lg:flex-1 lg:grid-cols-[250px_minmax(0,1fr)_250px] lg:items-start lg:overflow-y-auto">
           <div className="lg:order-3">
-            <PlayerPanel state={state} player={opp} color={PLAYER_COLORS[opp]} active={state.phase === 'actions' && (state.window ? state.window.reactor : state.turn) === opp} />
+            <PlayerPanel state={state} player={opp} viewer={me} onSheet={setEvoSheet} color={PLAYER_COLORS[opp]} active={state.phase === 'actions' && (state.window ? state.window.reactor : state.turn) === opp} />
           </div>
 
           {/* Arena: the two Specimens face each other */}
@@ -640,7 +641,7 @@ export function MatchScreen({ setup, settings, onExit, onFinish }: Props) {
           </section>
 
           <div className="lg:order-1">
-            <PlayerPanel state={state} player={me} color={PLAYER_COLORS[me]} active={myDecision} />
+            <PlayerPanel state={state} player={me} viewer={me} onSheet={setEvoSheet} color={PLAYER_COLORS[me]} active={myDecision} />
           </div>
         </div>
 
@@ -897,12 +898,22 @@ function EvolvePrompt({ state, me, onPick, onDecline }: { state: GameState; me: 
 function ReactionPrompt({ state, me, onAct, onInspect }: { state: GameState; me: PlayerId; onAct: (a: Action) => void; onInspect: (cardId: string) => void }) {
   const w = state.window!;
   const options = reactionOptions(state, me, w.play);
-  const pd = cardOf(w.play.card.cardId);
-  const what = pd.type === 'graft' && w.play.faceDown ? 'a face-down graft' : pd.name;
+  const inc = incomingInfo(state, me, w.play);
   const opp = state.players[w.play.player];
   return (
-    <PromptBox title={`${opp.name} played ${what}. Respond with a Protocol?`}>
-      <div className="scroll-thin flex gap-2 overflow-x-auto px-1 pb-2 pt-3">
+    <PromptBox title={`${opp.name} is playing ${inc.name} ${inc.aim}. Respond with a Protocol?`}>
+      <div className="scroll-thin flex items-start gap-3 overflow-x-auto px-1 pb-2 pt-3">
+        {/* The play you would be answering, clearly separated from your options. */}
+        <div className="flex shrink-0 flex-col items-center gap-1 rounded-xl border border-red-500/50 bg-red-950/20 p-1.5">
+          <span className="rounded bg-red-700 px-1.5 font-display text-[10px] font-bold tracking-widest text-white">INCOMING</span>
+          {inc.def ? (
+            <CardView def={inc.def} onClick={() => onInspect(inc.def!.id)} onInspect={() => onInspect(inc.def!.id)} />
+          ) : (
+            <div className="grid h-[198px] w-[132px] place-items-center rounded-xl border border-line bg-[repeating-linear-gradient(45deg,#1b2521_0_6px,#111916_6px_12px)] p-2 text-center text-xs text-mute">Face-down graft (hidden)</div>
+          )}
+          <span className="max-w-[132px] text-center text-[11px] font-semibold leading-tight text-amber-200">{inc.aim}</span>
+        </div>
+        <div className="self-center font-display text-sm font-bold text-mute">VS</div>
         {options.map((a) => {
           if (a.type !== 'REACT') return null;
           if (a.ability === 'pressureValve') {
@@ -911,12 +922,20 @@ function ReactionPrompt({ state, me, onAct, onInspect }: { state: GameState; me:
                 <div className="text-[10px] font-bold uppercase text-accent">Skill</div>
                 <div className="text-sm font-bold">Pressure Valve</div>
                 <div className="mt-1 text-[10px] text-ink2">{findNode('pressureValve')?.text}</div>
+                <div className="mt-1 text-[10px] text-mute">Doesn't stop the play.</div>
               </button>
             );
           }
           const c = state.players[me].hand.find((x) => x.uid === a.uid)!;
           const d = cardOf(c.cardId);
-          return <CardView key={c.uid} def={d} cost={cardCost(state, state.players[me], d)} onClick={() => onAct(a)} onInspect={() => onInspect(c.cardId)} />;
+          const v = protocolVerdict(d, inc.def ? inc.name : 'it');
+          return (
+            <div key={c.uid} className="flex w-[132px] shrink-0 flex-col items-center gap-1">
+              <span className={`rounded px-1.5 font-display text-[10px] font-bold tracking-wider ${VERDICT_CLASS[v.kind]}`}>{v.short}</span>
+              <CardView def={d} cost={cardCost(state, state.players[me], d)} onClick={() => onAct(a)} onInspect={() => onInspect(c.cardId)} />
+              <span className="text-center text-[10px] leading-tight text-ink2">{v.long}</span>
+            </div>
+          );
         })}
       </div>
       <button onClick={() => onAct({ type: 'DECLINE_REACTION', player: me })} className="w-full rounded-lg bg-panel2 px-3 py-2 text-sm font-semibold">

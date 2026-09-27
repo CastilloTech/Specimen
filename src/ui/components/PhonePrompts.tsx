@@ -3,6 +3,7 @@ import { cardCost, cardOf, evolutionBoosts, findNode, other, reactionOptions, ST
 import type { Action, GameState, PlayerId, Stance } from '../../engine';
 import { STANCE_META } from '../meta';
 import { CardView } from './CardView';
+import { incomingInfo, protocolVerdict, VERDICT_CLASS } from './Reaction';
 
 // Phone landscape prompts: each is one row that fits the fixed-height strip under the board,
 // with the explanation and primary buttons on the left and the choices on the right.
@@ -136,15 +137,14 @@ export function PhoneEvolve({ state, me, onPick, onDecline }: { state: GameState
 export function PhoneReaction({ state, me, onAct, onInspect }: { state: GameState; me: PlayerId; onAct: (a: Action) => void; onInspect: (cardId: string) => void }) {
   const w = state.window!;
   const options = reactionOptions(state, me, w.play);
-  const pd = cardOf(w.play.card.cardId);
-  const what = pd.type === 'graft' && w.play.faceDown ? 'a face-down graft' : pd.name;
+  const inc = incomingInfo(state, me, w.play);
   return (
     <Strip
       info={
         <>
           <span className="font-display text-[12px] font-bold text-amber-300">Respond?</span>
-          <span className="line-clamp-2">
-            {state.players[w.play.player].name} played {what}.
+          <span className="line-clamp-3">
+            <b className="text-ink">{state.players[w.play.player].name}</b> → <b className="text-ink">{inc.name}</b> <span className="text-amber-200">{inc.aim}</span>
           </span>
           <button onClick={() => onAct({ type: 'DECLINE_REACTION', player: me })} className={`${btn} bg-panel2`}>
             No response
@@ -153,6 +153,16 @@ export function PhoneReaction({ state, me, onAct, onInspect }: { state: GameStat
       }
     >
       <div className="flex min-w-0 flex-1 items-center gap-1.5 pt-1.5">
+        {/* What you would be answering. */}
+        <div className="flex shrink-0 flex-col items-center gap-0.5">
+          {inc.def ? (
+            <CardView def={inc.def} size="xs" onClick={() => onInspect(inc.def!.id)} />
+          ) : (
+            <div className="grid h-[84px] w-[58px] place-items-center rounded-lg border border-line bg-[repeating-linear-gradient(45deg,#1b2521_0_4px,#111916_4px_8px)] text-center text-[8px] text-mute">face-down</div>
+          )}
+          <span className="rounded bg-red-700 px-1 font-display text-[8px] font-bold tracking-wider text-white">INCOMING</span>
+        </div>
+        <span className="shrink-0 font-display text-[10px] font-bold text-mute">VS</span>
         {options.map((a) => {
           if (a.type !== 'REACT') return null;
           if (a.ability === 'pressureValve') {
@@ -160,17 +170,18 @@ export function PhoneReaction({ state, me, onAct, onInspect }: { state: GameStat
               <button key="valve" onClick={() => onAct(a)} className="h-[84px] w-[70px] shrink-0 rounded-lg border border-accent bg-panel2 p-1 text-left">
                 <span className="block text-[8px] font-bold uppercase text-accent">Skill</span>
                 <span className="block font-display text-[10px] font-bold leading-tight">Pressure Valve</span>
+                <span className="mt-0.5 block text-[8px] leading-tight text-ink2">Vent Strain; doesn't stop it</span>
               </button>
             );
           }
           const c = state.players[me].hand.find((x) => x.uid === a.uid)!;
           const d = cardOf(c.cardId);
+          const v = protocolVerdict(d, inc.def ? inc.name : 'it');
           return (
-            <div key={c.uid} className="flex items-center gap-1">
+            <div key={c.uid} className="relative shrink-0" title={v.long}>
               <CardView def={d} cost={cardCost(state, state.players[me], d)} size="xs" onClick={() => onAct(a)} onInspect={() => onInspect(c.cardId)} />
-              <button onClick={() => onInspect(c.cardId)} className="line-clamp-4 w-[88px] text-left text-[9px] leading-tight text-ink2" title="Show the full card">
-                {d.text}
-              </button>
+              {/* Whether it stops the incoming play, right on the card (hold the card for its full text). */}
+              <span className={`pointer-events-none absolute inset-x-0 -bottom-1 mx-auto w-fit whitespace-nowrap rounded px-1 font-display text-[7.5px] font-bold tracking-wide shadow ${VERDICT_CLASS[v.kind]}`}>{v.short}</span>
             </div>
           );
         })}

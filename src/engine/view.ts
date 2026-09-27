@@ -1,6 +1,6 @@
 // What a given viewer is allowed to see. Face-down (Dormant) grafts expose only their
 // slot and Strain to the opponent. The UI and the bot both read boards through here.
-import type { AttachedGraft, GameState, PlayerId, PlayRecord, SlotId } from './types';
+import type { AttachedGraft, DiscardEntry, GameState, PlayerId, PlayRecord, SlotId } from './types';
 
 export interface PublicGraft {
   uid: string;
@@ -34,6 +34,11 @@ export function publicGraft(g: AttachedGraft, viewerIsOwner: boolean): PublicGra
 export function publicPlay(rec: PlayRecord, viewer: PlayerId): PlayRecord {
   if (rec.faceDown && rec.player !== viewer) return { ...rec, cardId: undefined };
   return rec;
+}
+
+/** A discard pile as `viewer` may see it: the opponent sees everything except which card was cycled. */
+export function publicDiscard(s: GameState, owner: PlayerId, viewer: PlayerId): (Omit<DiscardEntry, 'cardId'> & { cardId?: string })[] {
+  return s.players[owner].discard.map((d) => (d.why === 'cycled' && owner !== viewer ? { ...d, cardId: undefined } : d));
 }
 
 export function visibleGrafts(s: GameState, viewer: PlayerId, owner: PlayerId): PublicGraft[] {

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { computeStats, condOk, evolutionProgress, evoNum, findNode, stableMax } from '../../engine';
 import type { GameState, PlayerId, Stance } from '../../engine';
 import { FACTION_META, STANCE_META, WORLD_FACTION_META } from '../meta';
+import { DiscardSheet, TrashIcon } from './DiscardSheet';
 import { Emblem } from './Emblem';
 import { EvolutionSheet, EvolvedBadge } from './Evolution';
 import { EnergyPips, EvolutionBars, HpBar, HpFlash, HpGhost, StrainMeter } from './Meters';
@@ -40,7 +41,7 @@ export function LoadoutChips({ loadout, stances = [], state, player }: { loadout
 }
 
 /** Phone landscape: the same information squeezed into a narrow column beside the tanks. */
-export function PlayerPanelCompact({ state, player, color, active, onSheet }: { state: GameState; player: PlayerId; color: string; active: boolean; /** Told when the evolution sheet opens/closes (the match pauses its timer). */ onSheet?: (open: boolean) => void }) {
+export function PlayerPanelCompact({ state, player, color, active, onSheet, viewer = 0 }: { state: GameState; player: PlayerId; color: string; active: boolean; /** Told when a sheet (evolutions, discard pile) opens/closes, so the match pauses its timer. */ onSheet?: (open: boolean) => void; viewer?: PlayerId }) {
   const p = state.players[player];
   const fm = FACTION_META[p.faction];
   const wfm = WORLD_FACTION_META[p.worldFaction];
@@ -57,6 +58,11 @@ export function PlayerPanelCompact({ state, player, color, active, onSheet }: { 
     setEvoOpenRaw(open);
     onSheet?.(open);
   };
+  const [pileOpen, setPileOpenRaw] = useState(false);
+  const setPileOpen = (open: boolean) => {
+    setPileOpenRaw(open);
+    onSheet?.(open);
+  };
   const enChg = useChange(p.energy);
   return (
     <section className={`lab-panel flex h-full min-h-0 min-w-0 flex-col gap-1 overflow-hidden rounded-lg border p-1.5 ${active ? 'turn-glow border-accent/80' : 'border-line'}`} style={{ borderTop: `2px solid ${color}` }} aria-label={`${p.name} status`}>
@@ -65,6 +71,10 @@ export function PlayerPanelCompact({ state, player, color, active, onSheet }: { 
           {p.name}
         </span>
         <span className="shrink-0 text-[9px] text-mute">✋{p.hand.length}</span>
+        <button type="button" onClick={() => setPileOpen(true)} className="flex shrink-0 items-center gap-px rounded border border-line px-0.5 text-[9px] text-ink2 active:bg-white/10" aria-label={`${p.name}'s discard pile (${p.discard.length})`} title="Discard pile">
+          <TrashIcon className="h-2.5 w-2.5" />
+          {p.discard.length}
+        </button>
       </div>
       {/* Too narrow for the names: the two symbols (names on hover / in the briefing and setup). */}
       <div className="flex min-w-0 items-center gap-1 text-[8.5px] font-semibold leading-none">
@@ -144,11 +154,17 @@ export function PlayerPanelCompact({ state, player, color, active, onSheet }: { 
         })}
       </button>
       {evoOpen && <EvolutionSheet state={state} player={player} onClose={() => setEvoOpen(false)} />}
+      {pileOpen && <DiscardSheet state={state} owner={player} viewer={viewer} onClose={() => setPileOpen(false)} />}
     </section>
   );
 }
 
-export function PlayerPanel({ state, player, color, active }: { state: GameState; player: PlayerId; color: string; active: boolean }) {
+export function PlayerPanel({ state, player, color, active, onSheet, viewer = 0 }: { state: GameState; player: PlayerId; color: string; active: boolean; onSheet?: (open: boolean) => void; viewer?: PlayerId }) {
+  const [pileOpen, setPileOpenRaw] = useState(false);
+  const setPileOpen = (open: boolean) => {
+    setPileOpenRaw(open);
+    onSheet?.(open);
+  };
   const p = state.players[player];
   const fm = FACTION_META[p.faction];
   const wfm = WORLD_FACTION_META[p.worldFaction];
@@ -168,6 +184,11 @@ export function PlayerPanel({ state, player, color, active }: { state: GameState
         <span className="shrink-0 text-[10px] text-mute" title={`${p.hand.length} cards in hand, ${p.deck.length} left in deck`}>
           ✋{p.hand.length} · ▤{p.deck.length}
         </span>
+        <button type="button" onClick={() => setPileOpen(true)} className="flex shrink-0 items-center gap-0.5 rounded border border-line px-1 py-px text-[10px] text-ink2 hover:border-mute" aria-label={`${p.name}'s discard pile (${p.discard.length})`} title="Discard pile: what was played, rejected, destroyed…">
+          <TrashIcon />
+          {p.discard.length}
+        </button>
+        {pileOpen && <DiscardSheet state={state} owner={player} viewer={viewer} onClose={() => setPileOpen(false)} />}
       </div>
       <div className="mt-1.5 flex flex-wrap items-center gap-1">
         <span className="flex items-center gap-1 rounded py-0.5 pl-1 pr-1.5 font-display text-[10px] font-semibold" style={{ background: `${fm.color}2e`, color: fm.color }} title={fm.tagline}>

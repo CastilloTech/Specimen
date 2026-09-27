@@ -128,6 +128,27 @@ export interface CardInstance {
   cardId: string;
 }
 
+/** How a card ended up in the discard pile. */
+export type DiscardReason =
+  | 'played' // a spent Serum / Toxin / Sabotage / Protocol
+  | 'negated'
+  | 'noRoom' // a graft with nowhere to go
+  | 'replaced' // a graft overwritten by a new one in its slot
+  | 'cycled'
+  | 'burned' // drawn into a full hand
+  | 'discarded' // a random discard effect
+  | 'rejected' // ejected at the Strain check
+  | 'destroyed' // Integrity reached 0
+  | 'severed'
+  | 'necrosed';
+
+export interface DiscardEntry extends CardInstance {
+  why: DiscardReason;
+  round: number;
+  /** What caused it, when something did (a card name, "Clash wear"). */
+  by?: string;
+}
+
 export interface AttachedGraft {
   uid: string;
   cardId: string;
@@ -176,7 +197,8 @@ export interface PlayerState {
   energyDebt: number;
   deck: CardInstance[];
   hand: CardInstance[];
-  discard: CardInstance[];
+  /** Newest last. A cycled card stays private to its owner (see publicDiscard). */
+  discard: DiscardEntry[];
   slots: SlotId[];
   grafts: AttachedGraft[];
   stance: Stance | null;
@@ -254,6 +276,10 @@ export interface PlayRecord {
   slot?: SlotId;
   target?: SlotId;
   negated?: boolean;
+  /** A Protocol turned this play back on its caster. */
+  reflected?: boolean;
+  /** For a Protocol ('react'): the uid of the play it answered (look it up in `plays`). */
+  against?: string;
 }
 
 export interface RoundSnapshot {

@@ -18,7 +18,7 @@ import {
   sumLoadoutParam,
   zoneOf,
 } from './stats';
-import type { Ability, AttachedGraft, CardInstance, GameState, LogKind, Op, PendingPlay, PlayerId, PlayerState, PlayRecord, SlotId, Trigger } from './types';
+import type { Ability, AttachedGraft, CardInstance, DiscardReason, GameState, LogKind, Op, PendingPlay, PlayerId, PlayerState, PlayRecord, SlotId, Trigger } from './types';
 import { other } from './types';
 
 export const SLOT_LABEL: Record<SlotId, string> = {
@@ -39,6 +39,11 @@ export function logMsg(s: GameState, kind: LogKind, player: PlayerId | null, tex
 const name = (s: GameState, p: PlayerId) => s.players[p].name;
 
 // ---------- Primitive mutations ----------
+/** Put a card in its owner's discard pile, remembering how and when it got there. */
+export function toDiscard(s: GameState, pl: PlayerState, c: CardInstance, why: DiscardReason, by?: string): void {
+  pl.discard.push({ uid: c.uid, cardId: c.cardId, why, round: s.round, ...(by ? { by } : {}) });
+}
+
 /** Draws up to n cards. A card drawn into a full hand (config.match.maxHand) is burned: discarded face-up. */
 export function drawCards(s: GameState, p: PlayerId, n: number): number {
   const pl = s.players[p];
@@ -47,7 +52,7 @@ export function drawCards(s: GameState, p: PlayerId, n: number): number {
     const c = pl.deck.pop();
     if (!c) break;
     if (pl.hand.length >= s.config.match.maxHand) {
-      pl.discard.push(c);
+      toDiscard(s, pl, c, 'burned');
       logMsg(s, 'info', p, `${pl.name}'s hand is full (${s.config.match.maxHand}): ${cardOf(c.cardId).name} is burned.`);
       continue;
     }
@@ -215,7 +220,7 @@ function sabotage(s: GameState, ctx: OpCtx, op: Extract<Op, { op: 'sabotage' }>)
   const cfg = s.config.sabotage;
   const caster = s.players[ctx.caster];
   if (op.mode === 'sever') {
-    destroyGraft(s, victim, g);
+    destroyGraft(s, victim, g, 'severed', ctx.source);
     logMsg(s, 'play', ctx.caster, `${ctx.source} severs ${victim.name}'s ${card.name} from ${SLOT_LABEL[g.slot]}.`);
     const h = sumLoadoutParam(s, caster, 'severHeal');
     if (h > 0) heal(s, ctx.caster, h, 'a Sever');
@@ -227,7 +232,7 @@ function sabotage(s: GameState, ctx: OpCtx, op: Extract<Op, { op: 'sabotage' }>)
     logMsg(s, 'play', ctx.caster, `${ctx.source} disables ${victim.name}'s ${card.name}: its text is off for ${g.disabled} round(s).`);
   } else {
     // necrosis: sever the graft, and the empty slot itself cannot be refilled for a while.
-    destroyGraft(s, victim, g);
+    destroyGraft(s, victim, g, 'necrosed', ctx.source);
     const rounds = (op.rounds ?? cfg.necrosisRounds) + sumLoadoutParam(s, caster, 'necrosisRoundsBonus');
     victim.necrosis[g.slot] = Math.max(victim.necrosis[g.slot] ?? 0, rounds);
     logMsg(s, 'play', ctx.caster, `${ctx.source} necroses ${victim.name}'s ${card.name} from ${SLOT_LABEL[g.slot]}: the slot cannot be refilled for ${rounds} round(s).`);
@@ -243,9 +248,9 @@ function sabotage(s: GameState, ctx: OpCtx, op: Extract<Op, { op: 'sabotage' }>)
 /** The mechanical part of a graft leaving the board via Integrity loss: filter it out, discard it, and
  * remove its Strain if severRemovesStrain. Callers do their own logging and onGraftKilled call, in that
  * order, so log ordering stays exactly as it was before this was extracted. */
-function destroyGraft(s: GameState, victim: PlayerState, g: AttachedGraft): void {
+function destroyGraft(s: GameState, victim: PlayerState, g: AttachedGraft, why: 'destroyed' | 'severed' | 'necrosed', by: string): void {
   victim.grafts = victim.grafts.filter((x) => x !== g);
-  victim.discard.push({ uid: g.uid, cardId: g.cardId });
+  toDiscard(s, victim, g, why, by);
   if (s.config.strain.severRemovesStrain) victim.strain = Math.max(0, victim.strain - g.strain);
 }
 
@@ -263,7 +268,7 @@ function graftDamage(s: GameState, ctx: OpCtx, op: Extract<Op, { op: 'graftDamag
   const amount = Math.max(0, op.amount + sumLoadoutParam(s, caster, 'graftDamageBonus') - sumLoadoutParam(s, victim, 'graftDamageReduction'));
   g.integrity -= amount;
   if (g.integrity <= 0) {
-    destroyGraft(s, victim, g);
+    destroyGraft(s, victim, g, 'destroyed', ctx.source);
     logMsg(s, 'wear', ctx.caster, `${ctx.source} destroys ${victim.name}'s ${card.name} in ${SLOT_LABEL[g.slot]} (integrity depleted).`);
     onGraftKilled(s, ctx.caster);
   } else {
@@ -291,7 +296,7 @@ function chipIntegrityFromClash(s: GameState, casterId: PlayerId, victimId: Play
   const card = cardOf(g.cardId);
   g.integrity -= amount;
   if (g.integrity <= 0) {
-    destroyGraft(s, victim, g);
+    destroyGraft(s, victim, g, 'destroyed', 'Clash wear');
     logMsg(s, 'wear', casterId, `Clash wears down ${victim.name}'s ${card.name} in ${SLOT_LABEL[g.slot]}: it is destroyed (integrity depleted).`);
     onGraftKilled(s, casterId);
   } else {
@@ -414,7 +419,7 @@ export function runOps(s: GameState, ops: Op[], ctx: OpCtx): void {
       case 'discard': {
         const t = pid(op.who, 'opp');
         const pl = s.players[t];
-        for (let i = 0; i < op.amount && pl.hand.length; i++) pl.discard.push(pl.hand.splice(nextInt(s, pl.hand.length), 1)[0]);
+        for (let i = 0; i < op.amount && pl.hand.length; i++) toDiscard(s, pl, pl.hand.splice(nextInt(s, pl.hand.length), 1)[0], 'discarded', ctx.source);
         logMsg(s, 'info', t, `${pl.name} discards ${op.amount} random card(s) (${ctx.source}).`);
         break;
       }
@@ -524,7 +529,7 @@ export function resolvePlay(s: GameState, play: PendingPlay): void {
   const pl = s.players[p];
   const def = cardOf(play.card.cardId);
   if (play.negated) {
-    pl.discard.push(play.card);
+    toDiscard(s, pl, play.card, 'negated');
     logMsg(s, 'play', p, `${def.name} is negated.`);
     for (const r of s.plays) if (r.uid === play.card.uid) r.negated = true;
     markRevealed(s, play.card.uid); // a negated card is spent in public
@@ -532,7 +537,7 @@ export function resolvePlay(s: GameState, play: PendingPlay): void {
   }
   if (def.type === 'graft') {
     if (!play.slot) {
-      pl.discard.push(play.card);
+      toDiscard(s, pl, play.card, 'noRoom');
       logMsg(s, 'play', p, `${def.name} has no room and is discarded.`);
       return;
     }
@@ -540,12 +545,12 @@ export function resolvePlay(s: GameState, play: PendingPlay): void {
     if (old && s.config.replace.enabled) {
       // Overgrowth: the new graft replaces the old one, which is discarded along with the Strain it had added.
       pl.grafts = pl.grafts.filter((g) => g !== old);
-      pl.discard.push({ uid: old.uid, cardId: old.cardId });
+      toDiscard(s, pl, old, 'replaced', def.name);
       markRevealed(s, old.uid);
       pl.strain = Math.max(0, pl.strain - old.strain);
       logMsg(s, 'play', p, `${pl.name} replaces ${cardOf(old.cardId).name} in ${SLOT_LABEL[old.slot]} (-${old.strain} Strain).`);
     } else if (old) {
-      pl.discard.push(play.card);
+      toDiscard(s, pl, play.card, 'noRoom');
       logMsg(s, 'play', p, `${def.name} has no room and is discarded.`);
       return;
     }
@@ -555,14 +560,17 @@ export function resolvePlay(s: GameState, play: PendingPlay): void {
   const victim = play.reflected ? p : other(p);
   addStrain(s, p, def.strain);
   if (def.strain > 0) logMsg(s, 'strain', p, `${pl.name} gains ${def.strain} Strain (${def.name}).`, def.strain);
-  if (play.reflected) logMsg(s, 'play', p, `${def.name} is reflected back at ${pl.name}!`);
+  if (play.reflected) {
+    logMsg(s, 'play', p, `${def.name} is reflected back at ${pl.name}!`);
+    for (const r of s.plays) if (r.uid === play.card.uid) r.reflected = true;
+  }
   // A Protocol reacting to something (play.against set) points its ops at what it answered, not at itself.
   runOps(s, def.effect.ops ?? [], { caster: p, victim, play: play.against ?? play, source: def.name });
   if (def.type === 'toxin') {
     const drain = evoNum(s, pl, 'toxinDrain');
     if (drain > 0) hurt(s, victim, drain, victim === p ? null : p, `${def.name} drains`);
   }
-  pl.discard.push(play.card);
+  toDiscard(s, pl, play.card, 'played');
 }
 
 // ---------- Round flow ----------
@@ -783,7 +791,7 @@ export function rejectGraft(s: GameState, p: PlayerId): boolean {
   const g = [...pl.grafts].sort((a, b) => b.strain - a.strain || b.seq - a.seq)[0];
   const card = cardOf(g.cardId);
   pl.grafts = pl.grafts.filter((x) => x !== g);
-  pl.discard.push({ uid: g.uid, cardId: g.cardId });
+  toDiscard(s, pl, g, 'rejected', 'Strain check');
   markRevealed(s, g.uid); // an ejected graft is shown to everyone
   pl.strain = Math.max(0, pl.strain - g.strain);
   pl.stats.rejectionsSuffered++;

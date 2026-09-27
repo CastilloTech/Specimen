@@ -35,7 +35,7 @@ export default function App() {
     case 'match':
       return <MatchScreen key={`${screen.setup.seed}-${screen.run}`} setup={screen.setup} settings={settings} onExit={menu} onFinish={(state, setup) => setScreen({ name: 'post', setup, state })} />;
     case 'post':
-      return <PostMatch state={screen.state} setup={screen.setup} onMenu={menu} onRematch={() => setScreen({ name: 'match', setup: { ...screen.setup, seed: Math.floor(Math.random() * 2 ** 31) }, run: Date.now() })} />;
+      return <PostMatch state={screen.state} setup={screen.setup} onMenu={menu} onNext={quick} onRematch={() => setScreen({ name: 'match', setup: { ...screen.setup, seed: Math.floor(Math.random() * 2 ** 31) }, run: Date.now() })} />;
     case 'saves':
       return <SavesScreen onBack={menu} />;
     case 'guide':
