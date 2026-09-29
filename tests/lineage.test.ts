@@ -67,7 +67,7 @@ describe('Scars and mutations', () => {
     expect(MUTATIONS.length).toBeGreaterThanOrEqual(12);
   });
 
-  it('rivals are smaller Specimens: a Matriarch is bigger, and the Progenitor has full HP', () => {
+  it('rivals are smaller Specimens: a Matriarch is bigger, and Z has full HP', () => {
     const hpAt = (match: number) => createMatch(lineageMatch({ ...fresh(), match }, 'You')).players[1].maxHp;
     expect(hpAt(1)).toBe(RIVAL_HP);
     expect(hpAt(4)).toBe(MATRIARCH_HP); // match 4 is Tower floor 10, a Faction Boss
@@ -103,13 +103,13 @@ describe('Scars and mutations', () => {
     expect(r.lineage.losses).toBeLessThan(MAX_LOSSES);
   });
 
-  it('match 9 brings Tower rule twists and match 10 is the Progenitor', () => {
+  it('match 9 brings Tower rule twists and match 10 is Z', () => {
     const nine = createMatch(lineageMatch({ ...fresh(), match: 9 }, 'You'));
     expect(nine.players[1].evolution).toBeTruthy();
     expect(nine.players[0].ventMalus).toBe(1);
     expect(nine.config.match.meltdownFromRound).toBe(5);
     const ten = lineageMatch({ ...fresh(), match: 10 }, 'You');
-    expect(ten.players[1].name).toBe('The Progenitor');
+    expect(ten.players[1].name).toBe('Z');
     expect(ten.players[1].ai).toBe('search');
   });
 });

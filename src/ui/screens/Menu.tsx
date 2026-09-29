@@ -5,7 +5,9 @@ import { DIFFICULTY, lastDifficulty } from '../picks';
 import { SoundToggle } from '../components/AudioMenu';
 import { Creature } from '../components/Specimen';
 import { FACTION_META, WORLD_FACTION_META } from '../meta';
-import { activeSave, loadLastSetup } from '../storage';
+import { activeSave, loadLastSetup, loadMatches } from '../storage';
+import { unreadLore } from '../lore';
+import { loadProgress } from '../modes';
 
 interface Props {
   onQuick: () => void;
@@ -15,11 +17,13 @@ interface Props {
   onGuide: () => void;
   onDecks: () => void;
   onTutorial: () => void;
+  onArchive: () => void;
 }
 
 // Portrait / desktop: one centered column. Phone landscape (`phone:`): art and title on the left,
 // compact buttons on the right, so the whole menu fits a short screen without scrolling.
-export function Menu({ onQuick, onModes, onBot, onSaves, onGuide, onDecks, onTutorial }: Props) {
+export function Menu({ onQuick, onModes, onBot, onSaves, onGuide, onDecks, onTutorial, onArchive }: Props) {
+  const [unread] = useState(() => unreadLore(loadMatches(), loadProgress()));
   const [newcomer, setNewcomer] = useState(() => !tutorialDone());
   const save = activeSave();
   const last = loadLastSetup()?.[0];
@@ -108,7 +112,7 @@ export function Menu({ onQuick, onModes, onBot, onSaves, onGuide, onDecks, onTut
           <div className="font-display font-bold text-accent">Game Modes</div>
           <div className={desc}>A daily challenge, the Tower, Lineage and Containment Breach: earn biomass, craft cards and unlock Builds, World Factions and Chips.</div>
         </button>
-        <div className="grid grid-cols-2 gap-3 phone:gap-1.5">
+        <div className="grid grid-cols-3 gap-3 phone:gap-1.5">
           <button className={btn} onClick={onDecks}>
             <div className="font-display font-bold">Decks &amp; Chips</div>
             <div className={desc}>Build 20-card decks, set Chip loadouts.</div>
@@ -116,6 +120,11 @@ export function Menu({ onQuick, onModes, onBot, onSaves, onGuide, onDecks, onTut
           <button className={btn} onClick={onGuide}>
             <div className="font-display font-bold">Game guide</div>
             <div className={desc}>How to play, step by step, and the tutorial match.</div>
+          </button>
+          <button className={`${btn} relative`} onClick={onArchive}>
+            <div className="font-display font-bold">Archive</div>
+            <div className={desc}>Recovered records. Read between them.</div>
+            {unread > 0 && <span className="absolute -right-1.5 -top-1.5 grid h-5 min-w-5 place-items-center rounded-full bg-amber-400 px-1 text-[10px] font-bold text-black" aria-label={`${unread} unread`}>{unread}</span>}
           </button>
         </div>
       </div>

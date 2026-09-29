@@ -24,9 +24,14 @@ import { PHONE_LANDSCAPE, PHONE_PORTRAIT, tryLandscapeFullscreen, useMediaQuery 
 import { comboEngine, ENGINE_META, engineColor, FACTION_META, PLAYER_COLORS, STANCE_META, WORLD_FACTION_META } from '../meta';
 import { matchRecord } from '../stats';
 import type { KeyAction, Settings } from '../storage';
-import { keyLabel, recordMatch, saveReplay } from '../storage';
+import { keyLabel, loadMatches, recordMatch, saveReplay } from '../storage';
+import { encounterLines, EVOLUTION_FLAVOR, metBefore, unlockedFragments } from '../lore';
+import type { EncounterLines } from '../lore';
+import { loadProgress } from '../modes';
+import { LoreText } from '../components/Flavor';
 import { useMatch } from '../useMatch';
 import type { TimerView } from '../useMatch';
+import { Flavor } from '../components/Flavor';
 
 interface Props {
   setup: MatchSetup;
@@ -90,10 +95,16 @@ export function MatchScreen({ setup, settings, onExit, onFinish, label, tutorial
 
   // A finished match goes into the loaded save's history (once), for the stats and tips on the Save screen.
   const recorded = useRef(false);
+  // A named opponent (Z, the Unregistered Handler) speaks before and after; the lines depend on how often you've met.
+  const [encounter] = useState<EncounterLines | null>(() => encounterLines(state.players[1].name, metBefore(loadMatches(), state.players[1].name)));
+  const [newLore, setNewLore] = useState(0);
   useEffect(() => {
     if (!over || recorded.current) return;
     recorded.current = true;
+    const lore0 = unlockedFragments(loadMatches(), loadProgress());
     recordMatch(matchRecord(state, me));
+    const lore1 = unlockedFragments(loadMatches(), loadProgress());
+    setNewLore([...lore1].filter((id) => !lore0.has(id)).length);
     const w = state.result?.winner;
     saveReplay({ id: `${Date.now()}-${setup.seed}`, at: Date.now(), me, names: [state.players[0].name, state.players[1].name], result: w === me ? 'win' : w == null ? 'draw' : 'loss', rounds: state.round, label, setup, actions: state.history });
   }, [over, state, me, setup, label]);
@@ -346,6 +357,12 @@ export function MatchScreen({ setup, settings, onExit, onFinish, label, tutorial
       <div>
         <div className={`font-display font-bold text-accent ${compact ? 'text-base' : 'text-lg'}`}>{state.result?.winner === null ? 'Draw' : `${state.players[state.result!.winner].name} wins`}</div>
         <div className="text-xs text-ink2">{state.result?.reason}</div>
+        {encounter && !compact && (
+          <p className="mx-auto mt-2 max-w-md font-serif text-[13px] italic leading-snug text-ink2">
+            <LoreText text={state.result?.winner === me ? encounter.win : encounter.loss} />
+          </p>
+        )}
+        {newLore > 0 && <div className="mt-1 text-[11px] font-semibold text-amber-200">◆ {newLore === 1 ? 'A record was' : `${newLore} records were`} recovered. Read {newLore === 1 ? 'it' : 'them'} in the Archive.</div>}
       </div>
       <button onClick={() => onFinish(state, setup)} className={`rounded-lg bg-accent px-4 py-2 text-sm font-bold text-black ${compact ? '' : 'mt-2'}`}>
         See results
@@ -553,6 +570,7 @@ export function MatchScreen({ setup, settings, onExit, onFinish, label, tutorial
     return (
       <Intro
         state={state}
+        encounter={encounter}
         onGo={() => {
           tryLandscapeFullscreen();
           setIntroSeen(true);
@@ -922,6 +940,7 @@ function EvolvePrompt({ state, me, onPick, onDecline }: { state: GameState; me: 
                 </li>
               ))}
             </ul>
+            <Flavor text={EVOLUTION_FLAVOR[d.id]} className="mt-1.5 text-[11px]" />
           </button>
         ))}
       </div>
@@ -1036,7 +1055,7 @@ function DetailSheet({ detail, state, me, myTurn, onClose, onReveal }: { detail:
   );
 }
 
-function Intro({ state, onGo, onExit }: { state: GameState; onGo: () => void; onExit: () => void }) {
+function Intro({ state, encounter, onGo, onExit }: { state: GameState; encounter: EncounterLines | null; onGo: () => void; onExit: () => void }) {
   return (
     <div className="mx-auto flex min-h-dvh max-w-3xl flex-col gap-3 p-3 phone:h-dvh phone:min-h-0 phone:max-w-none phone:gap-1.5 phone:p-2">
       <div>
@@ -1044,6 +1063,11 @@ function Intro({ state, onGo, onExit }: { state: GameState; onGo: () => void; on
         <h1 className="font-display text-2xl font-bold phone:text-base">Specimens and loadouts</h1>
         <p className="text-xs text-ink2 phone:hidden">Both players see both Chip loadouts and each Build's two evolutions.</p>
       </div>
+      {encounter && (
+        <p className="lab-panel rounded-xl border border-amber-400/40 px-3 py-2 font-serif text-[14px] italic leading-snug text-ink phone:py-1.5 phone:text-[12px]">
+          <LoreText text={encounter.before} />
+        </p>
+      )}
       <div className="grid gap-3 sm:grid-cols-2 phone:min-h-0 phone:flex-1 phone:grid-cols-2 phone:gap-2 phone:overflow-y-auto">
         {state.players.map((p) => (
           <section key={p.id} className="lab-panel rounded-xl border border-line p-3 phone:p-2 phone:text-[11px]" style={{ borderTop: `3px solid ${PLAYER_COLORS[p.id]}` }}>

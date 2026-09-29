@@ -267,7 +267,8 @@ export interface MatchRecord {
     deck?: string[];
     cards?: Record<string, CardUse>;
   };
-  opp: MatchSide & { hpLeft: number };
+  /** `name`: the opponent's name (added later), which is how the Archive knows you met Z or the Unregistered Handler. */
+  opp: MatchSide & { hpLeft: number; name?: string };
   ko?: boolean;
   comeback?: boolean;
 }

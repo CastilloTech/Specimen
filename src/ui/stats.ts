@@ -72,7 +72,7 @@ export function matchRecord(s: GameState, me: PlayerId): MatchRecord {
       deck,
       cards,
     },
-    opp: { faction: o.faction, worldFaction: o.worldFaction, chip: o.chip, evolution: o.evolution, hpLeft: o.hp },
+    opp: { faction: o.faction, worldFaction: o.worldFaction, chip: o.chip, evolution: o.evolution, hpLeft: o.hp, name: o.name },
   };
 }
 

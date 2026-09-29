@@ -1,0 +1,648 @@
+{
+ "cards": {
+  "pred_bone_spur": "Trial 3 subject grew it overnight. Nobody had told it what a spur was for. — Combat trial log",
+  "pred_twitch_nerve": "Keeps firing after the body has let go of it. The handlers stopped calling that a malfunction.",
+  "pred_razor_talon": "Hit it and it cuts you back. The program called this 'reciprocal design'. Nobody designed it.",
+  "pred_predator_eye": "It tracks the handler before it tracks the target. Note for the file: do not note this. — Trial supervisor",
+  "pred_furnace_heart": "Runs hotter the closer it gets to failure. So did the people who fitted it.",
+  "pred_maw_crown": "Every bite closes a wound somewhere else on the body. We still don't know where the rule came from.",
+  "pred_apex_maw": "Signed off as 'combat-ready' in week one. The subject had been combat-ready since before it arrived.",
+  "pred_blood_rush": "Rule 7 of the exhibition circuit: no stimulants. Rule 8: the specimen is not a competitor, so Rule 7 does not apply.",
+  "pred_overclock_serum": "Push it past red and it comes back stronger. Push a handler past red and they come back quieter.",
+  "pred_adrenal_shot": "Standard kit for the trials. The specimen never needed it. The soldiers did.",
+  "pred_bile_spit": "Aimed at the handler's face in 40% of trials. The report says 'random'. The report was rewritten twice.",
+  "pred_hemotoxin": "Engineered from its own blood, which is the only part of the story anyone ever checked.",
+  "pred_blood_scent": "It reacts before the opponent moves. Every trial. The program called it reflex and moved on.",
+  "pred_counter_strike": "The league banned it for two seasons. The military bought the footage.",
+  "pred_rending_claw": "Designed to tear grafts, not flesh. It learned the difference faster than the recruits did.",
+  "para_symbiotic_node": "Symbiosis, the brochure said. The other party was never asked.",
+  "para_hooked_limb": "Every hit it takes, it takes something back. Fans loved it. The medical staff logged it as theft.",
+  "para_leech_sucker": "Drinks the opponent's momentum. Exhibition bookmakers had to change the odds mid-round.",
+  "para_barbed_proboscis": "Waits for the rival to overreach, then goes in. League footage shows it looking at the stands first.",
+  "para_gland_of_rot": "It makes the other side tired. It made the staff tired too. Nobody linked the two until much later.",
+  "para_mind_lash": "The opponent forgets what it was holding. So did two of the league's handlers, briefly.",
+  "para_queen_cyst": "Feeds the host by starving the room. The exhibition hall's lights dimmed every time it pulsed.",
+  "para_neurotoxin": "Banned in three leagues. Legal in the fourth, which the program happened to own.",
+  "para_necrotic_bloom": "It blooms inside the rival. Nobody in the league could explain where it got the seed.",
+  "para_static_jam": "Every screen in the arena goes grey. Its handler swears it did that on purpose, to see who flinched.",
+  "para_cytokine_storm": "The rival's body turns on its own graft. The crowd thought it was a show. It was the specimen showing us how.",
+  "para_gnawing_larva": "Burrows in, eats the graft, leaves. Nobody ever found where the larvae came from, only where they went.",
+  "para_wasting_serum": "Borrow strength from yourself and pay it back later. The league never collected on that debt.",
+  "para_static_charge": "A jolt, a flash, two more cards in hand. The handler felt it too. League rules say they don't.",
+  "para_toxic_bloom": "It heals and it poisons in one dose. The label only mentions the healing.",
+  "bast_scale_patch": "Army surplus, ninth generation. Every generation grew in thicker without being asked.",
+  "bast_bone_helm": "Vents the pressure so the handler doesn't have to. The handlers vent anyway. It isn't the same pressure.",
+  "bast_shell_limb": "When it's torn off, it takes some of the strain with it. Soldiers wish it worked like that for them.",
+  "bast_reflex_ganglion": "Stays calm and mends. Field manual: keep the specimen calm. Nobody wrote how.",
+  "bast_ablative_plating": "Designed to wear away. The contract was renewed for the replacement parts alone.",
+  "bast_pressure_plate": "The more it strains, the harder it gets. Bastion engineers built a doctrine around one plate.",
+  "bast_bulwark_heart": "Beats slow, vents slow, heals slow. The army loved it. It outlived the unit that commissioned it.",
+  "bast_pressure_release": "Pull the valve. Everything in the room exhales, including the people.",
+  "bast_field_repair": "Standard patch kit. The specimen started applying it to itself in the second month.",
+  "bast_venting_sigh": "Logged as a sigh because nobody wanted to write 'relief'.",
+  "bast_corrosive_sweat": "It sweats through the rival's armor. The army asked for a coolant. It gave them this instead.",
+  "bast_pressure_toxin": "Takes pressure off itself by putting it on you. Standard military doctrine, grown in tissue.",
+  "bast_brace": "It braces before the blow. Every time. Before the rival has decided to swing.",
+  "bast_reflective_carapace": "Throws a saboteur's work back at them. The contract said 'defensive'. It interpreted that broadly.",
+  "bast_scarring_plate": "Scar tissue as a weapon. The quartermaster refused to catalogue it.",
+  "cor_shard_claw": "Every wound is a door. We are only keeping them open. — Corrosion catechism",
+  "cor_pitted_hide": "Hit it and you open yourself. We did not design this. We recognised it.",
+  "cor_venom_gland": "A wound a day. Corrosion does not believe in healing, only in persistence.",
+  "cor_acid_maw": "Even when it's torn loose, it leaves the wound behind. That is the part we kept.",
+  "cor_matriarch": "The first of us who worked the Opening line never stopped touching her own scars. We called that dedication. — From the Corrosion founding record",
+  "cor_corrosive_strike": "Strike the graft, and the body bleeds. There is no separation. There never was.",
+  "cor_acid_spray": "Integrity is a comfortable lie told by people who've never seen a wound stay open on purpose.",
+  "cor_festering_wound": "We split from the program over a principle: wounds are information. That is our story, and we are sticking to it.",
+  "cor_rot_serum": "Aegis purifies. We open. One of us is right about the specimen. We don't remember choosing to be us.",
+  "cor_scavenger_instinct": "Close enough to heal. Never close enough to close.",
+  "cor_caustic_grip": "Try to cut our grafts and you'll carry the wound home.",
+  "cor_venom_burst": "One graft poisoned, one body bleeding. Economy, the Opening line calls it.",
+  "aeg_scaled_plate": "Every blow it takes, it mends the others. Assay principle: nothing gets in that we haven't tested.",
+  "aeg_bastion_shell": "A little Integrity back every morning. Aegis's founding creed, grown into a shell.",
+  "aeg_warding_core": "At the check, it restores. We left the program because the program stopped checking. That is our story.",
+  "aeg_ironclad_frame": "Seal the body before you seal the deal. — Aegis contract clause, origin unrecorded",
+  "aeg_vital_ward": "The first Assay analysts washed their hands until the skin came off. We called that rigour. — From the Aegis founding record",
+  "aeg_mending_serum": "Filtered eleven times. The twelfth filter is the one nobody can describe.",
+  "aeg_shield_serum": "Two more plates of certainty.",
+  "aeg_purge_tonic": "Purge everything. If it was worth keeping, it will survive the Purge. That is what we tell ourselves.",
+  "aeg_bulwark_protocol": "Protocol 4: when in doubt, close everything and clean what's left.",
+  "aeg_ward_pact": "Sabotage is contamination in a hurry. We refuse it at the door.",
+  "aeg_null_shield": "Switch off the threat, mend what it touched. Aegis believes you can undo things. Aegis needs to.",
+  "aeg_reclaim": "Poison their graft, cleanse our body. We don't see a contradiction. The others do.",
+  "mia_toxic_barb": "A little fever to make them listen. Miasma doesn't want to win. Miasma wants an answer.",
+  "mia_choking_spore": "Numb them, and the noise stops. Then you can hear what the specimen is saying.",
+  "mia_creeping_rot": "Strike it and you catch its fever. We call that a greeting.",
+  "mia_wasting_husk": "Even discarded, it whispers something numbing. Field techs play the recordings backwards. Don't.",
+  "mia_plague_matriarch": "The first Acceptance technicians stopped flinching at anything. We called that composure. — From the Miasma founding record",
+  "mia_numbing_dart": "Answer their move with quiet.",
+  "mia_wasting_cloud": "The fever makes every graft cost more. We think the specimen is teaching them the price of speaking.",
+  "mia_paralytic_serum": "Numb them, breathe out. Miasma calls this a conversation.",
+  "mia_fevered_grasp": "Touch the graft, share the fever. Miasma doesn't believe in contamination. Only in exchange.",
+  "mia_toxic_cloud": "Bleed and burn together. A Corrosion recipe, rewritten in our handwriting. Don't tell them.",
+  "mia_plague_serum": "A drop of fever, a drop of blood. Enough to open a line.",
+  "mia_null_spores": "Silence the graft, silence the handler. What remains is the specimen, and us, listening.",
+  "hol_grave_thorn": "Hurt it and you pay later. Hollow always collects.",
+  "hol_bone_ward": "Takes a little every round. Hollow records say the specimen does the same to the people who work it.",
+  "hol_hollow_husk": "When the rival strains, it drinks. Hollow does not waste anything. Especially knowledge.",
+  "hol_gravekeeper": "Even rejected, it takes its toll. We keep our graves the same way: quietly, and with interest.",
+  "hol_reaper_pact": "The first Payment operatives stopped writing things down. We called that discretion. — From the Hollow founding record",
+  "hol_necrotic_blade": "Kills the graft and the ground it grew in. Hollow calls this 'closing an account'.",
+  "hol_void_grasp": "Damage the graft, drain the handler. Two debts, one hand.",
+  "hol_purging_rite": "Wash off the statuses. Keep the scars. Hollow keeps everything that can't be washed.",
+  "hol_wraith_touch": "They forget one thing they meant to do. Hollow remembers it for them.",
+  "hol_null_serum": "Two Energy, gone. Hollow never says where it goes. Hollow knows.",
+  "hol_reapers_ward": "When they sabotage us, we shed the sickness. Shed tissue isn't waste. We learned that early. We told no one.",
+  "hol_soul_harvest": "Lock the slot, drain the body. Harvest is the program's word. We just kept using it.",
+  "tech_scanner": "Sees through a face-down graft. Black-market model. Four factions' serial numbers, all filed off.",
+  "tech_cleansing_dart": "Strips their statuses. An Aegis design, sold by a Hollow broker, found in a Miasma kit. Nobody asks.",
+  "tech_pierce": "Punches through plate. Every faction claims to have invented it. Nobody can find the patent.",
+  "tech_weaken": "Takes the edge off their attack. Handler slang: 'a courtesy'.",
+  "tech_stim": "Field handlers keep three. The specimen always seems to know when the last one's gone.",
+  "tech_scalpel": "A clean cut. Any handler can use it. That's what makes it the most dangerous thing in the kit.",
+  "tech_acid": "Poisons a graft for two rounds. Sold at the edges of the war, where rival factions' operations quietly touch.",
+  "tech_numbing_agent": "Miasma recipe, Corrosion delivery system. The black market has no loyalties, only inventory.",
+  "tech_antitoxin": "Negates a Toxin. Four factions' handlers carry the same model. None of them will say where they bought it.",
+  "tech_immune_response": "Rejects a graft before it takes. The body's oldest trick, bottled.",
+  "tech_mirror_ward": "Turns their serum back on them. Someone designed this to be used against every faction equally.",
+  "tech_universal_negate": "Answers anything. Too good to have been built by one faction alone.",
+  "tech_scavenge": "Switch off their graft and take a card for your trouble. Field handlers' first rule: take something for your trouble.",
+  "tech_energy_drink": "Handler rations. The specimen doesn't need them. The handler's hands stop shaking, eventually.",
+  "tech_direct_hit": "No armor, no answer. Some things you settle directly.",
+  "tech_desperate_measure": "Pay in blood, draw in cards. Every handler learns this trade. Some learn it too well.",
+  "tech_hoarder": "Throw one away, find two. Hollow operatives trade these for information. They always get the better deal.",
+  "tech_paralytic_dart": "Answers a graft with numbness. Traced to a Miasma field tech who stopped reporting in.",
+  "pred_alpha_carnifex": "The last trial subject stood still for an hour, then did everything at once: the rage, the feast, the killing blow. As if it had been waiting for the other stages to catch up.",
+  "pred_frenzy_gland": "The hotter it runs, the harder it hits. The trial manual lists no upper limit. There was one. It was the handler.",
+  "pred_seething_maw": "Strain doesn't hurt it. Strain feeds it. The trial report calls this 'favourable'.",
+  "pred_carrion_jaws": "It eats what it breaks, and it breaks what it's pointed at. The program only ever controlled the pointing.",
+  "pred_flensing_hook": "For peeling a rival's grafts back to the socket. The exhibition crowd cheered. The medics didn't.",
+  "pred_flaying_strike": "A blow for the cameras, and for what's underneath the grafts.",
+  "pred_goring_spur": "Meant for the killing blow. It only ever fires on the killing blow. We never taught it which one that was.",
+  "pred_rampage_gland": "The big hit heals it. The handlers learned to stand further back after each one.",
+  "pred_bone_gnawer": "Picks the broken graft clean and hands something back. Handlers call it tidy. Hollow calls it familiar.",
+  "para_brood_mother": "It attaches, and the rival sickens; the rival sickens, and it feeds; the rival breaks, and it learns. Three habits that shouldn't fit in one body.",
+  "para_siphon_sac": "The rival's strain drips into it like rain into a gutter. League medics called it a 'sympathetic reaction'.",
+  "para_glutton_tendril": "Grows stronger every time the other side struggles. Exhibition matches with it ran long, on purpose.",
+  "para_rupture_sac": "When the rival's body rejects a graft, this one learns something. Draws two lessons, the handlers joke.",
+  "para_harvester_node": "Harvests what the rival's body throws away. The program's word, 'harvest', not ours.",
+  "para_swarm_ganglion": "The more grafts on the body, the louder it hums. Never in tune with anything on this side.",
+  "para_spawning_pit": "Every new graft it makes room for, it heals a little. Like a nest being built.",
+  "para_brood_larva": "Cheap, fast, disposable. The first thing the program learned to mass-produce was also the first thing it lost count of.",
+  "bast_citadel_spine": "It vents, and the rival bleeds for it; it braces, and it heals; it endures, and it hardens. The fortress we ordered, built by something that had built one before.",
+  "bast_exhaust_bladder": "The pressure has to go somewhere. It decided where. Always toward the opponent.",
+  "bast_relief_spiracle": "Breathes out when you'd expect it to breathe in. The engineers found this relaxing. That was the first warning.",
+  "bast_riposte_plating": "Stop the blow and return it. Military ethics review: 'acceptable'. Specimen's view: not recorded.",
+  "bast_callous_crest": "Every blow it blocks toughens it, and calms it. The army wanted the first half.",
+  "bast_ancient_plating": "The older the grafts around it, the harder it holds. Bastion calls it seniority. Hollow calls it sediment.",
+  "bast_enduring_brow": "Heals the body that holds on longest. The contract ran nine years. So did the plate.",
+  "bast_steam_ram": "Venting doesn't calm it. Venting winds it up. The field manual has a page on this. The page is blank.",
+  "cor_acid_colossus": "Wear it down; make it bleed; let the worn things rust. Three rites, and it performs them as one. We do not know who taught it the order.",
+  "cor_hemorrhage_fang": "The deeper they bleed, the harder it bites. Opening-stage researchers describe this with suspicious tenderness.",
+  "cor_lacerate": "Two cuts, one motion. Corrosion drill instructors practise it on training dummies. Mostly.",
+  "cor_dissolving_maw": "It eats Integrity the way we eat certainty: slowly, and with appetite.",
+  "cor_acid_weeper": "It weeps acid, and every worn graft makes it weep more. We have stopped asking if it is sad.",
+  "cor_etching_spray": "Write something on the graft. It stays written. It stays open.",
+  "cor_rust_bloom": "Rust is just a wound that learned patience.",
+  "cor_oxidized_hide": "The more broken your grafts, the tougher its hide. Corrosion teaches: your damage is our armor.",
+  "cor_bloodletter": "Only cuts what is already bleeding. We call it mercy. The Aegis delegation walked out.",
+  "aeg_sanctum_core": "A Protocol leads to a Purge; the Purge leads to a mend; the mend leads to armor. The Assay was only ever one step. The sanctum remembers the rest.",
+  "aeg_mending_carapace": "Mends every morning, whether it was hurt or not. Assay analysts call it 'prophylactic'. It is closer to a ritual.",
+  "aeg_restoration_mist": "The mist settles, the grafts knit. The lab techs claim the mist hums. The lab techs have been reassigned.",
+  "aeg_cleansing_crest": "Clean yourself and grow stronger. The Aegis believe this about the specimen. The specimen may believe it about us.",
+  "aeg_purifier_node": "Purges on arrival. We installed it to keep the specimen pure. We have never checked which way the filter faces.",
+  "aeg_warding_sigil": "Every Protocol leaves a mark on the plate. Nobody at Aegis can read the marks. The specimen reads them fine.",
+  "aeg_reflex_node": "Responds before thought. Aegis prefers it that way. Thought is where contamination hides.",
+  "aeg_mending_reflex": "A Protocol that repairs. The analysts who wrote it had not slept in four days, and could not stop washing.",
+  "aeg_regrowth_node": "Every repair purges. Every purge repairs. The Assay line calls this a closed loop. Closed against what?",
+  "mia_miasma_sovereign": "Their fever feeds the numbness; the numbness feeds our strength; two statuses make a third voice. Acceptance was one word of a longer sentence. The sovereign speaks the rest.",
+  "mia_choking_nexus": "When two statuses overlap, it strains. Miasma researchers say the specimen enjoys harmony.",
+  "mia_twin_plague": "Fever and numbness in one breath. We found this dose in a field kit with Corrosion markings. We keep that quiet.",
+  "mia_hushing_veil": "Hush them long enough and the horde goes quiet too. We have seen it. Nobody believes us.",
+  "mia_muffling_ganglion": "Stronger while they're numb. Everything is. Especially the listening.",
+  "mia_fever_tick": "Every graft they attach while burning costs them more. The tick counts. We don't know for whom.",
+  "mia_febrile_crown": "Even thrown away, it leaves them burning. Acceptance means accepting what the fever brings.",
+  "mia_compound_gland": "Two statuses in, a third comes out. The Miasma line believes the specimen is trying to finish a sentence.",
+  "hol_hollow_king": "A full grave drains them; every drain wounds them; every locked slot is a crown. Payment was only one stage of the debt. The king remembers who owes what.",
+  "hol_famine_maw": "Starve them low enough and it bites harder. Hollow calls it 'accounting'.",
+  "hol_hunger_tap": "Every drain feeds it. Where does the Energy go? Hollow's answer is the same every time: 'Nowhere you need to know.'",
+  "hol_ossuary_crown": "For every locked slot, a point of attack. The Hollow build their crowns out of other people's losses.",
+  "hol_tomb_warden": "Purges on arrival and guards the locked slots. Hollow wardens do not ask what's buried.",
+  "hol_marrow_blight": "Picks a graft at random and locks its grave. Hollow says the specimen chooses. The dice agree.",
+  "hol_charnel_limb": "Your discard pile is a charnel house. It keeps count. So do we.",
+  "hol_charnel_heart": "Beats once for every six cards gone. The operatives who tend it don't sleep with the lights off.",
+  "hol_grave_offering": "Give up a card to take two. Shed tissue still remembers the body. Ask a Hollow operative why they know that.",
+  "tech_engine_jammer": "Finds the heart of their combo and stops it. It works on every faction's engines. Whoever built it had seen them all.",
+  "tech_steam_mender": "Pressure in, repair out: Bastion plumbing, Aegis mending, in one graft. Nobody built this legally.",
+  "tech_fever_leech": "Feeds on their strain and gives them fever. A Parasite habit with a Miasma accent. Unregistered.",
+  "tech_blood_hammer": "The big hit opens a wound. Predator force, Corrosion malice. Someone has been mixing doctrines.",
+  "tech_brood_siphon": "Every new graft drains them. A Parasite nest with a Hollow appetite. The seller had four faction tattoos, all scarred over."
+ },
+ "chips": {
+  "acidFang": "Corrosion issue. The Opening line wired it to make every wound mean something.",
+  "rustbite": "Corrosion issue. Keeps bleeding going long after the fight. The engineers called it 'follow-through'.",
+  "corrodedTalon": "Corrosion issue. Rewards what's already worn. Corrosion has always preferred the patient kill.",
+  "ironclad": "Aegis issue. Answers every threat with a Protocol. The Assay line trusts procedure more than people.",
+  "mendingCoil": "Aegis issue. Mends, and mends, and mends. Nobody at Aegis has ever asked it to stop.",
+  "bulwarkChip": "Aegis issue. Built around the Purge. Clean first. Ask later. Ask never, ideally.",
+  "wastingTouch": "Miasma issue. Makes every graft they fit while burning cost them. Miasma calls it 'a toll for speaking'.",
+  "chokeHold": "Miasma issue. Keeps them numb, keeps the room quiet. Quiet enough to hear something else in it.",
+  "contaminant": "Miasma issue. Two statuses at once. The Acceptance line believes the specimen likes company.",
+  "gravedigger": "Hollow issue. Counts locked slots the way a banker counts debts.",
+  "cleansingRite": "Hollow issue, renamed twice. The original name is redacted in every copy we've found.",
+  "nullField": "Hollow issue. Starves the opponent quietly. Hollow does everything quietly."
+ },
+ "evolutions": {
+  "apexStalker": "Form reached after sustained violence. Every Apex Stalker on record turns its head the same way when it evolves. The bearing never changes.",
+  "frenzyForm": "Form reached at the edge of rejection. The trial notes stop describing it as a weapon here, and start describing it as awake.",
+  "hiveHost": "Form reached when the rival's body is close to breaking. Offshoots in the field have been seen to gather around a Hive Host. Not attack. Gather.",
+  "leechForm": "Form reached by taking punishment. It stores what it takes. We assumed for itself.",
+  "carapace": "Form reached by venting. The shell grows in layers, like a record being kept.",
+  "juggernaut": "Form reached by holding the line. It doesn't advance. It waits until everything else arrives."
+ },
+ "fragments": [
+  {
+   "id": "intake",
+   "source": "program",
+   "title": "Intake Record: Specimen-0",
+   "where": "Always on file",
+   "unlock": {
+    "kind": "start"
+   },
+   "text": "SPECIMEN-0. Recovered during a joint military–athletics survey of a restricted site. Condition on recovery: dormant. Origin: under investigation.\n\nIntegration trials to begin immediately. Two programs will share access: combat trials (defense) and exhibition trials (the league). Funding is conditional on results in both.\n\n[Filed eleven months after intake.]"
+  },
+  {
+   "id": "funding",
+   "source": "program",
+   "title": "Funding Request, Year 2",
+   "where": "Finish a few matches",
+   "unlock": {
+    "kind": "matches",
+    "n": 3
+   },
+   "text": "Requested: continued access for the combat trials and the exhibition league. Deliverables: three stable graft lines (provisional names: Predator, Parasite, Bastion).\n\nResearch question: ~~why does it already know how~~ how graft integration can be made reliable at scale.\n\nNote from the reviewer: \"Remove the struck line from the final copy.\""
+  },
+  {
+   "id": "exhibition",
+   "source": "program",
+   "title": "League Program Notes",
+   "where": "Win matches",
+   "unlock": {
+    "kind": "wins",
+    "n": 5
+   },
+   "text": "Tonight: the Predator line against the Bastion line, ten rounds, live.\n\nA reminder to guests: the specimens are not competitors, and do not understand the crowd. Please do not wave at the tanks. Please do not wave back if the tanks wave first."
+  },
+  {
+   "id": "rotation",
+   "source": "program",
+   "title": "Staff Rotation Memo",
+   "where": "Finish more matches",
+   "unlock": {
+    "kind": "matches",
+    "n": 15
+   },
+   "text": "Handling staff will rotate by integration stage: Opening, Assay, Acceptance, Setting, Payment, Shedding.\n\nThe Assay rotation was reassigned after the third researcher stopped eating. The Opening rotation has asked, again, not to be rotated. Setting and Shedding remain unstaffed; nobody volunteers, and nobody who is assigned stays.\n\nMorale is described as \"focused\"."
+  },
+  {
+   "id": "intake_rev",
+   "source": "program",
+   "title": "Intake Record: Specimen-0 (Revision 3)",
+   "where": "Finish many matches",
+   "unlock": {
+    "kind": "matches",
+    "n": 40
+   },
+   "text": "SPECIMEN-0. Discovered during a field exercise. Condition on discovery: ~~alive~~ dormant.\n\nRevision history: Revision 1 read, in full: \"It arrived.\" Revision 2 added a location. Revision 3 removed the word \"walked\".\n\nApproved for the funding file."
+  },
+  {
+   "id": "dissolution",
+   "source": "program",
+   "title": "Dissolution Order",
+   "where": "The Tower, low floors",
+   "unlock": {
+    "kind": "tower",
+    "n": 10
+   },
+   "text": "The program is dissolved. Its research lines pass to four successor groups, each of which has filed a statement of principle explaining why it could no longer work with the others.\n\nThe four statements were written separately. They were filed on the same morning."
+  },
+  {
+   "id": "found_corrosion",
+   "source": "corrosion",
+   "title": "Corrosion: Founding Record",
+   "where": "Win as Corrosion",
+   "unlock": {
+    "kind": "winWorld",
+    "id": "corrosion"
+   },
+   "text": "We left because the program was afraid of wounds. We were not. A wound is where the specimen shows you what it is. We chose to specialise, on principle, and we would choose it again.\n\nThe first of us who worked the Opening line never stopped touching her own scars. We called that dedication."
+  },
+  {
+   "id": "found_aegis",
+   "source": "aegis",
+   "title": "Aegis: Founding Record",
+   "where": "Win as Aegis",
+   "unlock": {
+    "kind": "winWorld",
+    "id": "aegis"
+   },
+   "text": "We left because the program stopped checking what it let in. We did not. Nothing enters the body we haven't tested. We chose to specialise, on principle, and we would choose it again.\n\nThe first Assay analysts washed their hands until the skin came off. We called that rigour."
+  },
+  {
+   "id": "found_miasma",
+   "source": "miasma",
+   "title": "Miasma: Founding Record",
+   "where": "Win as Miasma",
+   "unlock": {
+    "kind": "winWorld",
+    "id": "miasma"
+   },
+   "text": "We left because the program only ever talked at the specimen. We listen. Numbness and fever are the only language it has shown us. We chose to specialise, on principle, and we would choose it again.\n\nThe first Acceptance technicians stopped flinching at anything. We called that composure."
+  },
+  {
+   "id": "found_hollow",
+   "source": "hollow",
+   "title": "Hollow: Founding Record",
+   "where": "Win as Hollow",
+   "unlock": {
+    "kind": "winWorld",
+    "id": "hollow"
+   },
+   "text": "We left because the program kept records. We don't. What we know, we keep. We chose to specialise, on principle, and we would choose it again.\n\nThe first Payment operatives stopped writing things down. We called that discretion."
+  },
+  {
+   "id": "shift_opening",
+   "source": "corrosion",
+   "title": "Opening Line: Shift Notes",
+   "where": "Fire a Corrosion engine",
+   "unlock": {
+    "kind": "engine",
+    "id": "hemorrhage"
+   },
+   "text": "Day 41. The wound on the test graft closed overnight. I reopened it. I'm not sure the specimen minded.\nDay 58. Reopened my own. Only to compare.\nDay 90. Everyone on this line has a cut that won't close. We've stopped calling it an accident. We've started calling it an understanding."
+  },
+  {
+   "id": "shift_assay",
+   "source": "aegis",
+   "title": "Assay Line: Shift Notes",
+   "where": "Fire an Aegis engine",
+   "unlock": {
+    "kind": "engine",
+    "id": "cleanse"
+   },
+   "text": "Week 3. Filtered the sample eleven times. Clean. Filtered it again, because I could feel it wasn't.\nWeek 7. Filtered the water in the break room. And the air.\nWeek 12. Filtering the team now. Two of them failed. We don't talk to them any more. It feels correct."
+  },
+  {
+   "id": "shift_acceptance",
+   "source": "miasma",
+   "title": "Acceptance Line: Shift Notes",
+   "where": "Fire a Miasma engine",
+   "unlock": {
+    "kind": "engine",
+    "id": "silence"
+   },
+   "text": "It stopped fighting the graft at 03:10. So did I. I don't know what I was fighting.\nThe fever came next. It didn't hurt. It felt like being asked a question.\nI want to answer. Nobody else on this line can hear it. That's fine. That's how it's meant to be."
+  },
+  {
+   "id": "shift_payment",
+   "source": "hollow",
+   "title": "Payment Line: Shift Notes",
+   "where": "Fire a Hollow engine",
+   "unlock": {
+    "kind": "engine",
+    "id": "starvation"
+   },
+   "text": "Everything it takes in, it takes from somewhere. We tried to find where. We found it.\nThis entry is the last one I'll write down. What I know, I'll keep.\n[The rest of the notebook is blank. The pages have been turned.]"
+  },
+  {
+   "id": "setting",
+   "source": "program",
+   "title": "Setting (Unstaffed)",
+   "where": "Run many different engines",
+   "unlock": {
+    "kind": "engines",
+    "n": 6
+   },
+   "text": "No rotation was ever assigned to the Setting stage.\n\nThe sign-in sheet for the Setting room has entries anyway: one a night, for three hundred nights, in four different hands."
+  },
+  {
+   "id": "shedding",
+   "source": "hollow",
+   "title": "Shedding",
+   "where": "Run most of the engines",
+   "unlock": {
+    "kind": "engines",
+    "n": 12
+   },
+   "text": "Shed tissue is not inert. It keeps a thread back to what it was shed from. Not control. Proximity. It knows which way home is.\n\nWe discovered this in the first month. We decided the other three did not need to know."
+  },
+  {
+   "id": "four_records",
+   "source": "unknown",
+   "title": "Four Records, Compared",
+   "where": "Hold all four founding records",
+   "unlock": {
+    "kind": "all",
+    "ids": [
+     "found_corrosion",
+     "found_aegis",
+     "found_miasma",
+     "found_hollow"
+    ]
+   },
+   "text": "Unsigned, found folded inside a Hollow ledger:\n\n\"Read them side by side. Four principles, four disagreements. And the same last paragraph four times: the first of us changed, and we named the change a virtue.\n\nNobody chose a specialty. The specialty chose them.\""
+  },
+  {
+   "id": "cross_ref",
+   "source": "unknown",
+   "title": "Cross-Reference (Unauthorised)",
+   "where": "Hold all four shift notes",
+   "unlock": {
+    "kind": "all",
+    "ids": [
+     "shift_opening",
+     "shift_assay",
+     "shift_acceptance",
+     "shift_payment"
+    ]
+   },
+   "text": "Opening: wounds that won't close. Assay: filtering until nothing is left. Acceptance: no longer flinching. Payment: keeping, never telling.\n\nThese aren't four cultures. They're four stages of one integration cycle, and each ran in a different group of people for years.\n\nThe program didn't split. It was grafted. We were the tissue."
+  },
+  {
+   "id": "lone_scientist",
+   "source": "unknown",
+   "title": "The Lone Scientist",
+   "where": "Hold the revised intake and the comparison",
+   "unlock": {
+    "kind": "all",
+    "ids": [
+     "intake_rev",
+     "four_records"
+    ]
+   },
+   "text": "Official account of the horde's origin, agreed by all four factions: a lone outside scientist, black-market tissue, stolen schematics.\n\nMargin note: \"They agreed on this in a week. They have never agreed on anything within a year. Ask what that story protects.\""
+  },
+  {
+   "id": "offshoots",
+   "source": "handler",
+   "title": "Field Report: Offshoot Behaviour",
+   "where": "The Tower, middle floors",
+   "unlock": {
+    "kind": "tower",
+    "n": 20
+   },
+   "text": "Engaged 40 offshoots at the ridge. All neutralised.\n\nThe next group knew our formation. Not guessed it. Knew it.\n\nRecommend we stop treating the horde as waste. Recommendation declined: \"It is waste. Kill it faster.\""
+  },
+  {
+   "id": "gradient",
+   "source": "handler",
+   "title": "Survey Note: The Gradient",
+   "where": "The Tower, high floors",
+   "unlock": {
+    "kind": "tower",
+    "n": 35
+   },
+   "text": "The horde thins to the south and thickens to the north-east. Not randomly. Like filings near a magnet you can't see.\n\nAll four factions have this map. All four have told their handlers they don't know where it comes from."
+  },
+  {
+   "id": "recruit",
+   "source": "handler",
+   "title": "Recruitment Memo",
+   "where": "The Tower, near the top",
+   "unlock": {
+    "kind": "tower",
+    "n": 45
+   },
+   "text": "Re: the new handler.\n\nTell them they're the first. It's simpler. Do not tell them about the previous attempts, or why the records of those attempts stop.\n\n— [FACTION REDACTED], Recruitment"
+  },
+  {
+   "id": "handler_1",
+   "source": "handler",
+   "title": "Handler Intake Packet",
+   "where": "Begin a Lineage",
+   "unlock": {
+    "kind": "lineage",
+    "n": 1
+   },
+   "text": "Welcome. You are the first handler in history to build toward the breach deliberately, watched from the start.\n\nYour Specimen will change. So will you. Report both.\n\n[Form number: 5. The four earlier forms are not in the packet.]"
+  },
+  {
+   "id": "handler_3",
+   "source": "handler",
+   "title": "Handler File 3 (Partial)",
+   "where": "Go deeper into a Lineage",
+   "unlock": {
+    "kind": "lineage",
+    "n": 4
+   },
+   "text": "Week 9. The specimen has evolved twice. It turns toward the north-east when it rests. So do I, now.\nWeek 11. Our recruiter asked if I'd noticed anything \"unusual about the pull\". I hadn't mentioned a pull.\nWeek 12. Tomorrow we go looking for"
+  },
+  {
+   "id": "handler_5",
+   "source": "handler",
+   "title": "Handler File 5 (Partial)",
+   "where": "Go deeper still into a Lineage",
+   "unlock": {
+    "kind": "lineage",
+    "n": 8
+   },
+   "text": "The bond holds. The specimen is almost complete. The offshoots at the last camp stopped attacking when we arrived. They just watched.\n\nThe Hollow woman was there again, at the edge of the camp. She never interferes. I asked her name. She asked mine back, as if it were a test.\n\nWe go north-east at first light. If this is the last entry, it"
+  },
+  {
+   "id": "handler_9",
+   "source": "handler",
+   "title": "Handler File 9",
+   "where": "Complete a Lineage",
+   "unlock": {
+    "kind": "lineageComplete"
+   },
+   "text": "File 9 is empty except for a date and one line, in a hand that doesn't match the handler's:\n\n\"Nine is enough. Stop numbering them.\""
+  },
+  {
+   "id": "op_1",
+   "source": "operative",
+   "title": "Sighting: Unregistered Handler",
+   "where": "Meet someone who is not on the roster",
+   "unlock": {
+    "kind": "met",
+    "name": "Unregistered Handler",
+    "n": 1
+   },
+   "text": "Match log anomaly. The opposing handler is not on any faction's roster. The Specimen's tissue reads Hollow; the handler's credentials read nothing at all.\n\nWhen the match was over she said one sentence to the observers, and none of them wrote it down. When asked later, none of them could agree on what it was."
+  },
+  {
+   "id": "op_2",
+   "source": "operative",
+   "title": "Sighting: Second Contact",
+   "where": "Meet her again",
+   "unlock": {
+    "kind": "met",
+    "name": "Unregistered Handler",
+    "n": 2
+   },
+   "text": "Same handler. Same absence of records. She fought as if she already knew your deck, then left before the result was logged.\n\nSecurity footage from the exit shows her stopping at the door, as if listening for something that wasn't in the room."
+  },
+  {
+   "id": "op_3",
+   "source": "operative",
+   "title": "Sighting: Third Contact",
+   "where": "Meet her a third time",
+   "unlock": {
+    "kind": "met",
+    "name": "Unregistered Handler",
+    "n": 3
+   },
+   "text": "Transcript, partial (audio degraded):\n\n\"...four of us. One from each. We met where the war frays at the edges... none of us could have built it alone...\n...two of the others are still alive...\n...you already know enough to work out which one sent you.\""
+  },
+  {
+   "id": "op_4",
+   "source": "operative",
+   "title": "Unsigned Letter",
+   "where": "When she has said enough, and you have seen the clearing",
+   "unlock": {
+    "kind": "all",
+    "ids": [
+     "op_3",
+     "z_clearing"
+    ]
+   },
+   "text": "You felt it reach back. So did I, from a long way off.\n\nWe spent years in secret to make that happen once. You did it by accident, or you think you did.\n\nI won't tell you who I was. It matters less than who recruited you. Ask them. Watch how smoothly they answer."
+  },
+  {
+   "id": "z_clearing",
+   "source": "z",
+   "title": "The Clearing",
+   "where": "At the top of everything",
+   "unlock": {
+    "kind": "met",
+    "name": "Z",
+    "n": 1
+   },
+   "text": "Not a fortress. A space the horde keeps clear, the way a wound stays open at the centre of scar tissue.\n\nIt is working. Not fighting. Integrating: dead offshoots, lost grafts, the occasional handler who came too close. Every attempt at the same thing it did once and cannot do again.\n\nIt knew you before you arrived."
+  },
+  {
+   "id": "z_settled",
+   "source": "z",
+   "title": "Settled",
+   "where": "Only at the very end",
+   "unlock": {
+    "kind": "beat",
+    "name": "Z"
+   },
+   "text": "It didn't die. It didn't surrender.\n\nIt stopped: the first time since it broke free. As if it finally had proof that what it became could exist somewhere else without being consumed to prove it.\n\nThe horde thinned within the week. Every faction noticed. Every faction did the maths."
+  },
+  {
+   "id": "defectors",
+   "source": "unknown",
+   "title": "What Was Built",
+   "where": "The last record",
+   "unlock": {
+    "kind": "all",
+    "ids": [
+     "z_settled",
+     "op_4",
+     "lone_scientist",
+     "cross_ref"
+    ]
+   },
+   "text": "Four defectors. A Corrosion researcher with the bleed schematics. An Aegis analyst with the purge protocols. A Miasma field tech with the numb-and-fever data. A Hollow operative with the necrosis research nobody outside Hollow had seen.\n\nThey weren't building a weapon. They were trying to heal the split: one full cycle, in one body.\n\nIt worked. It finished. And a body that finishes its own cycle no longer needs anyone's permission, least of all theirs.\n\nThey called it Z, because it was meant to be the end of something."
+  },
+  {
+   "id": "evolution",
+   "source": "program",
+   "title": "Evolution Report",
+   "where": "Evolve",
+   "unlock": {
+    "kind": "evolve"
+   },
+   "text": "Subject evolved at round end. Bearing on evolution: north-east.\n\nEvery evolution this year has faced north-east. The instruments are fine. We checked the instruments."
+  },
+  {
+   "id": "six_forms",
+   "source": "program",
+   "title": "Six Forms",
+   "where": "Evolve into every form",
+   "unlock": {
+    "kind": "forms",
+    "n": 6
+   },
+   "text": "Apex Stalker, Frenzy Form, Hive Host, Leech Form, Carapace, Juggernaut.\n\nSix forms, three lines, and every one of them is a stage short of something. Put them together and the missing stage is always the same: the one where it stops needing us."
+  },
+  {
+   "id": "engines",
+   "source": "handler",
+   "title": "On Engines",
+   "where": "Set off an engine",
+   "unlock": {
+    "kind": "engines",
+    "n": 1
+   },
+   "text": "Field note: when one graft sets off another, the specimen goes very still, like it's remembering something.\n\nThe manuals call it synergy. The old program called it integration. The first researchers called it the cycle, and then stopped calling it anything."
+  }
+ ],
+ "encounters": {
+  "Unregistered Handler": [
+   {
+    "before": "A handler you don't recognise. No faction insignia. Hollow tissue under her grafts. She looks at your Specimen, not at you.",
+    "win": "She nods, as if you'd answered a question correctly, and is gone before the result is logged.",
+    "loss": "\"Not yet,\" she says, to your Specimen rather than to you."
+   },
+   {
+    "before": "Her again. She's already watching the north-east wall, the way your Specimen does when it rests.",
+    "win": "\"It's learning faster than the others did.\" You never told her there were others.",
+    "loss": "\"Slower,\" she says. \"You're rushing it. So did the rest.\""
+   },
+   {
+    "before": "The unregistered handler. This time she speaks first: \"Do you know which one of them sent you?\"",
+    "win": "\"Four of us. One from each. Two of the others are still alive. One of them recruited you.\" She won't say which.",
+    "loss": "\"When you're ready to ask your recruiter the right question, you'll win this.\""
+   }
+  ],
+  "Z": [
+   {
+    "before": "The clearing. The horde keeps it open like a wound. Something at the centre is working, and it has already turned toward you.",
+    "win": "It stops. Not dead. Not beaten. Settled, for the first time. Around you, the horde goes still.",
+    "loss": "It reaches for your Specimen, gently by its standards. The bond holds, barely. Not today."
+   }
+  ]
+ }
+}

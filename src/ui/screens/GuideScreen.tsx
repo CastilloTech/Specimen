@@ -411,6 +411,9 @@ const STEPS: Step[] = [
         <p>
           Create a <b>Save</b> to keep your decks and default picks, and to see stats and tips from your own matches. A Save also tracks <b>Faction mastery</b>: master a Build or World Faction to unlock its Mastery Signature card.
         </p>
+        <p>
+          Nobody will tell you the story. Read the lines on the cards, and the records you recover as you play, in the <b>Archive</b>. Not every record tells the truth.
+        </p>
       </>
     ),
   },

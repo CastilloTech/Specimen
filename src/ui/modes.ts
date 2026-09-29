@@ -4,6 +4,7 @@ import type { BotTier, CardDef, Config, DeepPartial, Faction, MatchSetup, Player
 import { loadSaveData, saveSaveData } from './storage';
 import type { LineageState } from './lineage';
 import type { BreachRun } from './breach';
+import { OPERATIVE_NAME, Z_NAME } from './lore';
 
 // Game Modes progression, kept per save: you start with one Build + World Faction starter deck (no
 // Signatures) and one Chip, win matches for biomass, and spend it on crafting cards and unlocking more
@@ -190,18 +191,30 @@ export function finalBossDeck(): string[] {
 }
 
 /** The opponent (and any rule twists) for a floor. Deterministic for a run's seed. */
+/** Floors where the Unregistered Handler waits instead of a random rival (22 and 38 are also Lineage matches). */
+export const OPERATIVE_FLOORS = [22, 38, 47];
+
 export function floorMatch(floor: number, runSeed: number, me: ModeDeck, name: string): MatchSetup {
   const info = floorInfo(floor);
   const rng = makeRng((runSeed ^ (floor * 2654435761)) >>> 0);
-  const faction = rng.pick([...FACTIONS]);
-  const worldFaction = rng.pick([...WORLD_FACTIONS]);
-  const chip = rng.pick(chipsFor(worldFaction)).id;
-  const loadout = chipRows(chip).map((r) => rng.pick(r.nodes).id);
+  let faction = rng.pick([...FACTIONS]);
+  let worldFaction = rng.pick([...WORLD_FACTIONS]);
+  let chip = rng.pick(chipsFor(worldFaction)).id;
+  let loadout = chipRows(chip).map((r) => rng.pick(r.nodes).id);
   let deck: string[];
   let botName: string;
   if (info.boss === 'final') {
     deck = finalBossDeck();
-    botName = 'The Progenitor';
+    botName = Z_NAME;
+  } else if (OPERATIVE_FLOORS.includes(floor)) {
+    // The Unregistered Handler: a Hollow operative on nobody's roster, shadowing your climb.
+    faction = 'parasite';
+    worldFaction = 'hollow';
+    chip = 'nullField';
+    loadout = chipRows(chip).map((r) => r.nodes[r.nodes.length - 1].id);
+    // Early floors keep their softer decks (no Signatures), so she is no harder than the floor.
+    deck = floor <= 25 ? [...starterSet(faction), ...starterSet(worldFaction), ...TECH_STARTER] : starterDeck(faction, worldFaction);
+    botName = OPERATIVE_NAME;
   } else if (info.boss === 'faction') {
     // A Faction Boss: its full starter deck with its Signatures, plus both Mastery Signatures in place of
     // two of its cheapest commons.

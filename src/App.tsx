@@ -34,12 +34,14 @@ type Screen =
   | { name: 'post'; setup: MatchSetup; state: GameState; label?: string }
   | { name: 'saves' }
   | { name: 'guide' }
+  | { name: 'archive' }
   | { name: 'decks' };
 
 
 // Every screen but the menu loads when first opened (the service worker has them all cached after the first
 // visit, so this only speeds up the very first load). The match screen is fetched in the background as soon
 // as the menu is up, so Quick match starts instantly.
+const ArchiveScreen = lazy(() => import('./ui/screens/ArchiveScreen').then((m) => ({ default: m.ArchiveScreen })));
 const CollectionScreen = lazy(() => import('./ui/screens/CollectionScreen').then((m) => ({ default: m.CollectionScreen })));
 const DeckBuilder = lazy(() => import('./ui/screens/DeckBuilder').then((m) => ({ default: m.DeckBuilder })));
 const GameModes = lazy(() => import('./ui/screens/GameModes').then((m) => ({ default: m.GameModes })));
@@ -125,7 +127,7 @@ function Screens() {
               </button>
             </div>
           )}
-          <Menu onQuick={quick} onModes={() => setScreen({ name: 'modes' })} onBot={() => setScreen({ name: 'setup' })} onSaves={() => setScreen({ name: 'saves' })} onGuide={() => setScreen({ name: 'guide' })} onDecks={() => setScreen({ name: 'decks' })} onTutorial={() => tutorial('basics')} />
+          <Menu onQuick={quick} onModes={() => setScreen({ name: 'modes' })} onBot={() => setScreen({ name: 'setup' })} onSaves={() => setScreen({ name: 'saves' })} onGuide={() => setScreen({ name: 'guide' })} onDecks={() => setScreen({ name: 'decks' })} onTutorial={() => tutorial('basics')} onArchive={() => setScreen({ name: 'archive' })} />
         </>
       );
     case 'setup':
@@ -228,6 +230,8 @@ function Screens() {
       return <SavesScreen onBack={menu} onWatch={(replay) => setScreen({ name: 'replay', replay, back: { name: 'saves' } })} />;
     case 'replay':
       return <ReplayScreen replay={screen.replay} shared={screen.shared} startAt={screen.startAt} onBack={() => setScreen(screen.back)} />;
+    case 'archive':
+      return <ArchiveScreen onBack={menu} />;
     case 'guide':
       return (
         <GuideScreen

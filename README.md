@@ -745,6 +745,25 @@ Tuning on the way:
 
 The starter-deck sim is unchanged: the starter decks hold no engine payoffs. Builds are 47.0–53.0%.
 
+### Story and lore, told the Dark Souls way
+
+The story is never explained. It lives in fragments, each from a biased source, and the player assembles it.
+- **Flavour text** is written for all 176 cards, the 12 Chips and the 6 evolutions, in the voice of whoever wrote the record:
+  - **Builds:** the old program's combat trials and exhibition league.
+  - **World Factions:** each one's own self-serving account.
+  - **Tech:** the black market and the handlers in the field.
+
+  It shows in card detail, under the chosen Chip and on the evolution choice. All story text is in `src/data/lore.json`; the card data and budget scripts are untouched.
+- **The Archive** (main menu) holds 36 recovered records from nine sources: the Program, the four factions, Handlers, Unregistered, Z and Unsigned.
+  - They unlock from play: finishing and winning matches, winning with each World Faction, firing engines, evolving, Tower floors, Lineage matches, meeting certain opponents.
+  - Some are "contradiction" records that only open once you hold the accounts they contradict.
+  - Missing records show as redacted bars with a vague hint, and a source tab appears only once you have something from it.
+  - Records are per save, with a "new" marker and an unread count on the menu. Rules are in `unlockedFragments` in `src/ui/lore.ts`.
+  - Match records now keep the opponent's name, which is how the Archive knows whom you've met.
+- **Z** replaces "The Progenitor" as the Tower's floor-50 boss and the last Lineage match. It says a line before the match and another after, depending on the result.
+- **The Unregistered Handler**, a Hollow handler on nobody's roster, waits on Tower floors 22, 38 and 47. Floors 22 and 38 are also Lineage matches 6 and 8. Her lines change each time you meet her (`OPERATIVE_FLOORS` in `modes.ts`, lines in `lore.json`).
+- **Containment Breach is unchanged:** it stays wave survival against escapees, with no story encounters.
+
 ### UI pass: containment-lab look and quality of life
 
 - **Art direction.** A dim containment-lab look: culture-plate grid background, bioluminescent accent, Chakra Petch display type (Google Fonts; falls back to system fonts offline), hazard tape for Meltdown. Every card has procedural "specimen plate" art (`src/ui/components/CardArt.tsx`), drawn from its type (and a graft's slot), tinted by faction and seeded by card id, so there are no image assets to maintain. Each Specimen is the bio-engineered creature from `src/assets/specimen.jpg` (cropped from the provided concept card art) in a containment tank, mirrored on the left-hand side so the two face each other, with graft sockets placed on its anatomy (helmet, neck cables, chest, resting hand, far forearm, hip; see `POS` in `Specimen.tsx`) and grafts shown as mini plates.

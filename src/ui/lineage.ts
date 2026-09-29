@@ -1,5 +1,6 @@
 import { defaultConfig, makeRng, MUTATION_MAP, MUTATIONS, SLOT_LABEL } from '../engine';
 import type { GameState, MatchSetup, SlotId } from '../engine';
+import { OPERATIVE_NAME, Z_NAME } from './lore';
 import { floorMatch } from './modes';
 import type { ModeDeck, Progress } from './modes';
 
@@ -13,13 +14,13 @@ export const MIN_MAX_HP = 24;
 /** Max HP a lost match costs. */
 export const LOSS_SCAR = 3;
 export const MAX_LOSSES = 4;
-/** Rival Specimens come from other scarred bloodlines: their max HP (a Matriarch's, and the Progenitor's). */
+/** Rival Specimens come from other scarred bloodlines: their max HP (a Matriarch's; Z has a full Specimen's). */
 export const RIVAL_HP = 32;
 export const MATRIARCH_HP = 36;
 const MIN_SLOTS = 3;
 const BASE_HP = defaultConfig.specimen.hp;
 /** Which Tower floor each campaign match borrows its opponent from: steadily harder, with Tower rule twists
- * in match 9 and the Progenitor itself as the final match. */
+ * in match 9 and Z itself as the final match. */
 export const FLOOR_FOR_MATCH = [1, 3, 6, 10, 14, 22, 30, 38, 44, 50];
 
 export interface LineageEntry {
@@ -68,19 +69,19 @@ export function lineageMatch(l: LineageState, playerName: string): MatchSetup {
   const setup = floorMatch(FLOOR_FOR_MATCH[l.match - 1], l.seed, l.deck, playerName);
   const you = { ...setup.players[0], maxHp: l.maxHp, lostSlots: l.lostSlots, mutations: l.mutations.filter((id) => !MUTATION_MAP[id]?.lineage) };
   const towerName = setup.players[1].name;
-  const rivalHp = towerName === 'The Progenitor' ? BASE_HP : towerName.startsWith('Boss:') ? MATRIARCH_HP : RIVAL_HP;
+  const rivalHp = towerName === Z_NAME ? BASE_HP : towerName.startsWith('Boss:') ? MATRIARCH_HP : RIVAL_HP;
   // The late floors keep their Tower rule twists (the bot starts evolved, early Meltdown, you vent less).
   return { ...setup, players: [you, { ...setup.players[1], name: rivalName(l, setup.players[1].faction, towerName), maxHp: rivalHp }] };
 }
 
 // Opponents are rival Specimens from other bloodlines, named for their Build; the bosses are a bloodline's
-// matriarch and, last of all, the Progenitor every lineage descends from.
+// matriarch; the Unregistered Handler keeps her own name; and last of all comes Z, where every lineage is drawn.
 const EPITHETS = ['Ashen', 'Hollow-Eyed', 'Weeping', 'Feral', 'Grafted', 'Pale', 'Scarred', 'Starving', 'Twice-Born', 'Rotting', 'Silent', 'Hungering', 'Split', 'Blind', 'Cinder'];
 const BUILD_NOUN: Record<string, string> = { predator: 'Stalker', parasite: 'Leech', bastion: 'Bulwark' };
 const LINES = ['Vesk', 'Morrow', 'Kael', 'Ossian', 'Thule', 'Varn', 'Sable', 'Ixen', 'Corvid', 'Harrow'];
 
 function rivalName(l: LineageState, faction: string, towerName: string): string {
-  if (towerName === 'The Progenitor') return towerName;
+  if (towerName === Z_NAME || towerName === OPERATIVE_NAME) return towerName;
   const rng = makeRng((l.seed ^ (l.match * 0x2545f491)) >>> 0);
   const line = rng.pick(LINES);
   if (towerName.startsWith('Boss:')) return `Matriarch of the ${line} Line`;

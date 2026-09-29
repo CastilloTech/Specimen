@@ -10,6 +10,8 @@ import { CardArt } from './CardArt';
 import { accentFor, factionName } from './CardView';
 import { Emblem } from './Emblem';
 import { EngineIcon } from './EngineIcon';
+import { Flavor } from './Flavor';
+import { CARD_FLAVOR } from '../lore';
 
 const S = defaultConfig.status;
 /** One-line reminders for the rules words a card's text can use, shown under the text when they appear. */
@@ -107,6 +109,7 @@ export function CardDetail({ def, onClose, onPrev, onNext, children }: { def: Ca
             </div>
           )}
           <p className="text-[15px] leading-snug text-ink">{def.text}</p>
+          <Flavor text={CARD_FLAVOR[def.id]} />
           {def.signature && (
             <p className="text-[11px] text-amber-200">
               Signature: one copy per deck. Surviving {defaultConfig.veterancy.signatureThreshold} Strain checks makes it a Veteran (+{defaultConfig.veterancy.signatureAttackBonus} attack).
