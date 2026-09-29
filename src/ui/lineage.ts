@@ -94,8 +94,8 @@ export interface MatchReport {
   ended: 'complete' | 'dead' | null;
 }
 
-export const lineageReward = (match: number, won: boolean) => (won ? 20 + 5 * match : 0);
-export const LINEAGE_COMPLETE_BONUS = 250;
+export const lineageReward = (match: number, won: boolean) => (won ? 15 + 3 * match : 0);
+export const LINEAGE_COMPLETE_BONUS = 200;
 
 /**
  * Scars from one match. Every rejected graft kills the slot it was in (while at least 3 slots remain;

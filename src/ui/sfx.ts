@@ -1,26 +1,35 @@
-import { createElement, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { CARD_MAP } from '../engine';
 import type { GameState, PlayerId } from '../engine';
 
 // Sound effects, synthesized with Web Audio (no audio files). Every sound is a few short oscillator or
-// filtered-noise envelopes. The preference (volume, muted) is per device, in localStorage.
+// filtered-noise envelopes. The preferences (effects, music, vibration) are per device, in localStorage.
+// The ambient music lives in music.ts and shares this audio context.
 
 export type Sfx = 'click' | 'card' | 'graft' | 'toxin' | 'react' | 'hit' | 'bigHit' | 'strain' | 'reject' | 'evolve' | 'heal' | 'stance' | 'round' | 'win' | 'lose' | 'draw' | 'craft' | 'wake';
 
-interface Pref {
+export interface Pref {
   volume: number; // 0..1
   muted: boolean;
+  /** Ambient music (music.ts). */
+  music: boolean;
+  musicVolume: number; // 0..1
+  /** Phone vibration on big moments. */
+  haptics: boolean;
 }
+const DEFAULTS: Pref = { volume: 0.6, muted: false, music: true, musicVolume: 0.35, haptics: true };
+const unit = (x: unknown, d: number) => (typeof x === 'number' && isFinite(x) ? Math.max(0, Math.min(1, x)) : d);
 const KEY = 'specimen.sound';
 const listeners = new Set<(p: Pref) => void>();
 let pref: Pref = (() => {
   try {
-    const p = JSON.parse(localStorage.getItem(KEY) ?? 'null') as Pref | null;
-    if (p && typeof p.volume === 'number') return { volume: Math.max(0, Math.min(1, p.volume)), muted: !!p.muted };
+    const p = JSON.parse(localStorage.getItem(KEY) ?? 'null') as Partial<Pref> | null;
+    if (p && typeof p === 'object')
+      return { volume: unit(p.volume, DEFAULTS.volume), muted: !!p.muted, music: p.music ?? DEFAULTS.music, musicVolume: unit(p.musicVolume, DEFAULTS.musicVolume), haptics: p.haptics ?? DEFAULTS.haptics };
   } catch {
     /* fall through */
   }
-  return { volume: 0.6, muted: false };
+  return { ...DEFAULTS };
 })();
 
 export const getSoundPref = () => pref;
@@ -33,6 +42,11 @@ export function setSoundPref(next: Partial<Pref>) {
   }
   listeners.forEach((l) => l(pref));
 }
+/** Be told whenever the preferences change (the music follows them). */
+export function onSoundPref(cb: (p: Pref) => void): () => void {
+  listeners.add(cb);
+  return () => void listeners.delete(cb);
+}
 export function useSoundPref(): Pref {
   const [p, setP] = useState(pref);
   useEffect(() => {
@@ -44,7 +58,8 @@ export function useSoundPref(): Pref {
 
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
-function audio(): AudioContext | null {
+/** The shared audio context (created on first use; browsers only let it play after a tap or key). */
+export function audio(): AudioContext | null {
   if (typeof window === 'undefined' || !('AudioContext' in window)) return null;
   if (!ctx) {
     ctx = new AudioContext();
@@ -177,7 +192,7 @@ export function play(s: Sfx) {
 const PRIORITY: Sfx[] = ['win', 'lose', 'draw', 'evolve', 'reject', 'bigHit', 'round', 'hit', 'heal', 'graft', 'toxin', 'react', 'card', 'stance', 'strain', 'wake'];
 
 /** Plays the sounds for whatever just happened in a match. `me` hears their own win or loss. */
-export function useMatchSounds(state: GameState, me: PlayerId, enabled = true) {
+export function useMatchSounds(state: GameState, me: PlayerId, enabled = true, haptics = true) {
   const seenLog = useRef(state.log.length);
   const seenPlays = useRef(state.plays.length);
   useEffect(() => {
@@ -200,7 +215,8 @@ export function useMatchSounds(state: GameState, me: PlayerId, enabled = true) {
       } else out.add('card');
     }
     for (const l of log) {
-      if (l.kind === 'damage' && (l.amount ?? 0) > 0) out.add((l.amount ?? 0) >= 8 ? 'bigHit' : 'hit');
+      // Big Clash hits are logged as 'hit', the rest as 'damage'.
+      if ((l.kind === 'damage' || l.kind === 'hit') && (l.amount ?? 0) > 0) out.add(l.kind === 'hit' || (l.amount ?? 0) >= 8 ? 'bigHit' : 'hit');
       else if (l.kind === 'heal' && (l.amount ?? 0) > 0) out.add('heal');
       else if (l.kind === 'reject') out.add('reject');
       else if (l.kind === 'evolve') out.add('evolve');
@@ -209,30 +225,35 @@ export function useMatchSounds(state: GameState, me: PlayerId, enabled = true) {
       else if (l.kind === 'strain' && (l.amount ?? 0) > 0) out.add('strain');
       else if (l.kind === 'end') out.add(state.result?.winner === me ? 'win' : state.result?.winner == null ? 'draw' : 'lose');
     }
+    // Vibrate for what happens to you: a hit you take, your rejection or evolution, the result.
+    let feel: keyof typeof BUZZ | null = null;
+    for (const l of log) {
+      if (l.kind === 'end') feel = state.result?.winner === me ? 'win' : state.result?.winner == null ? null : 'lose';
+      else if (l.player !== me) continue;
+      else if (l.kind === 'evolve' && l.text.startsWith('EVOLUTION:')) feel = 'evolve';
+      else if (l.kind === 'reject' && feel !== 'evolve') feel = 'reject';
+      else if ((l.kind === 'damage' || l.kind === 'hit') && (l.amount ?? 0) > 0 && (!feel || feel === 'hit')) feel = l.kind === 'hit' || (l.amount ?? 0) >= 8 ? 'bigHit' : 'hit';
+    }
+    if (feel && haptics) buzz(BUZZ[feel] as number | number[]);
     PRIORITY.filter((s) => out.has(s))
       .slice(0, 3)
       .forEach((s, i) => (i ? setTimeout(() => play(s), i * 120) : play(s)));
-  }, [state.log, state.plays, state.result, me, enabled]);
+  }, [state.log, state.plays, state.result, me, enabled, haptics]);
 }
 
-const SIZE = { xs: 'h-5 w-6 rounded text-[11px]', sm: 'h-7 w-8 rounded-md text-xs', md: 'h-9 w-9 rounded-lg text-base' };
 
-/** A small speaker button: tap to mute or unmute. */
-export function SoundToggle({ size = 'md' }: { size?: 'xs' | 'sm' | 'md' }) {
-  const p = useSoundPref();
-  const on = !p.muted && p.volume > 0;
-  return createElement(
-    'button',
-    {
-      onClick: () => {
-        setSoundPref({ muted: on, volume: p.volume > 0 ? p.volume : 0.6 });
-        if (!on) setTimeout(() => play('click'), 0);
-      },
-      className: `grid shrink-0 place-items-center border border-line hover:border-mute ${SIZE[size]} ${on ? 'text-ink2' : 'text-mute opacity-70'}`,
-      'aria-label': on ? 'Mute sound' : 'Unmute sound',
-      'aria-pressed': !on,
-      title: on ? 'Sound on (tap to mute)' : 'Sound off (tap to unmute)',
-    },
-    on ? '🔊' : '🔇',
-  );
+// ---------- Haptics ----------
+
+export const canVibrate = () => typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function';
+
+/** A short buzz for a big moment, if the device can and the player hasn't turned it off. */
+export function buzz(pattern: number | number[]) {
+  if (!pref.haptics || !canVibrate()) return;
+  try {
+    navigator.vibrate(pattern);
+  } catch {
+    /* ignored */
+  }
 }
+
+const BUZZ = { hit: 25, bigHit: [70], reject: [40, 60, 40], evolve: [30, 40, 30, 40, 90], win: [50, 60, 140], lose: [220] } as const;

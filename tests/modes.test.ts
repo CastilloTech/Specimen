@@ -111,3 +111,40 @@ describe('The Tower', () => {
     expect(lost.progress).toEqual(p);
   });
 });
+
+describe('Biomass economy', () => {
+  it('a Tower floor pays in full only the first time: climbing back after a checkpoint pays the replay rate', () => {
+    let p = fresh();
+    for (let f = 1; f <= 7; f++) p = towerResult(p, f, true).progress; // best 7, checkpoint 6
+    p = towerResult(p, 8, false).progress; // back to floor 6
+    expect(p.tower.floor).toBe(6);
+    const again = towerResult(p, 6, true);
+    expect(again.reward).toBe(replayReward(6));
+    let q = towerResult(again.progress, 7, true).progress;
+    const fresh8 = towerResult(q, 8, true);
+    expect(fresh8.reward).toBe(floorInfo(8).reward); // a new floor pays in full
+    q = fresh8.progress;
+    expect(q.tower.best).toBe(8);
+  });
+
+  it('a later run pays the replay rate for floors already cleared', () => {
+    let p = fresh();
+    p = { ...p, tower: { ...p.tower, floor: 1, checkpoint: 1, best: TOWER_FLOORS, clears: 1 } };
+    expect(towerResult(p, 1, true).reward).toBe(replayReward(1));
+    expect(towerResult({ ...p, tower: { ...p.tower, floor: 50 } }, 50, true).reward).toBe(replayReward(50));
+  });
+
+  it('Breach waves pay a little more each wave, up to a cap', async () => {
+    const { waveReward, WAVE_REWARD_CAP } = await import('../src/ui/breach');
+    expect(waveReward(2)).toBeGreaterThan(waveReward(1) - 1);
+    expect(waveReward(20)).toBeGreaterThan(waveReward(2));
+    expect(waveReward(200)).toBe(WAVE_REWARD_CAP);
+  });
+
+  it('unlocking everything costs a real grind: over 12,000 biomass', () => {
+    let total = (FACTIONS.length - 1) * COSTS.build + (WORLD_FACTIONS.length - 1) * COSTS.world;
+    total += (WORLD_FACTIONS.reduce((n, w) => n + chipsFor(w).length, 0) - 1) * COSTS.chip;
+    for (const c of Object.values(CARD_MAP)) if (!c.mastery) total += (c.signature ? 1 : 2) * craftCost(c);
+    expect(total).toBeGreaterThan(12_000);
+  });
+});

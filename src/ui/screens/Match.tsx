@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { SoundToggle, useMatchSounds } from '../sfx';
+import { useMatchSounds } from '../sfx';
+import { SoundToggle } from '../components/AudioMenu';
+import { setMusicMood } from '../music';
 import { Coach } from '../components/Coach';
 import { setLessonDone } from '../tutorial';
 import type { Lesson } from '../tutorial';
@@ -68,6 +70,11 @@ export function MatchScreen({ setup, settings, onExit, onFinish, label, tutorial
   const [evoEvents, dismissEvo] = useEvolutionEvents(state);
   const clash = useClashEvent(state);
   useMatchSounds(state, 0, introSeen);
+  // The music turns tense for the match and calms again after.
+  useEffect(() => {
+    setMusicMood('match');
+    return () => setMusicMood('calm');
+  }, []);
   const arrivals = useArrivals(state.players[0].hand.map((c) => c.uid), introSeen);
   const phone = useMediaQuery(PHONE_LANDSCAPE);
   const portrait = useMediaQuery(PHONE_PORTRAIT);

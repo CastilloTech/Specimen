@@ -51,7 +51,7 @@ export interface Progress {
 }
 
 export const TOWER_FLOORS = 50;
-export const COSTS = { chip: 120, build: 300, world: 300, signature: 150 };
+export const COSTS = { chip: 150, build: 400, world: 400, signature: 200 };
 const D = defaultConfig.deck;
 const tally = (ids: string[]) => ids.reduce<Record<string, number>>((m, id) => ((m[id] = (m[id] ?? 0) + 1), m), {});
 const newSeed = () => Math.floor(Math.random() * 2 ** 31);
@@ -95,7 +95,7 @@ export const saveProgress = (p: Progress) => saveSaveData('progress', p);
 // ---------- Crafting and unlocks ----------
 
 export const maxOwned = (c: CardDef) => (c.signature ? D.signatureCopies : D.maxCopies);
-export const craftCost = (c: CardDef) => (c.signature ? COSTS.signature : 20 + 10 * c.cost);
+export const craftCost = (c: CardDef) => (c.signature ? COSTS.signature : 25 + 12 * c.cost);
 /** Mastery Signatures come from Faction achievements, not biomass. */
 export const craftable = (p: Progress, c: CardDef) => !c.mastery && (c.faction === 'tech' || (p.builds as string[]).includes(c.faction) || (p.worlds as string[]).includes(c.faction));
 
@@ -249,12 +249,14 @@ export function replayResult(p: Progress, floor: number, won: boolean): { progre
   return { progress: { ...p, biomass: p.biomass + reward, earned: p.earned + reward }, reward };
 }
 
-/** Apply a Tower match result: biomass on a win, the next floor (or back to the checkpoint on a loss). */
+/** Apply a Tower match result: biomass on a win, the next floor (or back to the checkpoint on a loss). A floor
+ * pays in full the first time it is cleared in this save; clearing it again (climbing back after a checkpoint,
+ * or in a later run) pays the replay rate, so the Tower can't be farmed. */
 export function towerResult(p: Progress, floor: number, won: boolean): { progress: Progress; reward: number; cleared: boolean } {
   const t = p.tower;
   if (!won) return { progress: { ...p, tower: { ...t, floor: t.checkpoint } }, reward: 0, cleared: false };
   const info = floorInfo(floor);
-  const reward = info.reward;
+  const reward = floor > t.best ? info.reward : replayReward(floor);
   const cleared = floor >= TOWER_FLOORS;
   const tower: TowerState = cleared
     ? { floor: 1, checkpoint: 1, best: TOWER_FLOORS, clears: t.clears + 1, runSeed: newSeed() }

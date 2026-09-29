@@ -83,7 +83,7 @@ export function ReplayScreen({ replay, onBack, shared, startAt = 0 }: { replay: 
   const me = replay.me;
   const opp = (1 - me) as PlayerId;
   const state = states[Math.min(i, last)];
-  useMatchSounds(state ?? states[0], me, !!state);
+  useMatchSounds(state ?? states[0], me, !!state, false);
 
   // The first state of each round, for jumping round by round.
   const roundStarts = useMemo(() => states.flatMap((s, k) => (k > 0 && s.round !== states[k - 1].round ? [k] : [])), [states]);

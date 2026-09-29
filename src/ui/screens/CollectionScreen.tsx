@@ -10,6 +10,8 @@ import { ChipArt, Emblem } from '../components/Emblem';
 import { LoadoutPicker } from '../components/LoadoutPicker';
 import { Pills } from '../components/Pills';
 import { FACTION_META, WORLD_FACTION_META } from '../meta';
+import { DeckStatsPanel } from '../components/DeckStatsPanel';
+import { autoFill, deckStats } from '../deckHelpers';
 import { craft, craftable, craftCost, deckProblems, loadProgress, maxOwned, saveProgress } from '../modes';
 import type { Progress } from '../modes';
 import { useMediaQuery } from '../useMediaQuery';
@@ -20,6 +22,8 @@ const ORDER = ['graft', 'serum', 'toxin', 'sabotage', 'protocol'];
 const sortCards = (a: CardDef, b: CardDef) => ORDER.indexOf(a.type) - ORDER.indexOf(b.type) || a.cost - b.cost || a.name.localeCompare(b.name);
 
 /** Your Game Modes deck, built only from cards you own, and crafting. */
+const tally = (ids: string[]) => ids.reduce<Record<string, number>>((m, id) => ((m[id] = (m[id] ?? 0) + 1), m), {});
+
 export function CollectionScreen({ onBack }: { onBack: () => void }) {
   const [p, setP] = useState<Progress>(() => loadProgress()!);
   const [pool, setPool] = useState<'build' | 'world' | 'tech'>('build');
@@ -67,6 +71,7 @@ export function CollectionScreen({ onBack }: { onBack: () => void }) {
     { id: 'tech' as const, label: 'Tech', color: '#8a948f', badge: `${inPool('tech')} · max ${D.maxTech}`, ok: inPool('tech') <= D.maxTech, emblem: 'tech' },
   ];
   const chips = chipsFor(d.worldFaction).filter((c) => p.chips.includes(c.id));
+  const warns = deckStats(d.cards).warnings.length;
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-5xl flex-col gap-3 p-3 pb-0">
@@ -80,6 +85,26 @@ export function CollectionScreen({ onBack }: { onBack: () => void }) {
       <Collapsible id="collection-chip" defaultOpen={false} title="Chip" meta={`${chipsFor(d.worldFaction).find((c) => c.id === d.chip)?.name ?? ''} · ${d.loadout.map((id) => findNode(id)?.name ?? id).join(' · ')}`} bodyClass="space-y-2">
         <Pills label="Chip" cols={chips.length} options={chips.map((c) => ({ id: c.id, label: c.name, title: c.text }))} value={d.chip} onChange={(chip) => setDeck({ chip, loadout: chipRows(chip).map((r) => r.nodes[0].id) })} hint={chipsFor(d.worldFaction).find((c) => c.id === d.chip)?.text} />
         <LoadoutPicker rows={chipRows(d.chip)} errors={[]} value={d.loadout} onChange={(loadout) => setDeck({ loadout })} />
+      </Collapsible>
+
+      <Collapsible
+        id="collection-stats"
+        defaultOpen={false}
+        title="Deck stats"
+        meta={`${d.cards.length} / ${D.size} cards${warns ? ` · ${warns} warning${warns === 1 ? '' : 's'}` : ''}`}
+        bodyClass="space-y-2"
+      >
+        <DeckStatsPanel deck={d.cards} />
+        <button
+          onClick={() => {
+            const filled = autoFill(d.faction, d.worldFaction, tally(d.cards), (c) => !c.mastery, (c) => p.owned[c.id] ?? 0);
+            setDeck({ cards: Object.entries(filled).flatMap(([id, k]) => Array<string>(k).fill(id)) });
+          }}
+          disabled={d.cards.length >= D.size}
+          className="w-full rounded-lg bg-accent px-3 py-2 text-xs font-bold text-black disabled:opacity-40"
+        >
+          Auto-fill from cards you own
+        </button>
       </Collapsible>
 
       <div className="sticky top-0 z-10 -mx-3 border-b border-line bg-bg/90 px-3 py-2 backdrop-blur" role="tablist" aria-label="Card pool">

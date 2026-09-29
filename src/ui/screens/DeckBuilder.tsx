@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react';
+import { DeckStatsPanel } from '../components/DeckStatsPanel';
+import { autoFill } from '../deckHelpers';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { ENERGY_BADGE } from '../components/EnergyIcon';
 import { CARD_MAP, CARDS, chipRows, chipsFor, defaultConfig, FACTIONS, starterDeck, validateDeck, validateLoadout, WORLD_FACTIONS } from '../../engine';
@@ -106,6 +108,14 @@ function DeckTab() {
         <button onClick={() => (!dirty || window.confirm('Reset to the starter deck?')) && reset(tally(starterDeck(faction, worldFaction)))} className="shrink-0 rounded-lg border border-line px-2.5 py-1.5 text-xs text-ink2 hover:border-mute" title="Replace with the starter deck">
           Starter
         </button>
+        <button
+          onClick={() => setCounts(autoFill(faction, worldFaction, counts, (c) => !locked(c)))}
+          disabled={total >= D.size}
+          className="shrink-0 rounded-lg bg-accent px-2.5 py-1.5 text-xs font-bold text-black disabled:opacity-40"
+          title={total >= D.size ? 'The deck is full' : `Add the best picks until the deck has ${D.size} cards`}
+        >
+          Auto-fill
+        </button>
       </div>
       {errors.length > 0 ? (
         <ul className="rounded-lg border border-amber-500/40 bg-amber-950/25 p-2 text-[11px] text-amber-200" role="alert">
@@ -116,6 +126,7 @@ function DeckTab() {
       ) : (
         <div className="rounded-lg bg-emerald-950/40 px-2 py-1.5 text-[11px] text-emerald-300">Valid deck · {D.maxCopies} copies max, {D.signatureCopies} of a Signature ★</div>
       )}
+      <DeckStatsPanel deck={deck} />
       <ul className="divide-y divide-line/60 rounded-lg border border-line" aria-label="Cards in this deck">
         {deck.length === 0 && <li className="p-2 text-xs text-mute">Empty. Use + under a card to add it.</li>}
         {Object.entries(counts)
@@ -276,9 +287,15 @@ function DeckTab() {
             </span>
             <span className="shrink-0 text-xs text-ink2">Deck ▴</span>
           </button>
-          <button onClick={save} disabled={errors.length > 0 || !name.trim()} className="shrink-0 rounded-xl bg-accent px-4 py-3 text-sm font-bold text-black disabled:opacity-40 phone:py-2">
-            Save
-          </button>
+          {total < D.size ? (
+            <button onClick={() => setCounts(autoFill(faction, worldFaction, counts, (c) => !locked(c)))} className="shrink-0 rounded-xl bg-accent px-3 py-3 text-sm font-bold text-black phone:py-2" title={`Add the best picks until the deck has ${D.size} cards`}>
+              Auto-fill
+            </button>
+          ) : (
+            <button onClick={save} disabled={errors.length > 0 || !name.trim()} className="shrink-0 rounded-xl bg-accent px-4 py-3 text-sm font-bold text-black disabled:opacity-40 phone:py-2">
+              Save
+            </button>
+          )}
         </div>
       )}
       {sheet && !wide && (

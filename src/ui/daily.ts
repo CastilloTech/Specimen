@@ -144,8 +144,8 @@ export interface DailyStreak {
   best: number;
 }
 
-export const DAILY_BASE_REWARD = 80;
-export const DAILY_STREAK_STEP = 15;
+export const DAILY_BASE_REWARD = 70;
+export const DAILY_STREAK_STEP = 10;
 export const DAILY_STREAK_CAP = 7;
 /** The first win of the day: more for every consecutive day won (up to a week). */
 export const dailyReward = (streak: number) => DAILY_BASE_REWARD + DAILY_STREAK_STEP * (Math.min(streak, DAILY_STREAK_CAP) - 1);

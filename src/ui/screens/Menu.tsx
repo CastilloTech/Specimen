@@ -2,7 +2,7 @@ import { InstallCard } from '../components/AppPrompts';
 import { useState } from 'react';
 import { setTutorialDone, tutorialDone } from '../tutorial';
 import { DIFFICULTY, lastDifficulty } from '../picks';
-import { SoundToggle } from '../sfx';
+import { SoundToggle } from '../components/AudioMenu';
 import { Creature } from '../components/Specimen';
 import { FACTION_META, WORLD_FACTION_META } from '../meta';
 import { activeSave, loadLastSetup } from '../storage';

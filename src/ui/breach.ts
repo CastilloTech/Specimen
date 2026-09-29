@@ -32,7 +32,10 @@ export interface BreachRecord {
 
 export const ESCAPEE_HP = 20;
 export const BREACH_WAVES_GOAL = 50;
-export const waveReward = (wave: number) => 5 + 2 * wave;
+/** Each wave survived pays a little more than the last, up to a cap, so a long run pays well without one
+ * lucky run unlocking half the collection. */
+export const WAVE_REWARD_CAP = 25;
+export const waveReward = (wave: number) => Math.min(WAVE_REWARD_CAP, 4 + Math.floor(wave / 2));
 
 export function startBreach(deck: ModeDeck): BreachRun {
   return { wave: 1, hp: BASE_HP, strain: 0, seed: Math.floor(Math.random() * 2 ** 31), earned: 0, deck: { ...deck, cards: [...deck.cards], loadout: [...deck.loadout] }, over: false };
