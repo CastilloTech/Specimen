@@ -1,7 +1,7 @@
-import type { CardType } from '../../engine';
+import type { CardType, EngineId } from '../../engine';
 import { defaultConfig } from '../../engine';
 import { deckStats } from '../deckHelpers';
-import { TYPE_META } from '../meta';
+import { ENGINE_META, engineColor, TYPE_META } from '../meta';
 
 const COSTS = ['0', '1', '2', '3', '4', '5+'];
 const TYPES: CardType[] = ['graft', 'serum', 'toxin', 'sabotage', 'protocol'];
@@ -59,6 +59,16 @@ export function DeckStatsPanel({ deck }: { deck: string[] }) {
           </span>
         ))}
       </div>
+      {Object.keys(s.engines).length > 0 && (
+        <div className="mt-1.5 flex flex-wrap gap-x-2.5 gap-y-0.5 text-[11px]" aria-label="Engines">
+          <span className="text-mute">Engines</span>
+          {(Object.entries(s.engines) as [EngineId, { enablers: number; payoffs: number }][]).map(([id, e]) => (
+            <span key={id} style={{ color: engineColor(id) }} title={`${ENGINE_META[id].name}: ${e.enablers} enabler${e.enablers === 1 ? '' : 's'}, ${e.payoffs} payoff${e.payoffs === 1 ? '' : 's'}. ${ENGINE_META[id].text}`}>
+              ⚙ {ENGINE_META[id].name} <b>{e.enablers}</b>/<b>{e.payoffs}</b>
+            </span>
+          ))}
+        </div>
+      )}
       {s.warnings.length > 0 && (
         <ul className="mt-1.5 space-y-0.5 text-[11px] text-amber-200">
           {s.warnings.slice(0, 3).map((w) => (

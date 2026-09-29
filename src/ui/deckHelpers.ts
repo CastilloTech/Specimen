@@ -1,5 +1,6 @@
-import { budgetOf, CARD_MAP, CARDS, defaultConfig } from '../engine';
-import type { CardDef, CardType, Faction, WorldFactionId } from '../engine';
+import { budgetOf, CARD_MAP, CARDS, defaultConfig, engineSynergy } from '../engine';
+import type { CardDef, CardType, EngineId, Faction, WorldFactionId } from '../engine';
+import { ENGINE_META } from './meta';
 
 // Deck-building help: the numbers behind a deck (curve, card types, Strain, slot coverage) with plain
 // warnings, and an auto-fill that completes a deck to a legal 20 with sensible picks.
@@ -18,6 +19,8 @@ export interface DeckStats {
   avgGraftStrain: number;
   /** Grafts per slot type (Head, Limb, Organ, Nerve). */
   slots: Record<string, number>;
+  /** Engine pieces in the deck: enablers and payoffs per engine. */
+  engines: Partial<Record<EngineId, { enablers: number; payoffs: number }>>;
   warnings: string[];
 }
 
@@ -27,7 +30,13 @@ export function deckStats(deck: string[]): DeckStats {
   const types: Record<CardType, number> = { graft: 0, serum: 0, toxin: 0, sabotage: 0, protocol: 0 };
   const slots: Record<string, number> = Object.fromEntries(SLOT_TYPES.map((s) => [s, 0]));
   let strain = 0;
+  const engines: DeckStats['engines'] = {};
   for (const c of cards) {
+    for (const t of c.engines ?? []) {
+      const e = (engines[t.id] ??= { enablers: 0, payoffs: 0 });
+      if (t.role === 'payoff') e.payoffs++;
+      else e.enablers++;
+    }
     curve[Math.min(5, c.cost)]++;
     types[c.type]++;
     if (c.type === 'graft') {
@@ -49,12 +58,20 @@ export function deckStats(deck: string[]): DeckStats {
     if (avgGraftStrain >= 2.8) warnings.push(`High-Strain grafts (${avgGraftStrain.toFixed(1)} each): plan to vent with Fortify, Hold or Cycle, or you'll reject grafts.`);
     if (types.protocol === 0) warnings.push("No Protocols: you can't answer your opponent's plays.");
   }
-  return { size: n, curve, avgCost, types, grafts, avgGraftStrain, slots, warnings };
+  for (const [id, e] of Object.entries(engines)) if (e!.payoffs > 0 && e!.enablers < 3) warnings.push(`Few enablers for ${ENGINE_META[id as EngineId].name} (${e!.enablers}): its payoffs need 3 or more to fire reliably.`);
+  return { size: n, curve, avgCost, types, grafts, avgGraftStrain, slots, engines, warnings };
 }
 
-const strength = (c: CardDef) => {
-  const r = budgetOf(c, defaultConfig);
-  return r.total - r.target;
+// A card's power-budget margin never changes during a session, so it is worked out once per card.
+const STRENGTH = new Map<string, number>();
+const strengthOf = (c: CardDef) => {
+  let v = STRENGTH.get(c.id);
+  if (v === undefined) {
+    const r = budgetOf(c, defaultConfig);
+    v = r.total - r.target;
+    STRENGTH.set(c.id, v);
+  }
+  return v;
 };
 
 /**
@@ -68,21 +85,34 @@ export function autoFill(faction: Faction, worldFaction: WorldFactionId, counts:
   const count = (f: string) => deck().filter((id) => CARD_MAP[id]?.faction === f).length;
   const room = (c: CardDef) => (out[c.id] ?? 0) < Math.min(c.signature ? D.signatureCopies : D.maxCopies, owned ? owned(c) : Infinity);
   const pool = CARDS.filter((c) => (c.faction === faction || c.faction === worldFaction || c.faction === 'tech') && allowed(c));
-  const score = (c: CardDef) => {
-    const s = deckStats(deck());
-    let v = strength(c);
+  /** A candidate's value against the deck as it stands (its stats are computed once per pick, not per card). */
+  const score = (c: CardDef, cur: string[], s: DeckStats) => {
+    let v = strengthOf(c);
     if ((out[c.id] ?? 0) > 0) v -= 0.75;
     if (c.cost <= 2 && s.curve[0] + s.curve[1] + s.curve[2] < 7) v += 1.5;
     if (c.cost >= 5 && s.curve[5] >= 2) v -= 2;
     if (c.type === 'graft' && s.grafts < 9) v += 1;
     if (c.type === 'graft' && c.slot && s.slots[c.slot] === 0) v += 2;
     if (c.type === 'protocol' && s.types.protocol === 0) v += 1.5;
+    // Keep engines together: a piece is worth more next to the other half of its engine.
+    v += engineSynergy(c, cur, []) * 1.2;
     return v;
   };
   const pick = (ok: (c: CardDef) => boolean) => {
     const cands = pool.filter((c) => ok(c) && room(c));
     if (!cands.length) return false;
-    const best = cands.reduce((a, b) => (score(b) > score(a) || (score(b) === score(a) && b.id < a.id) ? b : a));
+    const cur = deck();
+    const s = deckStats(cur);
+    // The highest score wins; ties go to the smaller id, so the result never depends on pool order.
+    let best = cands[0];
+    let bestV = score(best, cur, s);
+    for (let i = 1; i < cands.length; i++) {
+      const v = score(cands[i], cur, s);
+      if (v > bestV || (v === bestV && cands[i].id < best.id)) {
+        best = cands[i];
+        bestV = v;
+      }
+    }
     out[best.id] = (out[best.id] ?? 0) + 1;
     return true;
   };

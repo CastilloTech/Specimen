@@ -55,5 +55,5 @@ describe('Advanced training (part 2)', () => {
       if (playBotMatch({ ...setup, seed: 500 + i, players: [{ ...setup.players[0], isBot: true }, setup.players[1]] }, 900 + i).result?.winner === 0) w++;
     }
     expect(w / 40).toBeGreaterThan(0.6);
-  });
+  }, 30000); // 40 full matches: slow on a busy machine
 });

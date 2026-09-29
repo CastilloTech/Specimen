@@ -163,6 +163,7 @@
     "costPoints": 1,
     "tolerance": 2,
     "signatureBonus": 5,
+    "payoffBonus": 1.5,
     "expectedRounds": 3,
     "conditionMultiplier": 0.6,
     "protocolMultiplier": 0.8,
@@ -200,9 +201,24 @@
       "onDealDamage": 2.5,
       "onTakeDamage": 2,
       "onReject": 0.5,
-      "passive": 1
+      "passive": 1,
+      "onGainStrain": 4,
+      "onOppGainStrain": 3,
+      "onVent": 2,
+      "onDrain": 1.5,
+      "onRepair": 1.5,
+      "onKill": 1.5,
+      "onOppReject": 0.6,
+      "onBlock": 2.5,
+      "onWear": 3,
+      "onPurge": 1,
+      "onBigHit": 2,
+      "onAttachGraft": 4,
+      "onOppFeverGraft": 1.5,
+      "onProtocol": 1.5
     }
   },
+  "engines": { "blockThreshold": 3, "bigHitThreshold": 8 },
   "bot": {
     "graftStrainMargin": 2,
     "graftStrainMarginByFaction": { "predator": 2, "parasite": 2, "bastion": 2 },

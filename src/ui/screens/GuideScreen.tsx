@@ -5,10 +5,11 @@ import type { Settings } from '../storage';
 import type { ReactNode } from 'react';
 import specimenArt from '../../assets/specimen.jpg';
 import { CARD_MAP, defaultConfig, STANCES } from '../../engine';
+import type { EngineId } from '../../engine';
 import { CardDetail } from '../components/CardDetail';
 import { CardView } from '../components/CardView';
 import { ChipArt, Emblem } from '../components/Emblem';
-import { FACTION_META, STANCE_META, WORLD_FACTION_META } from '../meta';
+import { ENGINE_META, engineColor, FACTION_META, STANCE_META, WORLD_FACTION_META } from '../meta';
 import { StatusIcon } from '../components/StatusFx';
 import { BUILD_GUIDE } from '../comboGuide';
 import { keyLabel, loadSettings } from '../storage';
@@ -134,6 +135,33 @@ function StatusTable() {
                 </span>
               </li>
             ))}
+          </ul>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Every identity's three engines, with what sets them off. */
+function EngineTable() {
+  const owners = [...Object.keys(FACTION_META), ...Object.keys(WORLD_FACTION_META)] as (keyof typeof FACTION_META | Wf)[];
+  const meta = (o: string) => (FACTION_META as Record<string, { name: string; color: string }>)[o] ?? (WORLD_FACTION_META as Record<string, { name: string; color: string }>)[o];
+  return (
+    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+      {owners.map((o) => (
+        <div key={o} className="rounded-lg border border-line bg-black/25 p-2.5">
+          <div className="mb-1 flex items-center gap-1.5 font-display text-sm font-bold" style={{ color: meta(o).color }}>
+            <Emblem id={o} size={18} />
+            {meta(o).name}
+          </div>
+          <ul className="space-y-1">
+            {(Object.entries(ENGINE_META) as [EngineId, (typeof ENGINE_META)[EngineId]][])
+              .filter(([, e]) => e.owner === o)
+              .map(([id, e]) => (
+                <li key={id} className="text-[12px] leading-snug">
+                  <b style={{ color: engineColor(id) }}>⚙ {e.name}</b> <span className="text-ink2">{e.text}</span>
+                </li>
+              ))}
           </ul>
         </div>
       ))}
@@ -355,6 +383,21 @@ const STEPS: Step[] = [
     ),
     visual: <StatusTable />,
     tip: "Statuses tick down at the end of each round. Purge clears them all at once, so save it for when you're carrying more than one.",
+  },
+  {
+    title: 'Synergy engines',
+    body: (
+      <>
+        <p>
+          Cards marked <b>⚙</b> belong to an <b>engine</b>. <b>Enablers</b> (outlined tag) make something happen, like venting or making the opponent bleed; <b>payoffs</b> (filled tag) cash in every time it does. Each Build and World Faction has three engines. A deck usually runs one Build engine and one World Faction engine.
+        </p>
+        <p>
+          Each World Faction's three <b>Chips</b> back one engine each (their engine node gives that engine's payoffs +1). Each <b>Mastery Signature</b> is a payoff of all three of its engines, built so they set each other off.
+        </p>
+      </>
+    ),
+    visual: <EngineTable />,
+    tip: 'The Deck stats panel counts your enablers and payoffs per engine (for example "Pressure 4/2") and warns when payoffs have too few enablers to fire.',
   },
   {
     title: "You're ready",

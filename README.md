@@ -612,6 +612,88 @@ In real play each Build now splits roughly evenly between its two forms (43-54% 
 
 Second wind (the comeback draw and Energy) used to compare current HP, so any Specimen that simply started smaller counted as "behind" from round 1: a scarred Lineage Specimen, a player carrying damage into a Breach wave, the Gifted daily twist's opponent, the tutorials' training bots. It now compares **damage taken this match**, counted from each Specimen's own starting HP (`beginRound` in `rules.ts`), and the Comeback achievement uses the same measure. Normal matches are unchanged (both sides start at 40). The modes that had leaned on the old behaviour were re-tuned by simulation, see the Lineage, Breach and Daily rows above: Lineage now uses a smaller loss scar (3), a lower death line (24) and smaller rivals (32 / Matriarchs 36 / Progenitor 40) and is back to 35.6% / 24.4%; Breach heals 20% between waves (median 30 waves, 15 of 64 runs reach 50); Gifted's opponent has 46 max HP. The tutorials no longer switch Second wind off.
 
+### Synergy engines, wave 1: one engine per identity
+
+An **engine** is a keyword shared by **enablers** (cards that make something happen) and **payoffs** (cards that cash in when it does). Wave 1 gives each Build and World Faction one engine; two more each are planned (see the design notes in this pass's discussion: 21 engines in total, the second tied to the evolutions and Chips).
+
+| Engine | Owner | Event | New payoffs / enablers | Tagged existing enablers |
+|---|---|---|---|---|
+| **Frenzy** | Predator | you gain Strain | Frenzy Gland (while Overclocked, +2 attack, twice a round), Seething Maw (1 damage, twice a round) | Razor Talon, Furnace Heart, Blood Rush |
+| **Feed** | Parasite | the opponent gains Strain | Siphon Sac (heal 1, 3 times a round), Glutton Tendril (+1 attack, twice) | Symbiotic Node, Gland of Rot, Neurotoxin, Cytokine Storm |
+| **Pressure** | Bastion | you vent | Exhaust Bladder (1 damage, 4 times a round); enabler Relief Spiracle (gaining Strain vents 1, twice) | Bone Helm, Venting Sigh, Pressure Release, Pressure Toxin |
+| **Hemorrhage** | Corrosion | Bleed stacks | Hemorrhage Fang (+2 attack per stack); enabler Lacerate (2 stacks at once) | Venom Gland, Festering Wound, Shard Claw, Caustic Grip |
+| **Double dose** | Miasma | 2+ statuses on the opponent | Choking Nexus (+2 Strain each round while they have 2+); enabler Twin Plague (Fever and Numb, 1 Energy) | Toxic Cloud, Choking Spore, Toxic Barb, Wasting Cloud |
+| **Starvation** | Hollow | you drain Energy | Hunger Tap (1 damage, 3 times a round), Famine Maw (+2 Strain when a drain leaves them at 1 or less) | Bone Ward, Null Serum, Grave Thorn, Void Grasp |
+| **Renewal** | Aegis | you repair Integrity | Mending Carapace (+2 armor, twice a round); enabler Restoration Mist | Bastion Shell, Mending Serum, Scaled Plate, Warding Core |
+
+- **Engine rules** (`rules.ts`, `types.ts`, `stats.ts`). Five new triggers: `onGainStrain` and `onOppGainStrain` (fired from `addStrain`, which every Strain gain goes through), `onVent` (from `vent`), `onDrain` (from the drain op) and `onRepair` (from Integrity healing, including Chip regen). Engine abilities carry `perRound`, a cap per graft per round, reset in `beginRound`; a trigger-depth limit of 4 is a second guard against chains. New conditions `oppStatusesAtLeast` and `oppEnergyAtMost`, and `mod` can scale `per` `oppBleedStacks`. Cards carry `engines: [{ id, role }]`. `PlayerStats.engineFires` counts payoff fires.
+- **Pricing** (`budget.ts`, `config.budget`). The new triggers have their own multipliers (gain / opponent-gain Strain 4 and 3, vent 2, drain and repair 1.5), limited by `perRound x expectedRounds`, and an engine payoff's budget target includes `payoffBonus` (1.5): a payoff is priced as if its engine is running, since alone it is a little weak. All 132 cards are inside the ±2 budget.
+- **Bots and auto-fill** value a card more when the other half of its engine is on the board or in hand (`engineSynergy` in `bot.ts`, also used by auto-fill), so they build and play engines together instead of splitting them.
+- **Interface.** A keyword chip on every engine card (filled for a payoff, outlined for an enabler), an explanation in the full card view, an **Engines** line in the deck stats ("Pressure 5/1": enablers / payoffs) and a warning when payoffs have fewer than 3 enablers. New cards use the procedural card art until painted art is added (`src/assets/cards/<card id>.jpg`).
+- **Pool.** Builds grow to 16 standard cards each plus the Signature; World Factions gain their two engine cards; 132 cards in all.
+
+**Balance.** Each engine was measured by building two decks for its owner with the same auto-fill: a baseline that may not use the new engine cards, and an engine deck seeded with them (1 copy of each new graft, 2 of each new instant), against random starter-deck opponents, basic bots on both sides, seats alternated, 800 matches each. Final: Frenzy +6.3, Feed +2.1, Renewal +1.6, Double dose +0.1, Pressure −0.8, Starvation −1.3, Hemorrhage −2.8 points over the baseline (about ±2.5 of noise). Along the way: seeding 2 copies of every graft made engine decks clog the single Organ and Nerve slots, so Exhaust Bladder became a Limb graft; payoffs capped at the plain budget could never beat the strongest cards auto-fill picks, which is why payoffs get the 1.5 allowance; and the trigger prices were lowered to what the sims showed. With starter decks, every cross-Build matchup stays within 45–55% (3,000 matches; World Factions 46.5–53.5%). These are bot numbers: real players will find better and worse engine lines.
+
+### Synergy engines, wave 2: a second engine per identity
+
+| Engine | Owner | Event | New payoffs / enablers | Tagged existing enablers |
+|---|---|---|---|---|
+| **Carrion** | Predator | you destroy an enemy graft | Carrion Jaws (heal 2, once a round); enablers Flensing Hook (Clash hits wear the most worn-down enemy graft), Flaying Strike | Rending Claw |
+| **Overload** | Parasite | the opponent rejects a graft | Rupture Sac (draw 2), Harvester Node (heal 3, +1 Strain on them), each once a round | Gland of Rot, Neurotoxin, Cytokine Storm, Necrotic Bloom |
+| **Fortress** | Bastion | your armor stops 3+ Clash damage (`engines.blockThreshold`) | Riposte Plating (2 damage back), Callous Crest (heal 1, vent 1), each once a round | Brace, Pressure Plate, Scale Patch, Pressure Release |
+| **Dissolve** | Corrosion | one of your cards or abilities takes Integrity off an enemy graft (Clash wear does not count) | Dissolving Maw (+1 Strain on them), Acid Weeper (+1 attack), each once a round; enabler Etching Spray | Acid Spray, Corrosive Strike |
+| **Silence** | Miasma | the opponent is numbed | Hushing Veil (draw 1 each round), Muffling Ganglion (+3 attack) | Choking Spore, Numbing Dart, Paralytic Serum, Null Spores |
+| **Necropolis** | Hollow | enemy slots locked by Necrosis | Ossuary Crown (+1 attack per locked slot), Tomb Warden (+2 armor per locked slot); enabler Marrow Blight (a Toxin that necroses a random enemy graft) | Necrotic Blade, Soul Harvest |
+| **Cleanse** | Aegis | you Purge yourself (even with nothing to remove) | Cleansing Crest (heal 2, repair 1), Purifier Node (draw 1, +1 armor), each once a round | Purge Tonic, Bulwark Protocol, Reclaim |
+
+- **Engine rules.** Five more triggers: `onKill` (from every graft kill: Integrity, Sever, Necrosis), `onOppReject` (at the Strain check), `onBlock` (in the Clash), `onWear` (card and ability Integrity damage) and `onPurge`. A new condition `oppHas` (the opponent has a given status), and `mod` can scale per `oppNecroticSlots`. Integrity damage from a graft's ability (no chosen target) now hits the opponent's most worn-down awake graft; before, it found no target. The basic bot now plays a Toxin that destroys a random graft when there is one to hit.
+- **Cross-engine chains** appear naturally: Callous Crest's vent sets off Pressure, Cleansing Crest's repair sets off Renewal, Harvester Node's Strain feeds Feed.
+- **Pool:** 149 cards. Builds have 18–19 standard cards each; the data test now asks for at least 16.
+
+**Balance** (2,000 matches per deck, about ±1.6 points; the fair baseline described below; wave 1 re-measured the same way): every engine deck is between −1 and +5 points against the same deck without its new cards.
+
+| Wave 1 | Engine vs baseline | Wave 2 | Engine vs baseline |
+|---|---|---|---|
+| Frenzy | +2.5 | Carrion | +4.8 |
+| Feed | +2.5 | Overload | −0.8 |
+| Pressure | +2.0 | Fortress | +3.7 |
+| Hemorrhage | −0.1 | Dissolve | +0.3 |
+| Double dose | +3.9 | Silence | −0.7 |
+| Starvation | +4.6 | Necropolis | +2.8 |
+| Renewal | +2.9 | Cleanse | +0.8 |
+
+Last fixes from this run: Flaying Strike alone was worth about 6 points (a 2-Energy kill enabler), so it costs 3, as does Flensing Hook; the Silence cards numb for 2 rounds and got sturdier bodies; Rupture Sac got +1 armor.
+
+**Measuring engines.** The first method compared an engine deck with a plain auto-filled deck. That overstated some engines badly (Dissolve looked +28 points): seeding an engine card makes auto-fill also value its enablers, so the engine deck picked up strong Sabotage cards the plain deck skipped, and each Dissolve card alone seemed worth 8–18 points. The fair baseline keeps the engine deck's shell and swaps only the new engine cards for auto-fill's next-best picks, so the difference is what the engine cards add. Card-level effects are small against a deck's random Build or World Faction partner, so it takes about 2,000 games per deck to read them to within a few points. Tuning on the way: Dissolve stopped firing from automatic Clash wear (it fired every round with no setup), Flensing Hook lost an attack, Carrion Jaws lost its draw, Dissolving Maw and Acid Weeper were halved, Muffling Ganglion now numbs on attach, and the rarely-firing Overload and Cleanse payoffs got cheaper trigger prices and sturdier bodies.
+
+### Synergy engines, wave 3: the third engine, Chips that back engines, and Mastery as the bridge
+
+| Engine | Owner | Event | New payoffs / enablers | Tagged existing enablers |
+|---|---|---|---|---|
+| **Overkill** | Predator | your Clash hit deals 6+ damage (`engines.bigHitThreshold`) | Goring Spur (+2 Strain on them), Rampage Gland (heal 3), each once a round | Blood Rush, Overclock Serum, Frenzy Gland, Predator Eye |
+| **Brood** | Parasite | you attach a graft; your graft count | Swarm Ganglion (+1 attack per 2 grafts), Spawning Pit (heal 1 per attach, twice a round); enabler Brood Larva (0 Energy) | Symbiotic Node, Leech Sucker |
+| **Endurance** | Bastion | your grafts that have survived 2+ Strain checks | Ancient Plating (+1 armor each), Enduring Brow (heal 2 at the Strain check with 3+ grafts) | Reflex Ganglion, Pressure Plate, Shell Limb, Ablative Plating |
+| **Rust** | Corrosion | enemy grafts below full Integrity | Rust Bloom (+1 attack each), Oxidized Hide (+1 armor each) | Acid Spray, Corrosive Strike, Etching Spray |
+| **Fever burn** | Miasma | the opponent attaches a graft while Fevered | Fever Tick (+1 Strain on them, twice a round), Febrile Crown (draw 1, once) | Wasting Cloud, Toxic Barb, Plague Serum, Creeping Rot |
+| **Grave** | Hollow | the cards in your discard pile | Charnel Limb (+1 attack per 4), Charnel Heart (drain 1 each round at 8+); enabler Grave Offering | Null Serum, Reaper's Ward |
+| **Ward** | Aegis | you play a Protocol | Warding Sigil (+2 armor and repair 1), Reflex Node (draw 1), each once a round; enabler Mending Reflex (a 1-Energy Protocol) | Bulwark Protocol, Ward Pact |
+
+Predator's third engine was planned as Pounce (winning the stance) but became **Overkill**: nothing in the game can make you win a stance, so Pounce could have no enablers, while attack buffs enable big hits naturally.
+
+- **Engine rules.** Four more triggers: `onBigHit`, `onAttachGraft`, `onOppFeverGraft` (both from `attachGraft`) and `onProtocol` (from the reducer's Protocol response). Conditions `graftsAtLeast` and `discardAtLeast`; `mod` scales `per` `seasonedGrafts`, `oppWornGrafts` and `myDiscard` (all counted in `perCount` in `stats.ts`).
+- **Chips back engines, still 2 x 2.** Each World Faction's three Chips now back one of its three engines each. One row of every Chip became its **engine row**: an **Amplify** node (`engine_<id>`: +1 to the main number of each of that engine's payoff abilities, triggered or passive; `engineAmp` in `stats.ts`) against a second node that suits the engine, mostly an existing node moved to where it fits (Venom Feed for Dissolve, Lingering Wounds (+1 Bleed round) for Hemorrhage, Rusting Strike for Rust, Late Mend for Renewal, Renewing Pulse for Cleanse, Virulence for Fever burn, Spreading Blight for Silence, Harvest Soul for Grave...). The other row is unchanged. Acid Fang → Dissolve, Rustbite → Hemorrhage, Corroded Talon → Rust; Mending Coil → Renewal, Bulwark Chip → Cleanse, Ironclad → Ward; Wasting Touch → Fever burn, Choke Hold → Silence, Contaminant → Double dose; Gravedigger → Necropolis, Grave Rite (was Cleansing Rite) → Grave, Null Field → Starvation. Old loadouts that pointed at a removed node fall back to the Chip's defaults.
+- **Mastery Signatures bridge their three engines.** Each is a payoff of all three of its identity's engines (tagged so), with one ability per engine, arranged so the three feed each other: Sanctum Core (a Protocol Purges you (Ward), the Purge repairs (Cleanse), the repair gives armor (Renewal)); Hollow King (a full discard pile drains (Grave), each drain hurts (Starvation), locked slots add attack (Necropolis)); Miasma Sovereign (grafting while Fevered numbs (Fever burn), Numb adds attack (Silence), two statuses strain (Double dose)); Brood Mother (attaching strains them (Brood), their Strain heals you (Feed), their rejection draws (Overload)); Acid Colossus (wear makes them bleed (Dissolve), stacks add attack (Hemorrhage), worn grafts add armor (Rust)); Citadel Spine (venting hurts (Pressure), blocking heals (Fortress), veteran grafts add armor (Endurance)); Alpha Carnifex (Strain while Overclocked adds attack (Frenzy), kills heal (Carrion), big hits strain (Overkill)). Any of the identity's three Chips amplifies its Mastery card.
+- **Interface.** A **Synergy engines** page in the Game guide (every identity's three engines), and **Engine payoffs fired** in the post-match comparison.
+- **Pool:** 166 cards.
+
+**Balance.** Same fair method as wave 2 (engine deck vs the same deck with the new cards swapped out), 1,500 matches per deck (about ±1.8 points). Wave 3: Overkill +5.4, Brood −1.6, Endurance +5.3, Rust +4.0, Fever burn +4.1, Grave −1.1, Ward −1.2. Re-checked after the Chip rework (the sim decks use each World Faction's first Chip, now an Amplify node): Dissolve −0.1, Necropolis +2.3. All 21 engines now sit between about −2 and +5.5 points.
+
+Mastery cards (the deck with its Mastery card vs the same deck without it): Alpha Carnifex −0.8, Brood Mother −3.0, Citadel Spine +4.6, Acid Colossus −2.3, Sanctum Core +5.8, Miasma Sovereign −2.2, Hollow King −1.4. A single copy moves a deck by a few points either way; they are rewards for Faction achievements, so they were not pushed further.
+
+Tuning on the way: Febrile Crown alone was worth about 10 points (drawing every round the opponent grafted while Fevered; now it heals, and it no longer gives Fever itself, so Fever burn needs its enablers); Overkill's "big hit" was nearly every Predator hit at 6, so it is 8, and its payoffs lost an attack each; Grave Offering had you discard 2 random cards (now draw 2, discard 1), Charnel Limb counts every 3 cards and Charnel Heart wakes at 6; Ward's Protocols and payoffs got more armor; Brood Mother and Miasma Sovereign got a little more.
+
+**Faster measuring.** The engine sim builds each (engine, Build, World Faction) deck pair once and reuses it, and auto-fill scores each pick against the deck's stats computed once instead of once per candidate card (the same picks, many times faster; this also speeds up the Auto-fill button). The full measurement went from about an hour to under 15 minutes on this 8-thread laptop.
+
 ### UI pass: containment-lab look and quality of life
 
 - **Art direction.** A dim containment-lab look: culture-plate grid background, bioluminescent accent, Chakra Petch display type (Google Fonts; falls back to system fonts offline), hazard tape for Meltdown. Every card has procedural "specimen plate" art (`src/ui/components/CardArt.tsx`), drawn from its type (and a graft's slot), tinted by faction and seeded by card id, so there are no image assets to maintain. Each Specimen is the bio-engineered creature from `src/assets/specimen.jpg` (cropped from the provided concept card art) in a containment tank, mirrored on the left-hand side so the two face each other, with graft sockets placed on its anatomy (helmet, neck cables, chest, resting hand, far forearm, hip; see `POS` in `Specimen.tsx`) and grafts shown as mini plates.

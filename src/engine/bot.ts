@@ -62,7 +62,33 @@ function dormantHabits(s: GameState, p: PlayerId) {
 }
 
 // ---------- Scoring plays ----------
+/**
+ * Synergy engines: a card is worth more when the other half of its engine is already on the board or in hand
+ * (a payoff with enablers, an enabler with payoffs; the board counts more than the hand). Capped, so an
+ * engine piece is never played over a clearly better card just for the tag. Also used by deck auto-fill.
+ */
+export function engineSynergy(def: CardDef, board: string[], hand: string[]): number {
+  if (!def.engines?.length) return 0;
+  let bonus = 0;
+  for (const t of def.engines) {
+    const partner = (id: string) => cardOf(id).engines?.some((x) => x.id === t.id && (t.role === 'enabler' ? x.role === 'payoff' : true)) ?? false;
+    const onBoard = board.filter(partner).length;
+    const inHand = hand.filter(partner).length;
+    bonus += Math.min(3, onBoard * 1 + inHand * 0.5) * (t.role === 'payoff' ? 0.9 : 0.6);
+  }
+  return bonus;
+}
+
 function scorePlay(s: GameState, p: PlayerId, a: Extract<Action, { type: 'PLAY_CARD' }>): number {
+  const base = scorePlayBase(s, p, a);
+  if (base < 0) return base;
+  const pl = s.players[p];
+  const card = pl.hand.find((c) => c.uid === a.uid)!;
+  const others = pl.hand.filter((c) => c.uid !== a.uid).map((c) => c.cardId);
+  return base + engineSynergy(cardOf(card.cardId), pl.grafts.filter((g) => !g.faceDown).map((g) => g.cardId), others);
+}
+
+function scorePlayBase(s: GameState, p: PlayerId, a: Extract<Action, { type: 'PLAY_CARD' }>): number {
   const pl = s.players[p];
   const opp = s.players[other(p)];
   const cfg = s.config;
@@ -88,6 +114,8 @@ function scorePlay(s: GameState, p: PlayerId, a: Extract<Action, { type: 'PLAY_C
     case 'toxin': {
       const amt = (def.effect.ops ?? []).reduce((n, o) => n + (o.op === 'strain' && o.who !== 'self' ? o.amount : 0), 0);
       if ((def.effect.ops ?? []).some((o) => o.op === 'status' && o.who !== 'self')) return 5; // Bleed/Fever: worth it on its own
+      // A Toxin that destroys a random enemy graft (Marrow Blight): worth it when there is something to hit.
+      if ((def.effect.ops ?? []).some((o) => o.op === 'sabotage')) return opp.grafts.some((g) => !g.faceDown) ? 4 + Math.min(3, opp.grafts.length) * 0.5 : -1;
       if (opp.strain >= cfg.bot.toxinOppStrain || opp.strain + amt > T) return 6 + amt;
       return -1;
     }

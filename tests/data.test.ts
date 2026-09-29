@@ -48,8 +48,8 @@ describe('Card pool', () => {
   for (const f of FACTIONS) {
     describe(f, () => {
       const pool = CARDS.filter((c) => c.faction === f && !c.mastery);
-      it('has 14 standard cards and exactly 1 Signature', () => {
-        expect(pool.filter((c) => !c.signature)).toHaveLength(14);
+      it('has at least 16 standard cards (its engine cards included) and exactly 1 Signature', () => {
+        expect(pool.filter((c) => !c.signature).length).toBeGreaterThanOrEqual(16);
         expect(pool.filter((c) => c.signature)).toHaveLength(1);
       });
       it('has at least 5 grafts covering every slot, 1+ Toxin and 1+ Protocol', () => {
@@ -239,7 +239,10 @@ describe('Chips', () => {
   });
 
   it('only uses known, engine-implemented loadout-param keys', () => {
-    for (const c of CHIPS) for (const row of c.tree) for (const n of row.nodes) for (const key of Object.keys(n.params)) expect(KNOWN_PARAM_KEYS.has(key), `${c.id}/${n.id}: unknown param "${key}"`).toBe(true);
+    // engine_<id>: Amplify, +1 to that engine's payoffs (a real engine id, see ENGINE_META).
+    const ENGINE_IDS = new Set(CARDS.flatMap((c) => (c.engines ?? []).map((t) => t.id)));
+    const known = (key: string) => KNOWN_PARAM_KEYS.has(key) || (key.startsWith('engine_') && ENGINE_IDS.has(key.slice('engine_'.length) as never));
+    for (const c of CHIPS) for (const row of c.tree) for (const n of row.nodes) for (const key of Object.keys(n.params)) expect(known(key), `${c.id}/${n.id}: unknown param "${key}"`).toBe(true);
   });
 
   it('gives every node a name and non-empty text', () => {

@@ -1,4 +1,5 @@
 import { useRef } from 'react';
+import { EngineChips } from './EngineChip';
 import type { CardDef } from '../../engine';
 import { FACTION_META, TYPE_META, WORLD_FACTION_META } from '../meta';
 import { CardArt } from './CardArt';
@@ -103,8 +104,9 @@ export function CardView({ def, cost, size = 'md', selected, dim, onClick, onDou
           {shownCost}
         </span>
         {count !== undefined && <span className="absolute -right-1.5 -top-1.5 z-10 grid h-4 min-w-4 place-items-center rounded-full bg-accent px-0.5 text-[9px] font-bold text-black">×{count}</span>}
-        <div className="h-[30px] overflow-hidden rounded-t-[7px] border-b border-black/60">
+        <div className="relative h-[30px] overflow-hidden rounded-t-[7px] border-b border-black/60">
           <CardArt def={def} accent={accent} className="h-full w-full" />
+          <EngineChips def={def} size="xs" className="absolute bottom-0.5 left-0.5" />
         </div>
         <div className="flex min-h-0 flex-1 flex-col px-1 pt-0.5">
           <div className="line-clamp-2 font-display text-[8.5px] font-bold leading-[1.1]">
@@ -151,8 +153,9 @@ export function CardView({ def, cost, size = 'md', selected, dim, onClick, onDou
       {count !== undefined && <span className="absolute -right-2 -top-2 z-10 grid h-6 min-w-6 place-items-center rounded-full bg-accent px-1 text-[11px] font-bold text-black">×{count}</span>}
       {hotkey && <span className="absolute -bottom-2 -right-2 z-10 hidden h-5 w-5 sm:grid place-items-center rounded-md border border-line bg-bg text-[10px] font-bold text-mute">{hotkey}</span>}
 
-      <div className={`overflow-hidden rounded-t-[11px] border-b border-black/60 ${sm ? 'h-[48px]' : 'h-[76px]'}`}>
+      <div className={`relative overflow-hidden rounded-t-[11px] border-b border-black/60 ${sm ? 'h-[48px]' : 'h-[76px]'}`}>
         <CardArt def={def} accent={accent} className="h-full w-full" />
+        <EngineChips def={def} size={sm ? 'sm' : 'md'} className="absolute bottom-1 left-1" />
       </div>
 
       <div className={`flex min-h-0 flex-1 flex-col ${sm ? 'px-1.5 pb-1 pt-1' : 'px-2 pb-1.5 pt-1'}`}>

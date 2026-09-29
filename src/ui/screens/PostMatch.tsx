@@ -77,6 +77,7 @@ export function PostMatch({ state, setup, onRematch, onNext, onMenu, onReplay }:
     { label: 'Damage blocked', v: [a.stats.damageBlocked, b.stats.damageBlocked], higherIsBetter: true },
     { label: 'Strain vented', v: [a.stats.strainVented, b.stats.strainVented], higherIsBetter: true },
     { label: 'Rejections', v: [a.stats.rejectionsSuffered, b.stats.rejectionsSuffered], higherIsBetter: false },
+    { label: 'Engine payoffs fired', v: [a.stats.engineFires, b.stats.engineFires], higherIsBetter: true },
   ];
   const best = (r: (typeof rows)[number], i: 0 | 1) => r.v[0] !== r.v[1] && (r.higherIsBetter ? r.v[i] > r.v[1 - i] : r.v[i] < r.v[1 - i]);
   const iconBtn = 'grid h-10 w-11 shrink-0 place-items-center rounded-xl bg-panel2 text-base';

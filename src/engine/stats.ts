@@ -19,6 +19,17 @@ export function nodeParam(p: PlayerState, id: string, key: string, def = 0): num
  * skipping any node whose `cond` isn't currently met. This is how most chip nodes work: many different
  * nodes can share the same param key (e.g. `flatAttack`) - what makes two nodes genuinely different is the
  * (key, cond) pair, not just the key - without each needing its own hardcoded check. */
+/**
+ * Amplify: a Chip node keyed `engine_<id>` adds its value to the main number of each of that engine's payoff
+ * abilities (the first op with an amount; not on-attach effects). Mastery cards are payoffs of all three of
+ * their engines, so any of the three Chips boosts them.
+ */
+export function engineAmp(s: GameState, p: PlayerState, card: CardDef): number {
+  let amp = 0;
+  for (const t of card.engines ?? []) if (t.role === 'payoff') amp += sumLoadoutParam(s, p, `engine_${t.id}`);
+  return amp;
+}
+
 export function sumLoadoutParam(s: GameState, p: PlayerState, key: string): number {
   let total = 0;
   for (const id of p.loadout) {
@@ -176,7 +187,43 @@ export function condOk(s: GameState, p: PlayerState, cond?: Cond): boolean {
   if (cond.evolution !== undefined && p.evolution !== cond.evolution) return false;
   if (cond.oppHasAnyStatus !== undefined && hasAnyStatus(opp) !== cond.oppHasAnyStatus) return false;
   if (cond.selfHasAnyStatus !== undefined && hasAnyStatus(p) !== cond.selfHasAnyStatus) return false;
+  if (cond.oppStatusesAtLeast !== undefined && statusCount(opp) < cond.oppStatusesAtLeast) return false;
+  if (cond.oppEnergyAtMost !== undefined && opp.energy > cond.oppEnergyAtMost) return false;
+  if (cond.oppHas !== undefined && !(opp[cond.oppHas] > 0)) return false;
+  if (cond.graftsAtLeast !== undefined && p.grafts.filter((g) => !g.faceDown).length < cond.graftsAtLeast) return false;
+  if (cond.discardAtLeast !== undefined && p.discard.length < cond.discardAtLeast) return false;
   return true;
+}
+
+/** What a scaling `mod` counts (`per.what`). */
+export function perCount(s: GameState, p: PlayerState, what: string): number {
+  const opp = s.players[other(p.id)];
+  const awake = p.grafts.filter((g) => !g.faceDown);
+  switch (what) {
+    case 'grafts':
+      return awake.length;
+    case 'strain':
+      return p.strain;
+    case 'oppStrain':
+      return opp.strain;
+    case 'oppBleedStacks':
+      return opp.bleed > 0 ? opp.bleedStacks : 0;
+    case 'oppNecroticSlots':
+      return Object.values(opp.necrosis).filter((n) => (n ?? 0) > 0).length;
+    case 'seasonedGrafts': // your grafts that have survived 2 or more Strain checks
+      return awake.filter((g) => g.roundsSurvived >= 2).length;
+    case 'oppWornGrafts': // enemy grafts below their full Integrity
+      return opp.grafts.filter((g) => !g.faceDown && g.integrity < (cardOf(g.cardId).integrity ?? s.config.integrity.default)).length;
+    case 'myDiscard':
+      return p.discard.length;
+    default:
+      return Math.max(0, p.maxHp - p.hp);
+  }
+}
+
+/** How many different statuses a player has on them (Bleed, Numb, Fever, Necrosis). */
+export function statusCount(p: PlayerState): number {
+  return (p.bleed > 0 ? 1 : 0) + (p.numb > 0 ? 1 : 0) + (p.fever > 0 ? 1 : 0) + (Object.values(p.necrosis).some((n) => (n ?? 0) > 0) ? 1 : 0);
 }
 
 export interface DerivedStats {
@@ -202,7 +249,6 @@ export function computeStats(s: GameState, p: PlayerState): DerivedStats {
   const cfg = s.config;
   let attack = cfg.specimen.attack;
   let armor = cfg.specimen.armor;
-  const opp = s.players[other(p.id)];
   const awake = p.grafts.filter((g) => !g.faceDown); // a face-down (Dormant) graft is asleep: it adds nothing
   for (const g of awake) {
     const card = cardOf(g.cardId);
@@ -225,11 +271,11 @@ export function computeStats(s: GameState, p: PlayerState): DerivedStats {
           if (op.op !== 'mod') continue;
           let mult = 1;
           if (op.per) {
-            const count = op.per.what === 'grafts' ? awake.length : op.per.what === 'strain' ? p.strain : op.per.what === 'oppStrain' ? opp.strain : Math.max(0, p.maxHp - p.hp);
-            mult = Math.floor(count / Math.max(1, op.per.div));
+            mult = Math.floor(perCount(s, p, op.per.what) / Math.max(1, op.per.div));
           }
-          if (op.stat === 'attack') attack += op.amount * mult;
-          else armor += op.amount * mult;
+          const amount = op.amount + engineAmp(s, p, card);
+          if (op.stat === 'attack') attack += amount * mult;
+          else armor += amount * mult;
         }
       }
     }

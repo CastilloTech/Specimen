@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { ENGINE_META, engineColor } from '../meta';
 import { ENERGY_BADGE } from './EnergyIcon';
 import type { ReactNode } from 'react';
 import { createPortal } from 'react-dom';
@@ -111,6 +112,14 @@ export function CardDetail({ def, onClose, onPrev, onNext, children }: { def: Ca
               {def.mastery && ` Mastery: at ${defaultConfig.veterancy.eliteThreshold} it becomes Elite (+${defaultConfig.veterancy.eliteAttackBonus} more attack, +${defaultConfig.veterancy.eliteArmorBonus} armor).`}
             </p>
           )}
+          {def.engines?.map((t) => (
+            <p key={t.id} className="rounded-lg border px-2 py-1.5 text-[11px] leading-snug text-ink2" style={{ borderColor: `${engineColor(t.id)}88` }}>
+              <span className="font-display font-bold" style={{ color: engineColor(t.id) }}>
+                ⚙ {ENGINE_META[t.id].name} {t.role === 'payoff' ? 'payoff' : 'enabler'}.
+              </span>{' '}
+              {ENGINE_META[t.id].text}
+            </p>
+          ))}
           {keywords.length > 0 && (
             <ul className="space-y-1 rounded-lg bg-black/30 p-2 text-[11px] leading-snug text-ink2">
               {keywords.map(([, name, text]) => (

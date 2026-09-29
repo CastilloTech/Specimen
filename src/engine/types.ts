@@ -34,6 +34,16 @@ export type Cond = {
   /** True while the opponent/self has any of the four status effects (Bleed/Necrosis/Numb/Fever) active. */
   oppHasAnyStatus?: boolean;
   selfHasAnyStatus?: boolean;
+  /** The opponent has at least this many different statuses (Bleed, Numb, Fever, Necrosis). */
+  oppStatusesAtLeast?: number;
+  /** The opponent has at most this much Energy left (checked when the ability fires). */
+  oppEnergyAtMost?: number;
+  /** The opponent currently has this status. */
+  oppHas?: 'bleed' | 'numb' | 'fever';
+  /** You control at least this many awake grafts. */
+  graftsAtLeast?: number;
+  /** Your discard pile holds at least this many cards. */
+  discardAtLeast?: number;
 };
 
 /** A round-timed debuff on the player rather than a specific graft: see PlayerState. */
@@ -53,15 +63,73 @@ export type Op =
   | { op: 'reveal' }
   | { op: 'negate' }
   | { op: 'reflect' }
-  | { op: 'mod'; stat: 'attack' | 'armor'; amount: number; per?: { what: 'grafts' | 'strain' | 'oppStrain' | 'missingHp'; div: number } }
+  | { op: 'mod'; stat: 'attack' | 'armor'; amount: number; per?: { what: 'grafts' | 'strain' | 'oppStrain' | 'missingHp' | 'oppBleedStacks' | 'oppNecroticSlots' | 'seasonedGrafts' | 'oppWornGrafts' | 'myDiscard'; div: number } }
   | { op: 'graftDamage'; amount: number }
   | { op: 'status'; kind: StatusKind; who?: 'self' | 'opp'; rounds?: number }
   | { op: 'purge'; who?: 'self' | 'opp' }
   | { op: 'integrityHeal'; amount: number };
 
-export type Trigger = 'passive' | 'onAttach' | 'onRoundStart' | 'onStrainCheck' | 'onDealDamage' | 'onTakeDamage' | 'onReject';
+export type Trigger =
+  | 'passive'
+  | 'onAttach'
+  | 'onRoundStart'
+  | 'onStrainCheck'
+  | 'onDealDamage'
+  | 'onTakeDamage'
+  | 'onReject'
+  // Engine events: they can fire several times a round, so engine abilities carry a per-round cap.
+  | 'onGainStrain'
+  | 'onOppGainStrain'
+  | 'onVent'
+  | 'onDrain'
+  | 'onRepair'
+  // Wave 2 engine events.
+  | 'onKill' // you destroy an enemy graft (Integrity, Sever, Necrosis)
+  | 'onOppReject' // the opponent rejects a graft at the Strain check
+  | 'onBlock' // your armor stops at least engines.blockThreshold Clash damage
+  | 'onWear' // an enemy graft loses Integrity to one of your cards or abilities (not Clash wear)
+  | 'onPurge' // you Purge yourself
+  // Wave 3 engine events.
+  | 'onBigHit' // your Clash hit deals at least engines.bigHitThreshold damage
+  | 'onAttachGraft' // you attach a graft (face-up or face-down)
+  | 'onOppFeverGraft' // the opponent attaches a graft while they have Fever
+  | 'onProtocol'; // you play a Protocol
 
-export type Ability = { trigger: Trigger; cond?: Cond; ops: Op[] };
+export type Ability = {
+  trigger: Trigger;
+  cond?: Cond;
+  ops: Op[];
+  /** Fires at most this many times per round (engine payoffs). */
+  perRound?: number;
+};
+
+/** A synergy engine: enabler cards make its event happen, payoff cards cash in on it. */
+export type EngineId =
+  | 'frenzy'
+  | 'feed'
+  | 'pressure'
+  | 'hemorrhage'
+  | 'doubleDose'
+  | 'starvation'
+  | 'renewal'
+  | 'carrion'
+  | 'overload'
+  | 'fortress'
+  | 'dissolve'
+  | 'silence'
+  | 'necropolis'
+  | 'cleanse'
+  | 'overkill'
+  | 'brood'
+  | 'endurance'
+  | 'rust'
+  | 'feverBurn'
+  | 'grave'
+  | 'ward';
+export interface EngineTag {
+  id: EngineId;
+  role: 'enabler' | 'payoff';
+}
 
 export interface CardEffect {
   ops?: Op[];
@@ -87,6 +155,8 @@ export interface CardDef {
   signature: boolean;
   /** A Mastery Signature: locked until every Faction achievement of its Build / World Faction is done (UI-side unlock). */
   mastery?: boolean;
+  /** The synergy engines this card belongs to (shown as keywords; bots and auto-fill keep engines together). */
+  engines?: EngineTag[];
   effect: CardEffect;
   budgetNote: string;
 }
@@ -171,6 +241,8 @@ export interface AttachedGraft {
   roundsSurvived: number;
   /** Current integrity (its own small HP pool). Reaching 0 destroys the graft. */
   integrity: number;
+  /** Engine abilities fired this round, by ability index (for their per-round caps). Reset each round. */
+  fired?: Record<number, number>;
 }
 
 export interface PlayerStats {
@@ -190,6 +262,8 @@ export interface PlayerStats {
   necrosisDealt: number;
   /** Energy the opponent actually lost to your drains (including carried-over drains paid next round). */
   energyDrained: number;
+  /** Engine payoff abilities that fired (see Ability.perRound). */
+  engineFires: number;
 }
 
 export interface PlayerState {

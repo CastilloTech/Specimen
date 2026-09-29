@@ -1,4 +1,5 @@
-// Card power budget: target = 1.5 x Strain + 1 + Cost (1 attack = 1 pt, 1 armor = 1 pt).
+// Card power budget: target = 1.5 x Strain + 1 + Cost (1 attack = 1 pt, 1 armor = 1 pt), plus a bonus for a
+// Signature or an engine payoff.
 // Text effects are priced from config.budget so the estimate is reproducible.
 import type { Ability, CardDef, Config, Op } from './types';
 
@@ -35,7 +36,8 @@ export function opPoints(op: Op, cfg: Config): number {
       return p.reflect;
     case 'mod': {
       let mult = 1;
-      if (op.per) mult = op.per.what === 'grafts' ? 2 : op.per.what === 'missingHp' ? 1 : 6 / Math.max(1, op.per.div);
+      // Expected size of the count: ~2 grafts, ~1.5 Bleed stacks while it lasts, missing HP scaled by 1, Strain ~6.
+      if (op.per) mult = op.per.what === 'grafts' ? 2 : op.per.what === 'missingHp' ? 1 : op.per.what === 'oppBleedStacks' ? 1.5 / Math.max(1, op.per.div) : op.per.what === 'oppNecroticSlots' ? 0.6 / Math.max(1, op.per.div) : op.per.what === 'seasonedGrafts' ? 1.2 / Math.max(1, op.per.div) : op.per.what === 'oppWornGrafts' ? 1.5 / Math.max(1, op.per.div) : op.per.what === 'myDiscard' ? 7 / Math.max(1, op.per.div) : 6 / Math.max(1, op.per.div);
       return p.mod * op.amount * mult;
     }
     case 'graftDamage':
@@ -52,7 +54,10 @@ export function opPoints(op: Op, cfg: Config): number {
 
 function abilityPoints(a: Ability, cfg: Config): number {
   const ops = a.ops.reduce((n, o) => n + opPoints(o, cfg), 0);
-  const trig = cfg.budget.triggerMultipliers[a.trigger] ?? 1;
+  // The trigger multiplier is roughly how often it fires in a match; a per-round cap limits that to
+  // cap x the expected number of rounds.
+  const raw = (cfg.budget.triggerMultipliers as Record<string, number>)[a.trigger] ?? 1;
+  const trig = a.perRound ? Math.min(raw, a.perRound * cfg.budget.expectedRounds) : raw;
   return ops * trig * (a.cond ? cfg.budget.conditionMultiplier : 1);
 }
 
@@ -75,7 +80,9 @@ export interface BudgetReport {
 
 export function budgetOf(card: CardDef, cfg: Config): BudgetReport {
   const b = cfg.budget;
-  const target = r2(b.strainPoints * card.strain + b.base + b.costPoints * card.cost + (card.signature ? b.signatureBonus : 0));
+  // An engine payoff may run a little over: it is only at its best with its engine assembled.
+  const payoff = card.engines?.some((t) => t.role === 'payoff') ? b.payoffBonus : 0;
+  const target = r2(b.strainPoints * card.strain + b.base + b.costPoints * card.cost + (card.signature ? b.signatureBonus : 0) + payoff);
   const stats = card.attack + card.armor + (card.integrity ?? 0) * b.prices.integrity;
   const text = textPoints(card, cfg);
   const total = r2(stats + text);
@@ -86,7 +93,7 @@ export function budgetOf(card: CardDef, cfg: Config): BudgetReport {
 export function budgetNote(card: CardDef, cfg: Config): string {
   const r = budgetOf(card, cfg);
   const b = cfg.budget;
-  const sig = card.signature ? ` + ${b.signatureBonus} signature` : '';
+  const sig = (card.signature ? ` + ${b.signatureBonus} signature` : '') + (card.engines?.some((t) => t.role === 'payoff') ? ` + ${b.payoffBonus} engine payoff` : '');
   const integrity = card.integrity ? `, ${card.integrity} integrity` : '';
   return `target ${r.target} (${b.strainPoints}x${card.strain} strain + ${b.base} + ${card.cost} cost${sig}); stats ${r.stats} (${card.attack} atk, ${card.armor} armor${integrity}) + text ~${r.text} = ${r.total} (${r.diff >= 0 ? '+' : ''}${r.diff})`;
 }

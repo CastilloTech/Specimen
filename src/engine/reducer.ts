@@ -9,6 +9,7 @@ import {
   clash,
   drawCards,
   endIfDead,
+  fireTrigger,
   evolve,
   finishRound,
   hurt,
@@ -322,6 +323,7 @@ function apply(s: GameState, a: Action): void {
         pl.stats.cardsPlayed++;
         recordPlay(s, { player: a.player, kind: 'react', uid: card.uid, cardId: card.cardId, ...(against ? { against: against.card.uid } : {}) });
         logMsg(s, 'play', a.player, `${pl.name} responds with ${def.name}.`);
+        fireTrigger(s, a.player, 'onProtocol'); // engine event (Ward)
         const entry: PendingPlay = { player: a.player, card, negated: false, reflected: false, against };
         s.stack.push(entry);
         s.window = null;

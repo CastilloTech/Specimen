@@ -5,6 +5,7 @@ import { nextInt, shuffleInPlace } from './rng';
 import {
   beats,
   computeStats,
+  engineAmp,
   condOk,
   evoFlag,
   evoNum,
@@ -91,6 +92,9 @@ export function addStrain(s: GameState, p: PlayerId, amount: number): void {
   const pl = s.players[p];
   pl.strain += amount;
   pl.stats.maxStrain = Math.max(pl.stats.maxStrain, pl.strain);
+  // Engine events (Frenzy, Feed).
+  fireTrigger(s, p, 'onGainStrain');
+  fireTrigger(s, other(p), 'onOppGainStrain');
 }
 
 /** Voluntary venting (counts toward Carapace). Returns the Strain actually removed. */
@@ -101,6 +105,7 @@ export function vent(s: GameState, p: PlayerId, amount: number): number {
   const actual = Math.max(0, Math.min(eff, pl.strain));
   pl.strain -= actual;
   pl.stats.strainVented += actual;
+  if (actual > 0) fireTrigger(s, p, 'onVent'); // engine event (Pressure)
   return actual;
 }
 
@@ -262,7 +267,8 @@ function destroyGraft(s: GameState, victim: PlayerState, g: AttachedGraft, why: 
 /** Chips a graft's own small integrity pool (bypasses armor); destroys it at 0, separate from rejection. */
 function graftDamage(s: GameState, ctx: OpCtx, op: Extract<Op, { op: 'graftDamage' }>): void {
   const victim = s.players[ctx.victim];
-  const g = victim.grafts.find((x) => x.slot === ctx.play?.target);
+  // A played Sabotage hits its chosen target; a graft's ability hits the most worn-down awake enemy graft.
+  const g = ctx.play ? victim.grafts.find((x) => x.slot === ctx.play?.target) : [...victim.grafts].filter((x) => !x.faceDown).sort((a, b) => a.integrity - b.integrity)[0];
   if (!g) {
     logMsg(s, 'play', ctx.caster, `${ctx.source} finds no graft to target.`);
     return;
@@ -275,10 +281,11 @@ function graftDamage(s: GameState, ctx: OpCtx, op: Extract<Op, { op: 'graftDamag
   if (g.integrity <= 0) {
     destroyGraft(s, victim, g, 'destroyed', ctx.source);
     logMsg(s, 'wear', ctx.caster, `${ctx.source} destroys ${victim.name}'s ${card.name} in ${SLOT_LABEL[g.slot]} (integrity depleted).`);
-    onGraftKilled(s, ctx.caster);
   } else {
     logMsg(s, 'wear', ctx.caster, `${ctx.source} hits ${victim.name}'s ${card.name} for ${amount} integrity (${g.integrity} left).`);
   }
+  if (amount > 0) fireTrigger(s, ctx.caster, 'onWear'); // engine event (Dissolve)
+  if (g.integrity <= 0) onGraftKilled(s, ctx.caster);
 }
 
 /** Clash damage itself now also wears down Integrity, not just Sabotage cards: some of a hit's force lands
@@ -303,10 +310,11 @@ function chipIntegrityFromClash(s: GameState, casterId: PlayerId, victimId: Play
   if (g.integrity <= 0) {
     destroyGraft(s, victim, g, 'destroyed', 'Clash wear');
     logMsg(s, 'wear', casterId, `Clash wears down ${victim.name}'s ${card.name} in ${SLOT_LABEL[g.slot]}: it is destroyed (integrity depleted).`);
-    onGraftKilled(s, casterId);
   } else {
     logMsg(s, 'wear', casterId, `Clash wears ${amount} integrity off ${victim.name}'s ${card.name} (${g.integrity} left).`);
   }
+  // Clash wear is automatic, so it does not fire Dissolve (onWear): only cards and abilities do.
+  if (g.integrity <= 0) onGraftKilled(s, casterId);
 }
 
 /** Chip nodes that pay off destroying a graft (via graftDamage, Clash wear, necrosis, or Sever). */
@@ -326,6 +334,7 @@ function onGraftKilled(s: GameState, casterId: PlayerId): void {
     const n = drawCards(s, casterId, dr);
     if (n > 0) logMsg(s, 'info', casterId, `${caster.name} draws ${n} card(s) (a graft kill).`);
   }
+  fireTrigger(s, casterId, 'onKill'); // engine event (Carrion)
 }
 
 function applyStatus(s: GameState, ctx: OpCtx, op: Extract<Op, { op: 'status' }>): void {
@@ -376,6 +385,7 @@ function purge(s: GameState, ctx: OpCtx, op: Extract<Op, { op: 'purge' }>): void
     }
     const ih = sumLoadoutParam(s, t, 'purgeIntegrityHeal');
     if (ih > 0) runOps(s, [{ op: 'integrityHeal', amount: ih }], { caster: t.id, victim: other(t.id), source: 'Purge' });
+    fireTrigger(s, t.id, 'onPurge'); // engine event (Cleanse)
   }
 }
 
@@ -391,7 +401,10 @@ function integrityHeal(s: GameState, ctx: OpCtx, op: Extract<Op, { op: 'integrit
     g.integrity = Math.min(cap, g.integrity + op.amount);
     healed += g.integrity - before;
   }
-  if (healed > 0) logMsg(s, 'info', ctx.caster, `${ctx.source}: ${pl.name} heals ${healed} integrity across their grafts.`);
+  if (healed > 0) {
+    logMsg(s, 'info', ctx.caster, `${ctx.source}: ${pl.name} heals ${healed} integrity across their grafts.`);
+    fireTrigger(s, ctx.caster, 'onRepair'); // engine event (Renewal)
+  }
 }
 
 export function runOps(s: GameState, ops: Op[], ctx: OpCtx): void {
@@ -446,6 +459,7 @@ export function runOps(s: GameState, ops: Op[], ctx: OpCtx): void {
           if (ctx.caster !== ctx.victim) s.players[ctx.caster].stats.energyDrained += lost;
           logMsg(s, 'info', ctx.victim, lost > 0 ? `${pl.name} loses ${lost} Energy (${ctx.source}).` : `${pl.name} has no Energy left to lose (${ctx.source}).`);
         }
+        if (ctx.caster !== ctx.victim) fireTrigger(s, ctx.caster, 'onDrain'); // engine event (Starvation)
         break;
       }
       case 'buff': {
@@ -490,16 +504,41 @@ export function runOps(s: GameState, ops: Op[], ctx: OpCtx): void {
 export function fireAbilities(s: GameState, p: PlayerId, g: AttachedGraft, trigger: Trigger): void {
   if (g.disabled > 0 || g.faceDown) return; // a sleeping graft does nothing
   const card = cardOf(g.cardId);
-  for (const ab of card.effect.abilities ?? ([] as Ability[])) {
-    if (ab.trigger !== trigger || !condOk(s, s.players[p], ab.cond)) continue;
-    runOps(s, ab.ops, { caster: p, victim: other(p), source: card.name });
-  }
+  (card.effect.abilities ?? ([] as Ability[])).forEach((ab, i) => {
+    if (ab.trigger !== trigger || !condOk(s, s.players[p], ab.cond)) return;
+    if (ab.perRound) {
+      // Engine payoffs fire a limited number of times per round.
+      const fired = (g.fired ??= {});
+      if ((fired[i] ?? 0) >= ab.perRound) return;
+      fired[i] = (fired[i] ?? 0) + 1;
+      s.players[p].stats.engineFires++;
+    }
+    // Amplify (a Chip's engine node): +N to the payoff's main number. Not on attach effects.
+    const amp = trigger === 'onAttach' ? 0 : engineAmp(s, s.players[p], card);
+    let ops = ab.ops;
+    if (amp > 0) {
+      const k = ops.findIndex((o) => 'amount' in o);
+      if (k >= 0) ops = ops.map((o, j) => (j === k ? ({ ...o, amount: (o as { amount: number }).amount + amp } as typeof o) : o));
+    }
+    runOps(s, ops, { caster: p, victim: other(p), source: card.name });
+  });
 }
 
+// Engine events can set each other off (a vent that damages, damage that strains...). Per-round caps bound
+// every loop anyway; this depth limit is a second guard so a chain never recurses deeply.
+let triggerDepth = 0;
+const MAX_TRIGGER_DEPTH = 4;
+
 export function fireTrigger(s: GameState, p: PlayerId, trigger: Trigger): void {
-  for (const g of [...s.players[p].grafts]) {
-    if (s.phase === 'over') return;
-    fireAbilities(s, p, g, trigger);
+  if (triggerDepth >= MAX_TRIGGER_DEPTH) return;
+  triggerDepth++;
+  try {
+    for (const g of [...s.players[p].grafts]) {
+      if (s.phase === 'over') return;
+      fireAbilities(s, p, g, trigger);
+    }
+  } finally {
+    triggerDepth--;
   }
 }
 
@@ -530,6 +569,8 @@ export function attachGraft(s: GameState, p: PlayerId, card: CardInstance, slot:
   addStrain(s, p, g.strain);
   logMsg(s, 'play', p, faceDown ? `${pl.name} attaches a face-down graft to ${SLOT_LABEL[slot]} (+${g.strain} Strain).` : `${pl.name} attaches ${def.name} to ${SLOT_LABEL[slot]} (+${g.strain} Strain).`);
   fireAbilities(s, p, g, 'onAttach');
+  fireTrigger(s, p, 'onAttachGraft'); // engine event (Brood)
+  if (pl.fever > 0) fireTrigger(s, other(p), 'onOppFeverGraft'); // engine event (Fever burn)
 }
 
 export function resolvePlay(s: GameState, play: PendingPlay): void {
@@ -594,6 +635,7 @@ export function beginRound(s: GameState): void {
     pl.attachedThisRound = 0;
     pl.tempAttack = 0;
     pl.tempArmor = 0;
+    for (const g of pl.grafts) g.fired = {}; // engine abilities' per-round caps start fresh
   }
   for (const pl of s.players) {
     const late = s.round >= cfg.match.lateDrawFromRound ? cfg.match.lateDraw : 0; // the late game is card-starved, so draw more
@@ -610,7 +652,15 @@ export function beginRound(s: GameState): void {
       if (v > 0) logMsg(s, 'strain', pl.id, `${pl.name} vents ${v} Strain (no graft last round).`, -v);
     }
     const regen = sumLoadoutParam(s, pl, 'integrityRegen');
-    if (regen > 0) for (const g of pl.grafts) g.integrity = Math.min((cardOf(g.cardId).integrity ?? cfg.integrity.default) + sumLoadoutParam(s, pl, 'flatIntegrity'), g.integrity + regen);
+    if (regen > 0) {
+      let healed = 0;
+      for (const g of pl.grafts) {
+        const before = g.integrity;
+        g.integrity = Math.min((cardOf(g.cardId).integrity ?? cfg.integrity.default) + sumLoadoutParam(s, pl, 'flatIntegrity'), g.integrity + regen);
+        healed += g.integrity - before;
+      }
+      if (healed > 0) fireTrigger(s, pl.id, 'onRepair'); // engine event (Renewal)
+    }
   }
   // Comeback: the Specimen that has taken well more damage this match draws extra and gets a little extra
   // Energy, so an early lead does not decide the match alone. Damage counts from each Specimen's own starting
@@ -787,6 +837,10 @@ export function clash(s: GameState): void {
   for (const i of [0, 1] as PlayerId[]) {
     if (dealt[i] > 0) fireTrigger(s, i, 'onDealDamage');
     if (dealt[other(i)] > 0) fireTrigger(s, i, 'onTakeDamage');
+    // Engine event (Fortress): i's armor stopped a big chunk of the other side's hit.
+    if (res[other(i)].prevented >= cfg.engines.blockThreshold) fireTrigger(s, i, 'onBlock');
+    // Engine event (Overkill): i landed a big hit.
+    if (dealt[i] >= cfg.engines.bigHitThreshold) fireTrigger(s, i, 'onBigHit');
   }
   endIfDead(s);
 }
@@ -819,6 +873,7 @@ export function rejectGraft(s: GameState, p: PlayerId): boolean {
   const opp = s.players[other(p)];
   const hh = evoNum(s, opp, 'healOnOppReject');
   if (hh > 0) heal(s, other(p), hh, 'Hive Host');
+  fireTrigger(s, other(p), 'onOppReject'); // engine event (Overload)
   return true;
 }
 
