@@ -37,7 +37,8 @@ export function matchRecord(s: GameState, me: PlayerId): MatchRecord {
     reason: s.result?.reason ?? '',
     rounds: s.round,
     ko: s.players.some((pl) => pl.hp <= 0),
-    comeback: result === 'win' && s.snapshots.some((sn) => sn.hp[me] <= sn.hp[o.id] - gap),
+    // Trailing = having taken `gap` more damage this match (the same measure as Second wind).
+    comeback: result === 'win' && s.snapshots.some((sn) => s.snapshots[0].hp[me] - sn.hp[me] - (s.snapshots[0].hp[o.id] - sn.hp[o.id]) >= gap),
     me: {
       faction: p.faction,
       worldFaction: p.worldFaction,

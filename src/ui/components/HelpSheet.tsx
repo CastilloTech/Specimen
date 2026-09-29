@@ -52,7 +52,7 @@ export function HelpSheet({ state, keybinds, onClose }: { state: GameState; keyb
         <ul className="mt-1 list-disc space-y-0.5 pl-5 text-xs text-ink2">
           <li>Energy equals the round number, at least {c.energy.min} and at most {c.energy.cap}, and does not carry over. You draw {c.match.drawPerRound} card a round, and {c.match.drawPerRound + c.match.lateDraw} from round {c.match.lateDrawFromRound}.</li>
           {c.match.catchUpDraw > 0 && (
-            <li>Second wind: if you are {c.match.catchUpHpGap}+ HP behind at the start of a round, you draw {c.match.catchUpDraw} extra card{c.match.catchUpDraw === 1 ? '' : 's'}{c.match.catchUpEnergy > 0 ? ` and gain ${c.match.catchUpEnergy} extra Energy` : ''}.</li>
+            <li>Second wind: if you have taken {c.match.catchUpHpGap}+ more damage than your opponent this match at the start of a round, you draw {c.match.catchUpDraw} extra card{c.match.catchUpDraw === 1 ? '' : 's'}{c.match.catchUpEnergy > 0 ? ` and gain ${c.match.catchUpEnergy} extra Energy` : ''}.</li>
           )}
           <li>Your hand holds at most {c.match.maxHand} cards. A card drawn into a full hand is burned (discarded), so play or Cycle cards rather than hoarding them.</li>
           {c.replace.enabled && <li>Playing a graft on an occupied slot replaces it for {c.replace.extraCost} extra Energy (the old graft leaves with its Strain).</li>}

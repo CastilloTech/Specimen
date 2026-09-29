@@ -8,7 +8,7 @@ import type { ModeDeck } from './modes';
 
 const BASE_HP = defaultConfig.specimen.hp;
 /** After each wave your Specimen heals this share of its max HP. */
-export const BETWEEN_HEAL_PCT = 0.25;
+export const BETWEEN_HEAL_PCT = 0.2;
 export const betweenHeal = (maxHp = BASE_HP) => Math.round(maxHp * BETWEEN_HEAL_PCT);
 export const BETWEEN_VENT = 2;
 /** Carried Strain is capped here so a run can't start a wave already doomed to reject twice. */

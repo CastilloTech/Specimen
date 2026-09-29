@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CARD_MAP, chipsFor, createMatch, defaultConfig, playBotMatch } from '../src/engine';
-import { afterWave, BETWEEN_VENT, betweenHeal, ESCAPEE_HP, startBreach, waveMatch, waveStrength, wavesSurvived } from '../src/ui/breach';
+import { afterWave, BETWEEN_HEAL_PCT, BETWEEN_VENT, betweenHeal, ESCAPEE_HP, startBreach, waveMatch, waveStrength, wavesSurvived } from '../src/ui/breach';
 import type { BreachRun } from '../src/ui/breach';
 import { startProgress } from '../src/ui/modes';
 
@@ -41,7 +41,8 @@ describe('Containment Breach', () => {
     const a = afterWave(r, won);
     expect(a.survived).toBe(true);
     expect(a.run).toMatchObject({ wave: 2, hp: 20 + betweenHeal(HP), strain: 9 - BETWEEN_VENT });
-    expect(betweenHeal(HP)).toBe(Math.round(HP * 0.25));
+    expect(betweenHeal(HP)).toBe(Math.round(HP * BETWEEN_HEAL_PCT));
+    expect(BETWEEN_HEAL_PCT).toBeLessThan(0.5); // "only a little healing"
     const nearFull = afterWave(r, { ...s, result: { winner: 0, reason: '' }, players: [{ ...s.players[0], hp: HP - 2 }, s.players[1]] } as never);
     expect(nearFull.run.hp).toBe(HP); // never above max HP
     expect(a.reward).toBeGreaterThan(0);

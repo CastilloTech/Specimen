@@ -21,7 +21,7 @@ export const TWISTS: Twist[] = [
   { id: 'grafted', name: 'Pre-grown', text: 'Both Specimens start with two grafts from their deck already attached.' },
   { id: 'strained', name: 'Stressed', text: 'You start the match at 3 Strain.' },
   { id: 'mutant', name: 'Mutant', text: 'Your opponent has two permanent mutations.' },
-  { id: 'gifted', name: 'Gifted', text: 'You have a mutation, but your opponent has 50 max HP.' },
+  { id: 'gifted', name: 'Gifted', text: 'You have a mutation, but your opponent has 46 max HP.' },
   { id: 'thinVents', name: 'Thin vents', text: 'Every vent you make is 1 smaller.' },
 ];
 
@@ -110,7 +110,7 @@ export function dailyChallenge(key: string, name: string): Daily {
       break;
     case 'gifted':
       you = { ...you, mutations: [takeMutation()] };
-      opponent = { ...opponent, maxHp: 50 };
+      opponent = { ...opponent, maxHp: 46 };
       break;
     case 'thinVents':
       you = { ...you, ventMalus: 1 };

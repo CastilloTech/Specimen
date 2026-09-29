@@ -9,8 +9,13 @@ import type { ModeDeck, Progress } from './modes';
 
 export const LINEAGE_MATCHES = 10;
 /** The Specimen dies if its max HP drops below this, or at this many losses. */
-export const MIN_MAX_HP = 28;
+export const MIN_MAX_HP = 24;
+/** Max HP a lost match costs. */
+export const LOSS_SCAR = 3;
 export const MAX_LOSSES = 4;
+/** Rival Specimens come from other scarred bloodlines: their max HP (a Matriarch's, and the Progenitor's). */
+export const RIVAL_HP = 32;
+export const MATRIARCH_HP = 36;
 const MIN_SLOTS = 3;
 const BASE_HP = defaultConfig.specimen.hp;
 /** Which Tower floor each campaign match borrows its opponent from: steadily harder, with Tower rule twists
@@ -62,8 +67,10 @@ export function startLineage(p: Progress, name: string, heritage?: string | null
 export function lineageMatch(l: LineageState, playerName: string): MatchSetup {
   const setup = floorMatch(FLOOR_FOR_MATCH[l.match - 1], l.seed, l.deck, playerName);
   const you = { ...setup.players[0], maxHp: l.maxHp, lostSlots: l.lostSlots, mutations: l.mutations.filter((id) => !MUTATION_MAP[id]?.lineage) };
+  const towerName = setup.players[1].name;
+  const rivalHp = towerName === 'The Progenitor' ? BASE_HP : towerName.startsWith('Boss:') ? MATRIARCH_HP : RIVAL_HP;
   // The late floors keep their Tower rule twists (the bot starts evolved, early Meltdown, you vent less).
-  return { ...setup, players: [you, { ...setup.players[1], name: rivalName(l, setup.players[1].faction, setup.players[1].name) }] };
+  return { ...setup, players: [you, { ...setup.players[1], name: rivalName(l, setup.players[1].faction, towerName), maxHp: rivalHp }] };
 }
 
 // Opponents are rival Specimens from other bloodlines, named for their Build; the bosses are a bloodline's
@@ -111,8 +118,8 @@ export function scarsFrom(l: LineageState, won: boolean, hpLeft: number, rejecte
     }
   }
   if (!won) {
-    maxHp -= 4;
-    scars.push('Deep scar: −4 max HP (the match was lost).');
+    maxHp -= LOSS_SCAR;
+    scars.push(`Deep scar: −${LOSS_SCAR} max HP (the match was lost).`);
   } else if (hpLeft <= Math.floor(l.maxHp / 3)) {
     maxHp -= 2;
     scars.push(`Near death: −2 max HP (won with only ${hpLeft} HP left).`);

@@ -37,7 +37,7 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'ko', name: 'Knockout', icon: '✕', text: "Win by bringing the opponent's Specimen to 0 HP.", progress: anyMatch((r) => r.result === 'win' && r.ko === true) },
   { id: 'speed', name: 'Rapid Rejection', icon: '»', text: 'Win by round 5.', progress: anyMatch((r) => r.result === 'win' && r.rounds <= 5) },
   { id: 'photo', name: 'Photo Finish', icon: '⧗', text: `Win on HP after round ${LAST_ROUND} by 2 HP or less.`, progress: anyMatch((r) => r.result === 'win' && r.ko === false && r.me.hpLeft - r.opp.hpLeft <= 2) },
-  { id: 'comeback', name: 'Comeback Specimen', icon: '↺', text: `Win after trailing by ${defaultConfig.match.catchUpHpGap}+ HP.`, progress: anyMatch((r) => r.comeback === true) },
+  { id: 'comeback', name: 'Comeback Specimen', icon: '↺', text: `Win after falling ${defaultConfig.match.catchUpHpGap}+ damage behind.`, progress: anyMatch((r) => r.comeback === true) },
   { id: 'untouchable', name: 'Untouchable', icon: '◇', text: 'Win while taking 12 damage or less.', progress: anyMatch((r) => r.result === 'win' && r.me.taken <= 12) },
   { id: 'overkill', name: 'Overkill', icon: '✹', text: 'Deal 50+ damage in one match.', progress: anyMatch((r) => r.me.dealt >= 50) },
   { id: 'wall', name: 'Living Wall', icon: '⛨', text: 'Block 30+ damage in one match.', progress: anyMatch((r) => r.me.blocked >= 30) },

@@ -47,6 +47,24 @@ describe('Extra draws', () => {
     expect(s.log.some((l) => /Second wind/.test(l.text))).toBe(true);
   });
 
+  it('second wind counts damage taken this match, not HP: a smaller Specimen is not "behind" for being smaller', () => {
+    // P1 started this match on 28 (a scarred max HP, or HP carried in) and hasn't been hit; P2 is on a full 40.
+    let s = arena('predator', 'predator', ['aggress', 'aggress'], { match: { catchUpDraw: 1, catchUpHpGap: 5 } });
+    s = edit(s, (d) => {
+      d.players[0].hp = 28;
+      d.players[0].maxHp = 28;
+      d.snapshots[0].hp[0] = 28;
+    });
+    s = endRound(s);
+    expect(s.players[0].hand).toHaveLength(1);
+    expect(s.players[1].hand).toHaveLength(1);
+    expect(s.log.some((l) => /Second wind/.test(l.text))).toBe(false);
+    // Once it has taken clearly more damage this match than the other side has, it qualifies.
+    s = setHp(s, 0, 10);
+    s = nextRound(hands(s));
+    expect(s.log.some((l) => l.player === 0 && /Second wind: .* has taken \d+ more damage/.test(l.text))).toBe(true);
+  });
+
   it('second wind does not fire when the gap is small', () => {
     let s = arena('predator', 'predator', ['aggress', 'aggress'], { match: { catchUpDraw: 1, catchUpHpGap: 8 } });
     s = setHp(s, 0, 27);

@@ -243,7 +243,7 @@ function StatsPanel({ name, a, recent }: { name: string; a: Analysis; recent: Ma
   const facts: [string, string, string?][] = [
     ['Match length', `${a.avg.rounds.toFixed(1)} rounds`],
     ['Wins by KO', a.koWinShare === null ? '—' : pct(a.koWinShare), 'the rest won on HP after the last round'],
-    ['Comeback wins', String(a.comebacks), `won after trailing by ${defaultConfig.match.catchUpHpGap}+ HP`],
+    ['Comeback wins', String(a.comebacks), `won after falling ${defaultConfig.match.catchUpHpGap}+ damage behind`],
     ['HP left in wins', num(a.avg.hpLeftInWins, 0)],
     ['Evolved', pct(1 - a.avg.noEvolution), a.avg.evolvedRound === null ? undefined : `on average in round ${a.avg.evolvedRound.toFixed(1)}`],
     ['Peak Strain', num(a.avg.peakStrain), `rejects above ${defaultConfig.strain.threshold}`],

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { chipsFor, computeStats, createMatch, MUTATIONS, playBotMatch } from '../src/engine';
-import { applyLineageMatch, chooseMutation, lineageMatch, LINEAGE_MATCHES, MAX_LOSSES, MIN_MAX_HP, mutationOffer, scarsFrom, startLineage } from '../src/ui/lineage';
+import { applyLineageMatch, chooseMutation, lineageMatch, LINEAGE_MATCHES, LOSS_SCAR, MATRIARCH_HP, MAX_LOSSES, MIN_MAX_HP, mutationOffer, RIVAL_HP, scarsFrom, startLineage } from '../src/ui/lineage';
 import type { LineageState } from '../src/ui/lineage';
 import { startProgress } from '../src/ui/modes';
 
@@ -39,10 +39,10 @@ describe('Lineage engine hooks', () => {
 });
 
 describe('Scars and mutations', () => {
-  it('rejections kill their slot (keeping at least 3), losses cost 4 max HP, near-death wins cost 2', () => {
+  it('rejections kill their slot (keeping at least 3), losses cost LOSS_SCAR max HP, near-death wins cost 2', () => {
     const l = fresh();
     expect(scarsFrom(l, true, 20, [])).toMatchObject({ maxHp: 40, lostSlots: [] });
-    expect(scarsFrom(l, false, 0, []).maxHp).toBe(36);
+    expect(scarsFrom(l, false, 0, []).maxHp).toBe(40 - LOSS_SCAR);
     expect(scarsFrom(l, true, 5, []).maxHp).toBe(38);
     const r = scarsFrom(l, true, 20, ['limbA']);
     expect(r.lostSlots).toEqual(['limbA']);
@@ -67,7 +67,15 @@ describe('Scars and mutations', () => {
     expect(MUTATIONS.length).toBeGreaterThanOrEqual(12);
   });
 
-  it('the lineage dies at 3 losses and completes after 10 matches', () => {
+  it('rivals are smaller Specimens: a Matriarch is bigger, and the Progenitor has full HP', () => {
+    const hpAt = (match: number) => createMatch(lineageMatch({ ...fresh(), match }, 'You')).players[1].maxHp;
+    expect(hpAt(1)).toBe(RIVAL_HP);
+    expect(hpAt(4)).toBe(MATRIARCH_HP); // match 4 is Tower floor 10, a Faction Boss
+    expect(lineageMatch({ ...fresh(), match: 4 }, 'You').players[1].name).toMatch(/^Matriarch of the /);
+    expect(hpAt(10)).toBe(40);
+  });
+
+  it('the lineage dies at its loss limit and completes after 10 matches', () => {
     let l = fresh();
     const lose = (x: LineageState) => applyLineageMatch(x, { ...createMatch(lineageMatch(x, 'You')), result: { winner: 1, reason: '' } } as never);
     for (let i = 0; i < MAX_LOSSES; i++) l = lose(l).lineage;

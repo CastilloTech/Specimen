@@ -52,8 +52,6 @@ export function tutorialSetup(name: string): MatchSetup {
   const botChip = chipsFor('aegis')[0].id;
   return {
     seed: 20260928,
-    // No Second wind: it compares raw HP, so the smaller training Specimen would get it every round.
-    config: { match: { catchUpDraw: 0, catchUpEnergy: 0 } },
     players: [
       { name, faction: 'predator', worldFaction: 'corrosion', chip, loadout: chipRows(chip).map((r) => r.nodes[0].id), deck: [...TOP.filter((id) => base.includes(id)), ...rest], stackedDeck: true },
       { name: 'Training Specimen', faction: 'bastion', worldFaction: 'aegis', chip: botChip, loadout: chipRows(botChip).map((r) => r.nodes[0].id), deck: starterDeck('bastion', 'aegis'), isBot: true, ai: 'basic', maxHp: TUTORIAL_BOT_HP },
@@ -75,7 +73,6 @@ export function advancedSetup(name: string): MatchSetup {
   const botChip = chipsFor('corrosion')[0].id;
   return {
     seed: 20260929,
-    config: { match: { catchUpDraw: 0, catchUpEnergy: 0 } },
     players: [
       { name, faction: 'bastion', worldFaction: 'miasma', chip, loadout: chipRows(chip).map((r) => r.nodes[0].id), deck: [...TOP2.filter((id) => base.includes(id)), ...rest], stackedDeck: true },
       { name: 'Training Specimen', faction: 'bastion', worldFaction: 'corrosion', chip: botChip, loadout: chipRows(botChip).map((r) => r.nodes[0].id), deck: starterDeck('bastion', 'corrosion'), isBot: true, ai: 'basic', maxHp: ADVANCED_BOT_HP },

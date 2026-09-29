@@ -612,15 +612,20 @@ export function beginRound(s: GameState): void {
     const regen = sumLoadoutParam(s, pl, 'integrityRegen');
     if (regen > 0) for (const g of pl.grafts) g.integrity = Math.min((cardOf(g.cardId).integrity ?? cfg.integrity.default) + sumLoadoutParam(s, pl, 'flatIntegrity'), g.integrity + regen);
   }
-  // Comeback: the Specimen that is well behind on HP draws extra and gets a little extra Energy, so an
-  // early lead does not decide the match alone.
+  // Comeback: the Specimen that has taken well more damage this match draws extra and gets a little extra
+  // Energy, so an early lead does not decide the match alone. Damage counts from each Specimen's own starting
+  // HP, so a smaller Specimen (a lower max HP, or HP carried in from an earlier fight) isn't "behind" just
+  // for being smaller.
   const [pa, pb] = s.players;
-  if ((cfg.match.catchUpDraw > 0 || cfg.match.catchUpEnergy > 0) && Math.abs(pa.hp - pb.hp) >= cfg.match.catchUpHpGap) {
-    const trailing = pa.hp < pb.hp ? pa : pb;
+  const start = s.snapshots[0]?.hp ?? [pa.maxHp, pb.maxHp];
+  const lostA = start[0] - pa.hp;
+  const lostB = start[1] - pb.hp;
+  if ((cfg.match.catchUpDraw > 0 || cfg.match.catchUpEnergy > 0) && Math.abs(lostA - lostB) >= cfg.match.catchUpHpGap) {
+    const trailing = lostA > lostB ? pa : pb;
     const n = drawCards(s, trailing.id, cfg.match.catchUpDraw);
     if (cfg.match.catchUpEnergy > 0) trailing.energy += cfg.match.catchUpEnergy;
     const extraEnergy = cfg.match.catchUpEnergy > 0 ? `, +${cfg.match.catchUpEnergy} Energy` : '';
-    if (n > 0 || cfg.match.catchUpEnergy > 0) logMsg(s, 'info', trailing.id, `Second wind: ${trailing.name} is ${Math.abs(pa.hp - pb.hp)} HP behind and draws ${n} extra card(s)${extraEnergy}.`);
+    if (n > 0 || cfg.match.catchUpEnergy > 0) logMsg(s, 'info', trailing.id, `Second wind: ${trailing.name} has taken ${Math.abs(lostA - lostB)} more damage and draws ${n} extra card(s)${extraEnergy}.`);
   }
   // Drains that landed after last round's actions come off the fresh Energy now.
   s.actionsClosed = false;
