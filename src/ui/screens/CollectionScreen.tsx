@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { play } from '../sfx';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { CARD_MAP, CARDS, chipRows, chipsFor, defaultConfig, FACTIONS, findNode, WORLD_FACTIONS } from '../../engine';
 import type { CardDef, Faction, WorldFactionId } from '../../engine';
@@ -46,6 +47,7 @@ export function CollectionScreen({ onBack }: { onBack: () => void }) {
     const r = craft(p, id);
     if (typeof r === 'string') setMsg(r);
     else {
+      play('craft');
       setMsg(`Crafted ${CARD_MAP[id].name}.`);
       update(r);
     }

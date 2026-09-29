@@ -147,7 +147,9 @@ export function createMatch(setup: MatchSetup): GameState {
   };
   for (const pl of s.players) {
     pl.deck = setup.players[pl.id].deck.map((cardId) => ({ uid: `${pl.id}:${s.uidCounter++}`, cardId }));
-    shuffleInPlace(s, pl.deck);
+    // Cards are drawn from the end of the array, so a stacked deck is reversed to put its first card on top.
+    if (setup.players[pl.id].stackedDeck) pl.deck.reverse();
+    else shuffleInPlace(s, pl.deck);
     for (let i = 0; i < config.match.startingHand && pl.deck.length; i++) pl.hand.push(pl.deck.pop()!);
     // Pre-attached grafts (Containment Breach escapees).
     for (const cardId of setup.players[pl.id].startGrafts ?? []) {

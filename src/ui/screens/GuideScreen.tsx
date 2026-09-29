@@ -381,7 +381,7 @@ const readStep = () => {
   }
 };
 
-export function GuideScreen({ onBack, onPlay, settings, onSettings }: { onBack: () => void; onPlay: () => void; settings: Settings; onSettings: (s: Settings) => void }) {
+export function GuideScreen({ onBack, onPlay, onTutorial, settings, onSettings }: { onBack: () => void; onPlay: () => void; onTutorial: () => void; settings: Settings; onSettings: (s: Settings) => void }) {
   const [i, setIRaw] = useState(readStep); // reopens where you left off
   const [toc, setToc] = useState(false);
   const [keys, setKeys] = useState(false); // the key-bindings panel (desktop)
@@ -490,9 +490,14 @@ export function GuideScreen({ onBack, onPlay, settings, onSettings }: { onBack: 
           Back
         </button>
         {last ? (
-          <button onClick={onPlay} className="flex-1 rounded-xl bg-accent px-4 py-3 font-display font-bold text-black">
-            Play a Quick match
-          </button>
+          <>
+            <button onClick={onTutorial} className="rounded-xl border border-amber-400/70 px-3 py-3 text-sm font-semibold text-amber-200" title="A coached first match against a gentle bot">
+              Tutorial match
+            </button>
+            <button onClick={onPlay} className="flex-1 rounded-xl bg-accent px-4 py-3 font-display font-bold text-black">
+              Play a Quick match
+            </button>
+          </>
         ) : (
           <button onClick={() => setI((v) => v + 1)} autoFocus className="min-w-0 flex-1 truncate rounded-xl bg-accent px-4 py-3 font-display font-bold text-black">
             Next<span className="hidden sm:inline phone:inline">: {STEPS[i + 1].title}</span>

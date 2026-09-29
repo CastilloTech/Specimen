@@ -1,4 +1,4 @@
-import type { Faction, Stance, WorldFactionId } from '../engine';
+import type { Action, BotTier, Faction, MatchSetup, PlayerId, Stance, WorldFactionId } from '../engine';
 
 // Everything here is a per-browser convenience: reads/writes are wrapped so a blocked
 // or full localStorage never breaks the app.
@@ -109,7 +109,7 @@ export function deleteSave(slot: number): void {
   idx.slots[slot] = null;
   if (idx.active === slot) idx.active = null;
   writeIndex(idx);
-  for (const k of ['decks', 'chipLoadouts', 'lastSetup.bot', 'matches', 'progress']) remove(`specimen.save${slot}.${k}`);
+  for (const k of ['decks', 'chipLoadouts', 'lastSetup.bot', 'matches', 'progress', 'replays']) remove(`specimen.save${slot}.${k}`);
 }
 
 /** Per-save data lives under that save's own keys; with no save loaded it uses the unsaved (guest) keys. */
@@ -134,6 +134,8 @@ export interface LastPlayerPick {
   worldFaction: WorldFactionId;
   chip: string;
   deckId: string;
+  /** The bot's difficulty (opponent pick only). */
+  ai?: BotTier;
 }
 export const loadLastSetup = (slot?: number | null): LastPlayerPick[] | null => read<LastPlayerPick[] | null>(scoped('lastSetup.bot', slot), null);
 export const saveLastSetup = (picks: LastPlayerPick[]) => write(scoped('lastSetup.bot'), picks);
@@ -216,3 +218,38 @@ export function saveSaveData(key: string, value: unknown): void {
   const slot = loadSaveIndex().active;
   if (slot !== null) write(scoped(key, slot), value);
 }
+
+// ---------- Replays (per save) ----------
+// A replay is just the match setup (seed included) and every action taken: the engine is deterministic, so
+// running the actions again rebuilds every moment of the match.
+export interface SavedReplay {
+  id: string;
+  at: number;
+  /** Which player is "you". */
+  me: PlayerId;
+  names: [string, string];
+  result: 'win' | 'loss' | 'draw';
+  rounds: number;
+  /** Where it was played, e.g. "Quick match" or "Tower floor 12". */
+  label?: string;
+  setup: MatchSetup;
+  actions: Action[];
+}
+export const MAX_REPLAYS = 10;
+
+export const loadReplays = (): SavedReplay[] => read<SavedReplay[]>(scoped('replays'), []);
+
+/** Keep a replay (newest first). If storage is full, the oldest replays make room. */
+export function saveReplay(r: SavedReplay): void {
+  let list = [r, ...loadReplays().filter((x) => x.id !== r.id)].slice(0, MAX_REPLAYS);
+  const key = scoped('replays');
+  while (list.length) {
+    try {
+      localStorage.setItem(key, JSON.stringify(list));
+      return;
+    } catch {
+      list = list.slice(0, -1);
+    }
+  }
+}
+export const deleteReplay = (id: string) => write(scoped('replays'), loadReplays().filter((x) => x.id !== id));

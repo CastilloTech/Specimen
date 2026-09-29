@@ -16,6 +16,8 @@ interface Props {
   /** Straight into a quick match: your defaults against a new random bot. */
   onNext: () => void;
   onMenu: () => void;
+  /** Watch this match again, step by step. */
+  onReplay?: () => void;
 }
 
 export function exportMatchJson(state: GameState, setup: MatchSetup): string {
@@ -46,7 +48,7 @@ function download(name: string, text: string) {
   URL.revokeObjectURL(url);
 }
 
-export function PostMatch({ state, setup, onRematch, onNext, onMenu }: Props) {
+export function PostMatch({ state, setup, onRematch, onNext, onMenu, onReplay }: Props) {
   const [a, b] = state.players;
   const names: [string, string] = [a.name, b.name];
   const rounds = state.snapshots.map((s) => s.round);
@@ -71,6 +73,11 @@ export function PostMatch({ state, setup, onRematch, onNext, onMenu }: Props) {
         <button onClick={onRematch} className="flex-1 rounded-xl border border-accent/60 px-3 py-2.5 text-sm font-semibold text-accent" title="Same Builds, World Factions, Chips and decks">
           Rematch
         </button>
+        {onReplay && (
+          <button onClick={onReplay} className="rounded-xl border border-line px-3 py-2.5 text-sm font-semibold text-ink2 hover:border-mute" title="Watch this match again, step by step">
+            ▶ Replay
+          </button>
+        )}
         <button onClick={onNext} autoFocus className="flex-1 rounded-xl bg-accent px-3 py-2.5 font-display text-sm font-bold text-black" title="Your defaults against a new random opponent">
           Next match ▸
         </button>

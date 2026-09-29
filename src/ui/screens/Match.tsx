@@ -1,4 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { SoundToggle, useMatchSounds } from '../sfx';
+import { Coach } from '../components/Coach';
+import { setTutorialDone } from '../tutorial';
 import { ambushText, cardCost, cardOf, chipOf, defaultConfig, evolutionBoosts, findNode, legalPlays, other, reactionOptions, SLOT_LABEL, STANCES } from '../../engine';
 import type { Action, CardDef, GameState, MatchSetup, PlayerId, PlayRecord, SlotId, Stance } from '../../engine';
 import { CardDetail } from '../components/CardDetail';
@@ -18,7 +21,7 @@ import { PHONE_LANDSCAPE, PHONE_PORTRAIT, tryLandscapeFullscreen, useMediaQuery 
 import { FACTION_META, PLAYER_COLORS, STANCE_META, WORLD_FACTION_META } from '../meta';
 import { matchRecord } from '../stats';
 import type { KeyAction, Settings } from '../storage';
-import { keyLabel, recordMatch } from '../storage';
+import { keyLabel, recordMatch, saveReplay } from '../storage';
 import { useMatch } from '../useMatch';
 import type { TimerView } from '../useMatch';
 
@@ -27,6 +30,10 @@ interface Props {
   settings: Settings;
   onExit: () => void;
   onFinish: (s: GameState, setup: MatchSetup) => void;
+  /** Where this match is played (named on its replay). */
+  label?: string;
+  /** The tutorial match: no timers, and the coach explains each step. */
+  tutorial?: boolean;
 }
 
 interface Detail {
@@ -39,9 +46,10 @@ interface Detail {
 
 const PHASE_LABEL = { mulligan: 'Mulligan', stance: 'Choose stance', feint: 'Feint', actions: 'Actions', evolve: 'Evolution', over: 'Match over' } as const;
 
-export function MatchScreen({ setup, settings, onExit, onFinish }: Props) {
+export function MatchScreen({ setup, settings, onExit, onFinish, label, tutorial }: Props) {
   const pausedRef = useRef(false);
-  const { state, dispatch, error, actor, timer } = useMatch(setup, defaultConfig.timers.enabled, pausedRef);
+  const { state, dispatch, error, actor, timer } = useMatch(setup, defaultConfig.timers.enabled && !tutorial, pausedRef);
+  const [coaching, setCoaching] = useState(!!tutorial);
   const [introSeen, setIntroSeen] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [faceDown, setFaceDown] = useState(false);
@@ -58,6 +66,7 @@ export function MatchScreen({ setup, settings, onExit, onFinish }: Props) {
   const [viewCard, setViewCard] = useState<string | null>(null); // a card open in the full view
   const [evoEvents, dismissEvo] = useEvolutionEvents(state);
   const clash = useClashEvent(state);
+  useMatchSounds(state, 0, introSeen);
   const arrivals = useArrivals(state.players[0].hand.map((c) => c.uid), introSeen);
   const phone = useMediaQuery(PHONE_LANDSCAPE);
   const portrait = useMediaQuery(PHONE_PORTRAIT);
@@ -77,7 +86,9 @@ export function MatchScreen({ setup, settings, onExit, onFinish }: Props) {
     if (!over || recorded.current) return;
     recorded.current = true;
     recordMatch(matchRecord(state, me));
-  }, [over, state, me]);
+    const w = state.result?.winner;
+    saveReplay({ id: `${Date.now()}-${setup.seed}`, at: Date.now(), me, names: [state.players[0].name, state.players[1].name], result: w === me ? 'win' : w == null ? 'draw' : 'loss', rounds: state.round, label, setup, actions: state.history });
+  }, [over, state, me, setup, label]);
 
   // The opponent's plays you have not been shown yet pop up as real cards for a few seconds.
   const unseenOpp = useMemo(() => state.plays.slice(seenPlays).filter((r) => r.player === opp), [state.plays, seenPlays, opp]);
@@ -291,7 +302,7 @@ export function MatchScreen({ setup, settings, onExit, onFinish }: Props) {
             </button>
           </div>
         ) : (
-          <button disabled={!myTurn} onClick={passClick} className={`${b} disabled:opacity-40 ${nothingToPlay ? 'animate-pulse bg-accent text-black' : 'bg-panel2'}`}>
+          <button disabled={!myTurn} onClick={passClick} data-coach-id="pass" className={`${b} disabled:opacity-40 ${nothingToPlay ? 'animate-pulse bg-accent text-black' : 'bg-panel2'}`}>
             Pass{!compact && kbd('pass')}
           </button>
         )}
@@ -299,6 +310,7 @@ export function MatchScreen({ setup, settings, onExit, onFinish }: Props) {
           <button
             disabled={!myTurn || mine.hold}
             onClick={() => send({ type: 'HOLD', player: me })}
+            data-coach-id="hold"
             title={`Deal no Clash damage this round, in exchange for +${state.config.strain.holdArmor} armor (reduces what you take) and venting ${state.config.strain.holdVent} Strain now.`}
             className={`${b} bg-panel2 disabled:opacity-40`}
           >
@@ -340,6 +352,16 @@ export function MatchScreen({ setup, settings, onExit, onFinish }: Props) {
       <EvolutionBanners state={state} events={evoEvents} me={me} onDismiss={dismissEvo} />
       <RoundBanner state={state} />
       <MatchEndOverlay state={state} me={me} />
+      {coaching && (
+        <Coach
+          ctx={{ state, me, myTurn, reacting, selDef }}
+          active={!detail && !playSheet && !showHelp && !viewCard && !evoSheet && !confirmExit && !showHistory}
+          onSkip={() => {
+            setCoaching(false);
+            setTutorialDone();
+          }}
+        />
+      )}
       {showHelp && <HelpSheet state={state} keybinds={binds} onClose={() => setShowHelp(false)} />}
       {viewCard && <CardDetail def={cardOf(viewCard)} onClose={() => setViewCard(null)} />}
       {showHistory && <PlayHistory state={state} viewer={me} onClose={() => setShowHistory(false)} onOpen={(r) => setPlaySheet(r)} />}
@@ -378,7 +400,7 @@ export function MatchScreen({ setup, settings, onExit, onFinish }: Props) {
     ) : reacting && state.window ? (
       <PhoneReaction state={state} me={me} onAct={(a) => send(a)} onInspect={setViewCard} />
     ) : (
-      <section className={`lab-panel flex h-full min-h-0 gap-1.5 rounded-lg border p-1.5 ${myTurn ? 'border-accent/70' : 'border-line'}`} aria-label="Your hand">
+      <section className={`lab-panel flex h-full min-h-0 gap-1.5 rounded-lg border p-1.5 ${myTurn ? 'border-accent/70' : 'border-line'}`} aria-label="Your hand" data-coach-id="hand">
         {selDef && selected ? (
           <div className="flex min-w-0 flex-1 items-center gap-2 pt-1">
             <CardView def={selDef} cost={cardCost(state, mine, selDef)} size="xs" selected onClick={() => setViewCard(selDef.id)} />
@@ -461,6 +483,7 @@ export function MatchScreen({ setup, settings, onExit, onFinish }: Props) {
             <button onClick={() => setShowLog(true)} className="rounded border border-line px-1.5 text-[11px] text-ink2">
               Log
             </button>
+            <SoundToggle size="xs" />
             <button onClick={() => setShowHelp(true)} className="rounded border border-line px-1.5 text-[11px] text-ink2" aria-label="Help">
               ?
             </button>
@@ -483,7 +506,9 @@ export function MatchScreen({ setup, settings, onExit, onFinish }: Props) {
         {error && <div className="pointer-events-none fixed left-1/2 top-10 z-50 -translate-x-1/2 rounded-lg border border-red-500/50 bg-red-950/90 px-3 py-1 text-xs text-red-200">{error}</div>}
 
         <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] gap-1">
-          <PlayerPanelCompact state={state} player={me} viewer={me} color={PLAYER_COLORS[me]} active={myDecision} onSheet={setEvoSheet} />
+          <div className="min-h-0 min-w-0 rounded-lg" data-coach-id="me">
+            <PlayerPanelCompact state={state} player={me} viewer={me} color={PLAYER_COLORS[me]} active={myDecision} onSheet={setEvoSheet} />
+          </div>
           <section className="relative flex h-full min-h-0 items-center gap-1" aria-label="Arena">
             <PlayToast state={state} viewer={me} recs={toastRecs} onDismiss={() => setSeenPlays(playCount)} onOpen={setPlaySheet} />
             {tank(me, 'left')}
@@ -580,6 +605,7 @@ export function MatchScreen({ setup, settings, onExit, onFinish }: Props) {
           )}
           <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
             {timer && <TimerBadge timer={timer} who={actor!} />}
+            <SoundToggle size="sm" />
             <button onClick={() => setShowHelp(true)} className="rounded-md border border-line px-2 py-1 text-xs text-ink2 hover:border-mute" title="Quick rules and keyboard shortcuts (?)" aria-label="Help">
               ?
             </button>
@@ -640,7 +666,7 @@ export function MatchScreen({ setup, settings, onExit, onFinish }: Props) {
             <PlaysStrip state={state} viewer={me} onOpen={setPlaySheet} />
           </section>
 
-          <div className="lg:order-1">
+          <div className="rounded-xl lg:order-1" data-coach-id="me">
             <PlayerPanel state={state} player={me} viewer={me} onSheet={setEvoSheet} color={PLAYER_COLORS[me]} active={myDecision} />
           </div>
         </div>
@@ -666,7 +692,7 @@ export function MatchScreen({ setup, settings, onExit, onFinish }: Props) {
         ) : reacting && state.window ? (
           <ReactionPrompt state={state} me={me} onAct={(a) => send(a)} onInspect={setViewCard} />
         ) : (
-          <section className={`lab-panel shrink-0 rounded-xl border p-2 ${myTurn ? 'border-accent/70' : 'border-line'}`} aria-label="Your hand">
+          <section className={`lab-panel shrink-0 rounded-xl border p-2 ${myTurn ? 'border-accent/70' : 'border-line'}`} aria-label="Your hand" data-coach-id="hand">
             <div className="min-w-0">
               <div className="flex items-center justify-between gap-2 px-1">
                 <span className="lab-label">
@@ -791,9 +817,9 @@ function TimerBadge({ timer, who }: { timer: TimerView; who: PlayerId }) {
   );
 }
 
-function PromptBox({ title, children }: { title: string; children: React.ReactNode }) {
+function PromptBox({ title, children, coach }: { title: string; children: React.ReactNode; coach?: string }) {
   return (
-    <section className="pop lab-panel rounded-xl border border-accent/60 p-2.5">
+    <section className="pop lab-panel rounded-xl border border-accent/60 p-2.5" data-coach-id={coach}>
       <div className="mb-2 font-display text-sm font-bold">{title}</div>
       {children}
     </section>
@@ -802,7 +828,7 @@ function PromptBox({ title, children }: { title: string; children: React.ReactNo
 
 function MulliganPrompt({ hand, onKeep, onMull, state, me, seconds, onInspect }: { hand: { uid: string; cardId: string }[]; onKeep: () => void; onMull: () => void; state: GameState; me: PlayerId; seconds: number | null; onInspect: (cardId: string) => void }) {
   return (
-    <PromptBox title={`Opening hand: keep it or take your free mulligan (redraw all 5)?${seconds ? ` Take your time: you have ${seconds} seconds.` : ''}`}>
+    <PromptBox title={`Opening hand: keep it or take your free mulligan (redraw all 5)?${seconds ? ` Take your time: you have ${seconds} seconds.` : ''}`} coach="mulligan">
       <div className="scroll-thin flex gap-2 overflow-x-auto px-1 pb-2 pt-3">
         {hand.map((c) => {
           const d = cardOf(c.cardId);
@@ -842,7 +868,7 @@ function StanceButtons({ onPick, disabledStance }: { onPick: (s: Stance) => void
 function StancePrompt({ state, me, onPick }: { state: GameState; me: PlayerId; onPick: (s: Stance) => void }) {
   const last = state.players[other(me)].stanceHistory.at(-1);
   return (
-    <PromptBox title="Pick your stance (secret until both players have chosen)">
+    <PromptBox title="Pick your stance (secret until both players have chosen)" coach="stance">
       {last && <div className="mb-2 text-[11px] text-mute">Opponent's last stance: {STANCE_META[last].name}</div>}
       <StanceButtons onPick={onPick} />
     </PromptBox>

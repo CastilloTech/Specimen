@@ -1,4 +1,5 @@
 import { budgetOf, CARD_MAP, CARDS, chipRows, chipsFor, defaultConfig, FACTIONS, makeRng, starterDeck, validateDeck, validateLoadout, WORLD_FACTIONS } from '../engine';
+import type { DailyRecord, DailyStreak } from './daily';
 import type { BotTier, CardDef, Config, DeepPartial, Faction, MatchSetup, PlayerSetup, WorldFactionId } from '../engine';
 import { loadSaveData, saveSaveData } from './storage';
 import type { LineageState } from './lineage';
@@ -44,6 +45,9 @@ export interface Progress {
   /** Containment Breach: the run in progress (or just ended) and the best score. */
   breach?: BreachRun | null;
   breachBest?: number;
+  /** The daily challenge: today's attempts and best, and the run of consecutive days won. */
+  daily?: DailyRecord;
+  dailyStreak?: DailyStreak;
 }
 
 export const TOWER_FLOORS = 50;

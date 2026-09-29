@@ -373,6 +373,9 @@ export interface PlayerSetup {
   startStrain?: number;
   /** Grafts already attached at the start (face-up, in the first free matching slot), adding their Strain. */
   startGrafts?: string[];
+  /** Deal the deck in the given order, first card on top, with no shuffle (the tutorial match). A
+   * mulligan still reshuffles. */
+  stackedDeck?: boolean;
 }
 
 export type BotTier = 'basic' | 'reader' | 'search';

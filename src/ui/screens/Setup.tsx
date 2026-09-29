@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { CARD_MAP, chipRows, chipsFor, findNode, FACTIONS, makeRng, starterDeck, validateChipChoice, validateDeck, validateLoadout, WORLD_FACTIONS } from '../../engine';
-import type { Faction, MatchSetup, WorldFactionId } from '../../engine';
+import type { BotTier, Faction, MatchSetup, WorldFactionId } from '../../engine';
 import { ChipPicker } from '../components/ChipPicker';
 import { ChipArt, Emblem } from '../components/Emblem';
 import { Pills } from '../components/Pills';
@@ -18,7 +18,17 @@ interface PlayerCfg {
   chip: string;
   deckId: string; // 'starter' or a saved deck id
   loadout: string[];
+  /** Bot difficulty (the opponent only). */
+  ai?: BotTier;
 }
+
+/** The three bot difficulties, from the Tower's three bot tiers. */
+export const DIFFICULTY: { id: BotTier; label: string; hint: string; color: string }[] = [
+  { id: 'basic', label: 'Normal', hint: 'Plays solid, simple heuristics. Good for learning the cards.', color: '#6ee7b7' },
+  { id: 'reader', label: 'Hard', hint: 'Reads your stance habits, holds Toxins for your big turns, bluffs with face-down grafts.', color: '#fbbf24' },
+  { id: 'search', label: 'Expert', hint: 'Simulates its options many moves ahead before every decision (Monte Carlo search).', color: '#f87171' },
+];
+const tierOk = (t: unknown): t is BotTier => DIFFICULTY.some((d) => d.id === t);
 
 const defaultChip = (wf: WorldFactionId) => chipsFor(wf)[0].id;
 // A saved loadout can go stale if the chip's own nodes changed since it was saved (localStorage
@@ -47,11 +57,11 @@ function fromPick(pick: LastPlayerPick | undefined, isBot: boolean): PlayerCfg |
   if (!pick || !FACTIONS.includes(pick.faction) || !WORLD_FACTIONS.includes(pick.worldFaction)) return null;
   const chip = chipsFor(pick.worldFaction).some((c) => c.id === pick.chip) ? pick.chip : defaultChip(pick.worldFaction);
   const deckOk = pick.deckId === 'starter' || loadDecks().some((d) => d.id === pick.deckId && d.faction === pick.faction && d.worldFaction === pick.worldFaction);
-  return { name: pick.name, faction: pick.faction, worldFaction: pick.worldFaction, chip, deckId: deckOk ? pick.deckId : 'starter', loadout: isBot ? randomLoadout(chip) : defaultLoadout(chip) };
+  return { name: pick.name, faction: pick.faction, worldFaction: pick.worldFaction, chip, deckId: deckOk ? pick.deckId : 'starter', loadout: isBot ? randomLoadout(chip) : defaultLoadout(chip), ai: isBot && tierOk(pick.ai) ? pick.ai : undefined };
 }
 
 const deckOf = (c: PlayerCfg) => (c.deckId === 'starter' ? starterDeck(c.faction, c.worldFaction) : (loadDecks().find((d) => d.id === c.deckId)?.cards ?? starterDeck(c.faction, c.worldFaction)));
-const toPick = ({ name, faction, worldFaction, chip, deckId }: PlayerCfg): LastPlayerPick => ({ name, faction, worldFaction, chip, deckId });
+const toPick = ({ name, faction, worldFaction, chip, deckId, ai }: PlayerCfg): LastPlayerPick => ({ name, faction, worldFaction, chip, deckId, ...(ai ? { ai } : {}) });
 
 /** The loaded save's player name, or a plain default without a save. */
 const playerName = () => activeSave()?.meta.name ?? 'Player 1';
@@ -62,15 +72,22 @@ function myDefaults(): PlayerCfg {
   return { ...cfg, name: playerName() };
 }
 
-/** Quick match: your default picks against a random bot build, no setup screen. */
+/** The difficulty last picked in Custom match (Normal until then). */
+export const lastDifficulty = (): BotTier => {
+  const ai = loadLastSetup()?.[1]?.ai;
+  return tierOk(ai) ? ai : 'basic';
+};
+
+/** Quick match: your default picks against a random bot build at your last difficulty, no setup screen. */
 export function quickBotSetup(): MatchSetup {
   const me = myDefaults();
   const bot = randomCfg('Bot');
+  const ai = lastDifficulty();
   return {
     seed: Math.floor(Math.random() * 2 ** 31),
     players: [
       { name: me.name, faction: me.faction, worldFaction: me.worldFaction, chip: me.chip, deck: deckOf(me), loadout: me.loadout },
-      { name: bot.name, faction: bot.faction, worldFaction: bot.worldFaction, chip: bot.chip, deck: deckOf(bot), loadout: bot.loadout, isBot: true },
+      { name: bot.name, faction: bot.faction, worldFaction: bot.worldFaction, chip: bot.chip, deck: deckOf(bot), loadout: bot.loadout, isBot: true, ai },
     ],
   };
 }
@@ -173,7 +190,7 @@ export function Setup({ onStart, onBack, onDecks }: { onStart: (s: MatchSetup) =
       seed,
       players: [
         { name: p1.name || 'Player 1', faction: p1.faction, worldFaction: p1.worldFaction, chip: p1.chip, deck: deckOf(p1), loadout: p1.loadout },
-        { name: p2.name || 'Bot', faction: p2.faction, worldFaction: p2.worldFaction, chip: p2.chip, deck: deckOf(p2), loadout: p2.loadout, isBot: true },
+        { name: p2.name || 'Bot', faction: p2.faction, worldFaction: p2.worldFaction, chip: p2.chip, deck: deckOf(p2), loadout: p2.loadout, isBot: true, ai: p2.ai ?? 'basic' },
       ],
     });
   };
@@ -201,13 +218,23 @@ export function Setup({ onStart, onBack, onDecks }: { onStart: (s: MatchSetup) =
           <span className="text-[10px] font-semibold uppercase tracking-wider text-mute">Opponent</span>
           <Identity cfg={p2} />
           <div className="ml-auto flex shrink-0 gap-1.5">
-            <button onClick={() => setP2(randomCfg(p2.name))} className="rounded-lg border border-line px-2.5 py-1 text-xs font-semibold hover:border-mute" title="Random Build, World Faction, Chip and loadout">
+            <button onClick={() => setP2({ ...randomCfg(p2.name), ai: p2.ai })} className="rounded-lg border border-line px-2.5 py-1 text-xs font-semibold hover:border-mute" title="Random Build, World Faction, Chip and loadout">
               🎲 Random
             </button>
             <button onClick={() => setEditBot((v) => !v)} aria-expanded={editBot} className={`rounded-lg border px-2.5 py-1 text-xs font-semibold ${editBot ? 'border-accent text-accent' : 'border-line hover:border-mute'}`}>
               {editBot ? 'Done' : 'Edit'}
             </button>
           </div>
+        </div>
+        <div className="mt-2.5">
+          <Pills
+            label="Difficulty"
+            cols={3}
+            options={DIFFICULTY.map((d) => ({ id: d.id, label: d.label, color: d.color, title: d.hint }))}
+            value={p2.ai ?? 'basic'}
+            onChange={(ai) => setP2({ ...p2, ai })}
+            hint={DIFFICULTY.find((d) => d.id === (p2.ai ?? 'basic'))!.hint}
+          />
         </div>
         {editBot && (
           <div className="mt-3">

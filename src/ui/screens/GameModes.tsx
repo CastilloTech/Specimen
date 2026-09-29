@@ -1,4 +1,6 @@
 import biomassArt from '../../assets/biomass.webp';
+import { dailyChallenge, dailyReward, dayKey, liveStreak, todayRecord } from '../daily';
+import { play } from '../sfx';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { useState } from 'react';
 import { chipsFor, FACTIONS, WORLD_FACTIONS } from '../../engine';
@@ -24,6 +26,35 @@ export function BiomassBadge({ n }: { n: number }) {
       <BiomassIcon className="h-5 w-5" />
       {n}
     </span>
+  );
+}
+
+/** The daily challenge, featured above the modes: today's twist and whether it's beaten. */
+function DailyCard({ p, onOpen }: { p: Progress; onOpen: () => void }) {
+  const key = dayKey();
+  const d = dailyChallenge(key, '');
+  const rec = todayRecord(p, key);
+  const streak = liveStreak(p, key);
+  return (
+    <button onClick={onOpen} className="lab-panel relative flex items-center gap-3 overflow-hidden rounded-xl border-2 border-amber-400/60 p-3 text-left transition hover:-translate-y-0.5" aria-label="Daily challenge">
+      <div className="flex shrink-0 -space-x-2">
+        <ChipArt id={d.you.faction} size={34} />
+        <ChipArt id={d.opponent.faction} size={34} />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <span className="font-display text-lg font-bold text-amber-300">Daily challenge</span>
+          {rec.won ? <span className="rounded-full bg-emerald-500/20 px-2 text-[11px] font-bold text-emerald-300">✓ Beaten</span> : <span className="rounded-full bg-amber-400/20 px-2 text-[11px] font-bold text-amber-200">New</span>}
+        </div>
+        <div className="truncate text-xs text-ink2">
+          {FACTION_META[d.you.faction].name}/{WORLD_FACTION_META[d.you.worldFaction].name} vs {FACTION_META[d.opponent.faction].name}/{WORLD_FACTION_META[d.opponent.worldFaction].name} · Twist: <b className="text-amber-200">{d.twist.name}</b>
+        </div>
+        <div className="text-[11px] text-mute">
+          {rec.won ? `Best: won with ${rec.bestHp} HP` : <>First win pays <BiomassIcon /> {dailyReward(streak + 1)}</>} · 🔥 {streak}-day streak
+        </div>
+      </div>
+      <span className="font-display text-lg text-amber-300">›</span>
+    </button>
   );
 }
 
@@ -62,6 +93,7 @@ function Unlocks({ p, onChange }: { p: Progress; onChange: (p: Progress) => void
     const r = unlock(p, kind, id);
     if (typeof r === 'string') setMsg(r);
     else {
+      play('craft');
       setMsg(null);
       onChange(r);
     }
@@ -100,7 +132,7 @@ function Unlocks({ p, onChange }: { p: Progress; onChange: (p: Progress) => void
   );
 }
 
-export function GameModes({ onBack, onTower, onLineage, onBreach, onCollection, onSaves }: { onBack: () => void; onTower: () => void; onLineage: () => void; onBreach: () => void; onCollection: () => void; onSaves: () => void }) {
+export function GameModes({ onBack, onTower, onLineage, onBreach, onDaily, onCollection, onSaves }: { onBack: () => void; onTower: () => void; onLineage: () => void; onBreach: () => void; onDaily: () => void; onCollection: () => void; onSaves: () => void }) {
   const save = activeSave();
   const [p, setP] = useState<Progress | null>(loadProgress);
   const update = (next: Progress) => {
@@ -110,7 +142,7 @@ export function GameModes({ onBack, onTower, onLineage, onBreach, onCollection, 
   const problems = p ? deckProblems(p) : [];
   return (
     <div className="mx-auto flex min-h-dvh max-w-5xl flex-col gap-3 p-3">
-      <ScreenHeader title="Game Modes" sub="Tower · Lineage · Containment Breach" onBack={onBack} backLabel="Back to menu" right={p ? <BiomassBadge n={p.biomass} /> : undefined} />
+      <ScreenHeader title="Game Modes" sub="Daily · Tower · Lineage · Containment Breach" onBack={onBack} backLabel="Back to menu" right={p ? <BiomassBadge n={p.biomass} /> : undefined} />
       {!save ? (
         <section className="lab-panel space-y-3 rounded-xl border border-line p-4 text-sm text-ink2">
           <p>Game Modes progress (biomass, your collection, unlocks and Tower floors) is kept in a save.</p>
@@ -122,6 +154,7 @@ export function GameModes({ onBack, onTower, onLineage, onBreach, onCollection, 
         <StartPicker onStart={update} />
       ) : (
         <>
+          <DailyCard p={p} onOpen={onDaily} />
           <div className="grid gap-3 lg:grid-cols-3">
           <button onClick={onTower} className="lab-panel relative flex flex-col overflow-hidden rounded-xl border border-accent/60 p-3.5 text-left transition hover:-translate-y-0.5">
             <div className="lab-label">Mode 1</div>

@@ -8,9 +8,9 @@ import { incomingInfo, protocolVerdict, VERDICT_CLASS } from './Reaction';
 // Phone landscape prompts: each is one row that fits the fixed-height strip under the board,
 // with the explanation and primary buttons on the left and the choices on the right.
 
-function Strip({ info, children }: { info: ReactNode; children: ReactNode }) {
+function Strip({ info, children, coach }: { info: ReactNode; children: ReactNode; coach?: string }) {
   return (
-    <section className="pop lab-panel flex h-full min-h-0 gap-1.5 rounded-lg border border-accent/60 p-1.5">
+    <section className="pop lab-panel flex h-full min-h-0 gap-1.5 rounded-lg border border-accent/60 p-1.5" data-coach-id={coach}>
       <div className="flex w-[118px] shrink-0 flex-col justify-between gap-1 text-[10px] leading-tight text-ink2">{info}</div>
       <div className="flex min-w-0 flex-1 items-stretch gap-1.5">{children}</div>
     </section>
@@ -40,6 +40,7 @@ export function PhoneStance({ state, me, onPick }: { state: GameState; me: Playe
   const last = state.players[other(me)].stanceHistory.at(-1);
   return (
     <Strip
+      coach="stance"
       info={
         <>
           <span className="font-display text-[12px] font-bold text-ink">Pick your stance</span>
@@ -79,6 +80,7 @@ export function PhoneMulligan({ state, me, onKeep, onMull, onInspect }: { state:
   // Touch has no hover tooltip: tapping a card opens it in full so you can judge the hand.
   return (
     <Strip
+      coach="mulligan"
       info={
         <>
           <span className="font-display text-[12px] font-bold text-ink">

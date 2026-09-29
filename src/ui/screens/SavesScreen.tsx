@@ -8,10 +8,10 @@ import { analyze, pct } from '../stats';
 import { Collapsible } from '../components/Collapsible';
 import { ComboGuide } from '../components/ComboGuide';
 import { FactionMastery } from '../components/FactionMastery';
-import type { MatchRecord } from '../storage';
-import { createSave, deleteSave, loadDecks, loadLastSetup, loadMatches, loadSaveIndex, renameSave, SAVE_SLOTS, setActiveSave } from '../storage';
+import type { MatchRecord, SavedReplay } from '../storage';
+import { createSave, deleteSave, loadDecks, loadLastSetup, loadMatches, loadSaveIndex, renameSave, SAVE_SLOTS, setActiveSave, deleteReplay, loadReplays, MAX_REPLAYS } from '../storage';
 
-export function SavesScreen({ onBack }: { onBack: () => void }) {
+export function SavesScreen({ onBack, onWatch }: { onBack: () => void; onWatch: (r: SavedReplay) => void }) {
   // Storage is the source of truth; bump this to re-read it after a change.
   const [, setTick] = useState(0);
   const refresh = () => setTick((t) => t + 1);
@@ -117,6 +117,8 @@ export function SavesScreen({ onBack }: { onBack: () => void }) {
       </div>
       </Collapsible>
 
+      <ReplayList onWatch={onWatch} onChange={refresh} />
+
       {active !== null && <AchievementGallery records={matches} />}
       {active !== null && <FactionMastery records={matches} />}
 
@@ -130,6 +132,50 @@ export function SavesScreen({ onBack }: { onBack: () => void }) {
 
       {active !== null && <ComboGuide records={matches} />}
     </div>
+  );
+}
+
+function ReplayList({ onWatch, onChange }: { onWatch: (r: SavedReplay) => void; onChange: () => void }) {
+  const list = loadReplays();
+  return (
+    <Collapsible id="replays" defaultOpen={false} title="Replays" meta={`last ${MAX_REPLAYS} matches · ${list.length} kept`}>
+      {list.length === 0 ? (
+        <p className="text-sm text-ink2">Finish a match and it shows up here, ready to watch again step by step.</p>
+      ) : (
+        <ul className="flex flex-col gap-1.5">
+          {list.map((r) => {
+            const tone = r.result === 'win' ? 'text-emerald-300' : r.result === 'loss' ? 'text-red-300' : 'text-ink2';
+            return (
+              <li key={r.id} className="flex items-center gap-2 rounded-lg border border-line bg-black/20 px-2.5 py-1.5">
+                <span className={`w-10 shrink-0 font-display text-xs font-bold uppercase ${tone}`}>{r.result}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-semibold">
+                    {r.names[r.me]} vs {r.names[1 - r.me]}
+                  </span>
+                  <span className="block truncate text-[11px] text-mute">
+                    {r.label ? `${r.label} · ` : ''}
+                    {r.rounds} rounds · {new Date(r.at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                  </span>
+                </span>
+                <button onClick={() => onWatch(r)} className="shrink-0 rounded-md bg-accent px-3 py-1 text-xs font-bold text-black">
+                  ▶ Watch
+                </button>
+                <button
+                  onClick={() => {
+                    deleteReplay(r.id);
+                    onChange();
+                  }}
+                  className="shrink-0 rounded-md border border-line px-2 py-1 text-xs text-mute hover:border-red-500/60 hover:text-red-300"
+                  aria-label={`Delete replay ${r.names[r.me]} vs ${r.names[1 - r.me]}`}
+                >
+                  ✕
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </Collapsible>
   );
 }
 
