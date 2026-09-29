@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ScreenHeader } from '../components/ScreenHeader';
 import { chipOf, defaultConfig } from '../../engine';
 import { ACHIEVEMENTS, achievementStates } from '../achievements';
 import { FACTION_META, STANCE_META, WORLD_FACTION_META } from '../meta';
@@ -30,16 +31,8 @@ export function SavesScreen({ onBack }: { onBack: () => void }) {
   const analysis = analyze(matches);
 
   return (
-    <div className="mx-auto flex min-h-dvh max-w-4xl flex-col gap-3 p-4">
-      <div className="flex items-end gap-2">
-        <div>
-          <div className="lab-label">Specimen records</div>
-          <h1 className="font-display text-2xl font-bold">Saves</h1>
-        </div>
-        <button onClick={onBack} className="ml-auto rounded-md border border-line px-3 py-1.5 text-sm text-ink2 hover:border-mute">
-          ← Menu
-        </button>
-      </div>
+    <div className="mx-auto flex min-h-dvh max-w-4xl flex-col gap-3 p-3">
+      <ScreenHeader title="Saves" sub="Specimen records: decks, defaults, stats and progress" onBack={onBack} backLabel="Back to menu" />
       <p className="text-xs text-ink2">A save keeps your player name, your decks and Chip loadouts, your default Build / World Faction / Chip (your last picks), and the stats of every match you finish while it is loaded.</p>
 
       <Collapsible id="slots" title="Save slots" meta={active !== null ? `Loaded: ${idx.slots[active]?.name}` : 'none loaded'}>
@@ -146,7 +139,7 @@ function AchievementGallery({ records }: { records: MatchRecord[] }) {
   // Unlocked first (newest first), then locked by how close they are.
   const sorted = [...states].sort((x, y) => (x.unlocked === y.unlocked ? (x.unlocked ? (y.at ?? 0) - (x.at ?? 0) : y.have / y.need - x.have / x.need) : x.unlocked ? -1 : 1));
   return (
-    <Collapsible id="achievements" title="Achievements" meta={`${got} of ${states.length} unlocked`}>
+    <Collapsible id="achievements" defaultOpen={false} title="Achievements" meta={`${got} of ${states.length} unlocked`}>
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {sorted.map(({ a, have, need, unlocked, at }) => (
           <div key={a.id} className={`flex items-center gap-3 rounded-lg border px-3 py-2 ${unlocked ? 'border-amber-400/50 bg-amber-950/25' : 'border-line bg-black/20'}`}>

@@ -1,4 +1,5 @@
 import biomassArt from '../../assets/biomass.webp';
+import { ScreenHeader } from '../components/ScreenHeader';
 import { useState } from 'react';
 import { chipsFor, FACTIONS, WORLD_FACTIONS } from '../../engine';
 import type { Faction, WorldFactionId } from '../../engine';
@@ -109,17 +110,7 @@ export function GameModes({ onBack, onTower, onLineage, onBreach, onCollection, 
   const problems = p ? deckProblems(p) : [];
   return (
     <div className="mx-auto flex min-h-dvh max-w-5xl flex-col gap-3 p-3">
-      <header className="flex items-center gap-2">
-        <button onClick={onBack} className="rounded-lg border border-line px-2.5 py-1.5 text-sm text-ink2 hover:border-mute" aria-label="Back to menu">
-          ←
-        </button>
-        <h1 className="font-display text-xl font-bold">Game Modes</h1>
-        {p && (
-          <span className="ml-auto">
-            <BiomassBadge n={p.biomass} />
-          </span>
-        )}
-      </header>
+      <ScreenHeader title="Game Modes" sub="Tower · Lineage · Containment Breach" onBack={onBack} backLabel="Back to menu" right={p ? <BiomassBadge n={p.biomass} /> : undefined} />
       {!save ? (
         <section className="lab-panel space-y-3 rounded-xl border border-line p-4 text-sm text-ink2">
           <p>Game Modes progress (biomass, your collection, unlocks and Tower floors) is kept in a save.</p>

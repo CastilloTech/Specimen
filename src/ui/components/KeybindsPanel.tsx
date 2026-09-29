@@ -5,7 +5,8 @@ import { defaultKeybinds, KEY_ACTIONS, keyLabel } from '../storage';
 // 1-9 select hand cards (and 1-3 always pick a stance) and Escape cancels, so they cannot be rebound.
 const RESERVED = new Set(['escape', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'tab', 'enter', 'shift', 'control', 'alt', 'meta']);
 
-export function SettingsScreen({ settings, onChange, onBack }: { settings: Settings; onChange: (s: Settings) => void; onBack: () => void }) {
+/** Key bindings (desktop): click an action, then press a key. Lives in the Game guide. */
+export function KeybindsPanel({ settings, onChange }: { settings: Settings; onChange: (s: Settings) => void }) {
   const [listening, setListening] = useState<KeyAction | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const binds = settings.keybinds;
@@ -36,11 +37,9 @@ export function SettingsScreen({ settings, onChange, onBack }: { settings: Setti
   for (const a of KEY_ACTIONS) counts.set(binds[a.id], (counts.get(binds[a.id]) ?? 0) + 1);
 
   return (
-    <div className="mx-auto flex min-h-dvh max-w-lg flex-col gap-3 p-4">
+    <div className="pop flex flex-col gap-3">
       <div>
-        <div className="lab-label">Settings</div>
-        <h1 className="font-display text-2xl font-bold">Key bindings</h1>
-        <p className="mt-1 text-xs text-ink2">Click an action, then press the key you want. Esc cancels. 1-9 always select hand cards (and 1 / 2 / 3 pick a stance), so they can't be rebound.</p>
+        <p className="text-xs text-ink2">Click an action, then press the key you want. Esc cancels. 1-9 always select hand cards (and 1 / 2 / 3 pick a stance), so they can't be rebound.</p>
       </div>
       <div className="lab-panel divide-y divide-line rounded-xl border border-line">
         {KEY_ACTIONS.map((a) => {
@@ -68,14 +67,9 @@ export function SettingsScreen({ settings, onChange, onBack }: { settings: Setti
       </div>
       {note && <div className="rounded-lg bg-amber-950/40 px-3 py-2 text-xs text-amber-300">{note}</div>}
       {[...counts.values()].some((n) => n > 1) && <div className="rounded-lg bg-amber-950/40 px-3 py-2 text-xs text-amber-300">Two actions share a key (highlighted). In a match the key does whichever of them applies at that moment, so a shared key only works if the actions never come up at the same time.</div>}
-      <div className="mt-auto flex gap-2">
-        <button onClick={() => onChange({ keybinds: defaultKeybinds() })} className="rounded-xl bg-panel2 px-4 py-3 font-semibold">
-          Reset to defaults
-        </button>
-        <button onClick={onBack} className="flex-1 rounded-xl bg-accent px-4 py-3 font-display font-bold text-black">
-          Done
-        </button>
-      </div>
+      <button onClick={() => onChange({ keybinds: defaultKeybinds() })} className="self-start rounded-lg bg-panel2 px-3 py-2 text-sm font-semibold">
+        Reset to defaults
+      </button>
     </div>
   );
 }

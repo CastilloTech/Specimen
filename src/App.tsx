@@ -17,7 +17,6 @@ import { MatchScreen } from './ui/screens/Match';
 import { Menu } from './ui/screens/Menu';
 import { PostMatch } from './ui/screens/PostMatch';
 import { SavesScreen } from './ui/screens/SavesScreen';
-import { SettingsScreen } from './ui/screens/SettingsScreen';
 import { quickBotSetup, Setup } from './ui/screens/Setup';
 import { loadSettings, saveSettings } from './ui/storage';
 import type { Settings } from './ui/storage';
@@ -34,8 +33,8 @@ type Screen =
   | { name: 'post'; setup: MatchSetup; state: GameState }
   | { name: 'saves' }
   | { name: 'guide' }
-  | { name: 'decks' }
-  | { name: 'settings' };
+  | { name: 'decks' };
+
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>({ name: 'menu' });
@@ -45,9 +44,9 @@ export default function App() {
 
   switch (screen.name) {
     case 'menu':
-      return <Menu onQuick={quick} onModes={() => setScreen({ name: 'modes' })} onBot={() => setScreen({ name: 'setup' })} onSaves={() => setScreen({ name: 'saves' })} onGuide={() => setScreen({ name: 'guide' })} onDecks={() => setScreen({ name: 'decks' })} onSettings={() => setScreen({ name: 'settings' })} />;
+      return <Menu onQuick={quick} onModes={() => setScreen({ name: 'modes' })} onBot={() => setScreen({ name: 'setup' })} onSaves={() => setScreen({ name: 'saves' })} onGuide={() => setScreen({ name: 'guide' })} onDecks={() => setScreen({ name: 'decks' })} />;
     case 'setup':
-      return <Setup onBack={menu} onStart={(setup) => setScreen({ name: 'match', setup, run: 0 })} />;
+      return <Setup onBack={menu} onDecks={() => setScreen({ name: 'decks' })} onStart={(setup) => setScreen({ name: 'match', setup, run: 0 })} />;
     case 'match':
       return (
         <MatchScreen
@@ -106,19 +105,18 @@ export default function App() {
     case 'saves':
       return <SavesScreen onBack={menu} />;
     case 'guide':
-      return <GuideScreen onBack={menu} onPlay={quick} />;
-    case 'decks':
-      return <DeckBuilder onBack={menu} />;
-    case 'settings':
       return (
-        <SettingsScreen
+        <GuideScreen
+          onBack={menu}
+          onPlay={quick}
           settings={settings}
-          onChange={(s) => {
+          onSettings={(s) => {
             setSettings(s);
             saveSettings(s);
           }}
-          onBack={menu}
         />
       );
+    case 'decks':
+      return <DeckBuilder onBack={menu} />;
   }
 }

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { ScreenHeader } from '../components/ScreenHeader';
 import { CARD_MAP, chipRows, chipsFor, findNode, FACTIONS, makeRng, starterDeck, validateChipChoice, validateDeck, validateLoadout, WORLD_FACTIONS } from '../../engine';
 import type { Faction, MatchSetup, WorldFactionId } from '../../engine';
 import { ChipPicker } from '../components/ChipPicker';
@@ -78,7 +79,7 @@ const buildOptions = FACTIONS.map((f) => ({ id: f, label: FACTION_META[f].name, 
 const worldOptions = WORLD_FACTIONS.map((wf) => ({ id: wf, label: WORLD_FACTION_META[wf].name, color: WORLD_FACTION_META[wf].color, title: WORLD_FACTION_META[wf].tagline, icon: <ChipArt id={wf} size={30} /> }));
 
 /** Build, World Faction, deck, Chip and (for you) the loadout, as compact pickers. */
-function PlayerPicks({ cfg, onChange, isBot }: { cfg: PlayerCfg; onChange: (c: PlayerCfg) => void; isBot?: boolean }) {
+function PlayerPicks({ cfg, onChange, isBot, onDecks }: { cfg: PlayerCfg; onChange: (c: PlayerCfg) => void; isBot?: boolean; onDecks?: () => void }) {
   const decks = loadDecks().filter((d) => d.faction === cfg.faction && d.worldFaction === cfg.worldFaction);
   const set = (patch: Partial<PlayerCfg>) => onChange({ ...cfg, ...patch });
   const changeWorldFaction = (wf: WorldFactionId) => {
@@ -92,7 +93,14 @@ function PlayerPicks({ cfg, onChange, isBot }: { cfg: PlayerCfg; onChange: (c: P
       <Pills label="World Faction" cols={4} options={worldOptions} value={cfg.worldFaction} onChange={changeWorldFaction} hint={WORLD_FACTION_META[cfg.worldFaction].tagline} />
       {!isBot && (
         <label className="block">
-          <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-mute">Deck</span>
+          <span className="mb-1 flex items-center justify-between text-[10px] font-semibold uppercase tracking-wider text-mute">
+            Deck
+            {onDecks && (
+              <button type="button" onClick={onDecks} className="normal-case tracking-normal text-accent underline">
+                Build a deck
+              </button>
+            )}
+          </span>
           <select value={cfg.deckId} onChange={(e) => set({ deckId: e.target.value })} className="block min-h-9 w-full rounded-lg border border-line bg-black/30 px-2 text-[13px]">
             <option value="starter">Starter deck</option>
             {decks.map((d) => (
@@ -137,7 +145,7 @@ function makeDefaultCfg(name: string, faction: Faction, worldFaction: WorldFacti
   return { name, faction, worldFaction, chip, deckId: 'starter', loadout: isBot ? randomLoadout(chip) : defaultLoadout(chip) };
 }
 
-export function Setup({ onStart, onBack }: { onStart: (s: MatchSetup) => void; onBack: () => void }) {
+export function Setup({ onStart, onBack, onDecks }: { onStart: (s: MatchSetup) => void; onBack: () => void; onDecks?: () => void }) {
   const save = activeSave();
   const [p1, setP1] = useState<PlayerCfg>(myDefaults);
   const [p2, setP2] = useState<PlayerCfg>(() => fromPick(loadLastSetup()?.[1], true) ?? makeDefaultCfg('Bot', 'bastion', 'aegis', true));
@@ -172,13 +180,7 @@ export function Setup({ onStart, onBack }: { onStart: (s: MatchSetup) => void; o
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-2xl flex-col gap-3 p-3 pb-0">
-      <header className="flex items-center gap-2">
-        <button onClick={onBack} className="rounded-lg border border-line px-2.5 py-1.5 text-sm text-ink2 hover:border-mute" aria-label="Back to menu">
-          ←
-        </button>
-        <h1 className="font-display text-xl font-bold">Vs Bot</h1>
-        <span className="ml-auto truncate text-[11px] text-mute">{save ? `Save: ${save.meta.name}` : 'No save loaded'}</span>
-      </header>
+      <ScreenHeader title="Custom match" sub={save ? `Vs Bot · save: ${save.meta.name}` : 'Vs Bot · no save loaded'} onBack={onBack} backLabel="Back to menu" />
 
       <section className="lab-panel rounded-xl border border-line p-3" style={{ borderTop: `3px solid ${PLAYER_COLORS[0]}` }} aria-label="Your Specimen">
         <div className="mb-2 flex items-center gap-2">
@@ -191,7 +193,7 @@ export function Setup({ onStart, onBack }: { onStart: (s: MatchSetup) => void; o
             <input value={p1.name} onChange={(e) => setP1({ ...p1, name: e.target.value })} maxLength={16} aria-label="Player name" className="w-36 rounded-md border border-line bg-black/30 px-2 py-0.5 text-sm font-bold" />
           )}
         </div>
-        <PlayerPicks cfg={p1} onChange={setP1} />
+        <PlayerPicks cfg={p1} onChange={setP1} onDecks={onDecks} />
       </section>
 
       <section className="lab-panel rounded-xl border border-line p-3" style={{ borderTop: `3px solid ${PLAYER_COLORS[1]}` }} aria-label="Opponent">

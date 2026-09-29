@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ScreenHeader } from '../components/ScreenHeader';
 import { defaultConfig, MUTATION_MAP, SLOT_LABEL } from '../../engine';
 import type { MatchSetup, SlotId } from '../../engine';
 import { ChipArt } from '../components/Emblem';
@@ -107,18 +108,7 @@ export function LineageScreen({ onBack, onCollection, onFight, report }: { onBac
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col gap-3 p-3 pb-0">
-      <header className="flex items-center gap-2">
-        <button onClick={onBack} className="rounded-lg border border-line px-2.5 py-1.5 text-sm text-ink2 hover:border-mute" aria-label="Back to Game Modes">
-          ←
-        </button>
-        <div>
-          <h1 className="font-display text-xl font-bold leading-tight">Lineage</h1>
-          <div className="text-[11px] text-mute">One Specimen · {LINEAGE_MATCHES} matches · scars are permanent</div>
-        </div>
-        <span className="ml-auto">
-          <BiomassBadge n={p.biomass} />
-        </span>
-      </header>
+      <ScreenHeader title="Lineage" sub={`One Specimen · ${LINEAGE_MATCHES} matches · scars are permanent`} onBack={onBack} backLabel="Back to Game Modes" right={<BiomassBadge n={p.biomass} />} />
 
       {report && (
         <section className={`pop rounded-xl border-2 p-3 ${report.won ? 'border-emerald-400 bg-emerald-950/30' : 'border-red-500/70 bg-red-950/25'}`} aria-live="polite">

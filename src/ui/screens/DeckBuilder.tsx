@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { ScreenHeader } from '../components/ScreenHeader';
 import { ENERGY_BADGE } from '../components/EnergyIcon';
 import { CARD_MAP, CARDS, chipRows, chipsFor, defaultConfig, FACTIONS, starterDeck, validateDeck, validateLoadout, WORLD_FACTIONS } from '../../engine';
 import type { CardDef, Faction, WorldFactionId } from '../../engine';
@@ -381,22 +382,22 @@ export function DeckBuilder({ onBack }: { onBack: () => void }) {
   const [tab, setTab] = useState<'deck' | 'tree'>('deck');
   return (
     <div className="mx-auto flex min-h-dvh max-w-6xl flex-col p-3 pb-0">
-      <header className="mb-3 flex items-center gap-2">
-        <button onClick={onBack} className="rounded-lg border border-line px-2.5 py-1.5 text-sm text-ink2 hover:border-mute" aria-label="Back to menu">
-          ←
-        </button>
-        <div className="min-w-0">
-          <h1 className="font-display text-xl font-bold leading-tight">Decks &amp; Chips</h1>
-          <div className="truncate text-[10px] text-mute">{activeSave() ? `Saving to ${activeSave()!.meta.name}` : 'No save loaded: kept on this device'}</div>
-        </div>
-        <div className="ml-auto flex shrink-0 rounded-lg border border-line p-0.5 text-sm" role="tablist">
-          {(['deck', 'tree'] as const).map((t) => (
-            <button key={t} role="tab" aria-selected={tab === t} onClick={() => setTab(t)} className={`rounded-md px-3 py-1 ${tab === t ? 'bg-accent font-bold text-black' : 'text-ink2'}`}>
-              {t === 'deck' ? 'Deck' : 'Chips'}
-            </button>
-          ))}
-        </div>
-      </header>
+      <ScreenHeader
+        className="mb-3"
+        title="Decks & Chips"
+        sub={activeSave() ? `Saving to ${activeSave()!.meta.name}` : 'No save loaded: kept on this device'}
+        onBack={onBack}
+        backLabel="Back to menu"
+        right={
+          <div className="flex rounded-lg border border-line p-0.5 text-sm" role="tablist">
+            {(['deck', 'tree'] as const).map((t) => (
+              <button key={t} role="tab" aria-selected={tab === t} onClick={() => setTab(t)} className={`rounded-md px-3 py-1 ${tab === t ? 'bg-accent font-bold text-black' : 'text-ink2'}`}>
+                {t === 'deck' ? 'Deck' : 'Chips'}
+              </button>
+            ))}
+          </div>
+        }
+      />
       <div className="flex-1">{tab === 'deck' ? <DeckTab /> : <LoadoutTab />}</div>
     </div>
   );

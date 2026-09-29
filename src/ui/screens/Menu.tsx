@@ -9,12 +9,11 @@ interface Props {
   onSaves: () => void;
   onGuide: () => void;
   onDecks: () => void;
-  onSettings: () => void;
 }
 
 // Portrait / desktop: one centered column. Phone landscape (`phone:`): art and title on the left,
 // compact buttons on the right, so the whole menu fits a short screen without scrolling.
-export function Menu({ onQuick, onModes, onBot, onSaves, onGuide, onDecks, onSettings }: Props) {
+export function Menu({ onQuick, onModes, onBot, onSaves, onGuide, onDecks }: Props) {
   const save = activeSave();
   const last = loadLastSetup()?.[0];
   const btn = 'lab-panel w-full rounded-xl border border-line px-4 py-3 text-left transition hover:-translate-y-0.5 hover:border-accent phone:rounded-lg phone:px-3 phone:py-1.5';
@@ -45,41 +44,43 @@ export function Menu({ onQuick, onModes, onBot, onSaves, onGuide, onDecks, onSet
           </span>
           <span className="font-display text-sm font-bold text-accent">Save ›</span>
         </button>
-        <button className="w-full rounded-xl bg-accent px-4 py-4 text-left text-black shadow-[0_0_24px_-6px_rgba(123,224,176,0.6)] transition hover:brightness-110 phone:rounded-lg phone:px-3 phone:py-2" onClick={onQuick}>
-          <div className="font-display text-lg font-bold phone:text-base">Quick match</div>
-          <div className="text-xs text-black/70">
-            {last ? (
-              <>
-                Your {FACTION_META[last.faction]?.name}/{WORLD_FACTION_META[last.worldFaction]?.name} vs a random bot build. No setup.
-              </>
-            ) : (
-              'Jump straight into a game against a random bot build.'
-            )}
-          </div>
-        </button>
+        {/* Play: one card. Quick match is the big one-tap button; the full Vs Bot setup sits right under it. */}
+        <section className="lab-panel rounded-xl border border-accent/50 p-2 phone:rounded-lg phone:p-1.5" aria-label="Play">
+          <button className="w-full rounded-lg bg-accent px-4 py-3.5 text-left text-black shadow-[0_0_24px_-6px_rgba(123,224,176,0.6)] transition hover:brightness-110 phone:px-3 phone:py-2" onClick={onQuick}>
+            <div className="flex items-center justify-between font-display text-lg font-bold phone:text-base">
+              Quick match <span aria-hidden>▶</span>
+            </div>
+            <div className="text-xs text-black/70">
+              {last ? (
+                <>
+                  Your {FACTION_META[last.faction]?.name}/{WORLD_FACTION_META[last.worldFaction]?.name} vs a random bot. No setup.
+                </>
+              ) : (
+                'Straight into a game against a random bot.'
+              )}
+            </div>
+          </button>
+          <button onClick={onBot} className="mt-1.5 flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm text-ink2 transition hover:bg-white/5 hover:text-ink phone:mt-1 phone:py-1">
+            <span>
+              <b className="font-display text-ink">Custom match</b>
+              <span className="phone:hidden"> · pick both Specimens, decks and Chips</span>
+            </span>
+            <span aria-hidden>›</span>
+          </button>
+        </section>
         <button className={`${btn} border-accent/50`} onClick={onModes}>
           <div className="font-display font-bold text-accent">Game Modes</div>
           <div className={desc}>The Tower, Lineage and Containment Breach: earn biomass, craft cards and unlock Builds, World Factions and Chips.</div>
         </button>
-        <div className="flex flex-col gap-3 phone:grid phone:grid-cols-2 phone:gap-1.5">
-          <button className={btn} onClick={onBot}>
-            <div className="font-display font-bold">Vs Bot</div>
-            <div className={desc}>Choose both Specimens' Build, World Faction, Chip and deck.</div>
+        <div className="grid grid-cols-2 gap-3 phone:gap-1.5">
+          <button className={btn} onClick={onDecks}>
+            <div className="font-display font-bold">Decks &amp; Chips</div>
+            <div className={desc}>Build 20-card decks, set Chip loadouts.</div>
           </button>
           <button className={btn} onClick={onGuide}>
             <div className="font-display font-bold">Game guide</div>
-            <div className={desc}>A quick, step-by-step tutorial: the goal, a round, stances, Strain, cards and evolution.</div>
+            <div className={desc}>How to play, step by step.</div>
           </button>
-          <div className="grid grid-cols-2 gap-3 phone:contents">
-            <button className={btn} onClick={onDecks}>
-              <div className="font-display font-bold">Decks &amp; Chips</div>
-              <div className={desc}>Build 20-card decks, set Chip loadouts.</div>
-            </button>
-            <button className={btn} onClick={onSettings}>
-              <div className="font-display font-bold">Settings</div>
-              <div className={desc}>Key bindings.</div>
-            </button>
-          </div>
         </div>
       </div>
     </div>

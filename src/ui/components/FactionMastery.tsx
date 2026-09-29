@@ -14,7 +14,7 @@ export function FactionMastery({ records }: { records: MatchRecord[] }) {
   const [open, setOpen] = useState<string | null>(null);
   const mastered = FACTION_IDS.filter((f) => masteryDone(records, f)).length;
   return (
-    <Collapsible id="mastery" title="Faction mastery" meta={`${mastered} of ${FACTION_IDS.length} mastered`}>
+    <Collapsible id="mastery" defaultOpen={false} title="Faction mastery" meta={`${mastered} of ${FACTION_IDS.length} mastered`}>
       <p className="text-xs text-mute">Complete all five achievements of a Build or World Faction (playing as it) to unlock its Mastery Signature card in the deck builder.</p>
       <div className="mt-3 grid gap-2 lg:grid-cols-2">
         {FACTION_IDS.map((f) => {

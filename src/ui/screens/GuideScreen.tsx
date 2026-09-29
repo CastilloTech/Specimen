@@ -1,4 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
+import { KeybindsPanel } from '../components/KeybindsPanel';
+import { ScreenHeader } from '../components/ScreenHeader';
+import type { Settings } from '../storage';
 import type { ReactNode } from 'react';
 import specimenArt from '../../assets/specimen.jpg';
 import { CARD_MAP, defaultConfig, STANCES } from '../../engine';
@@ -358,7 +361,7 @@ const STEPS: Step[] = [
     body: (
       <>
         <p>
-          Start with <b>Quick match</b> from the menu. Press <HelpKey /> in a match for the full rules and your key bindings (change them in Settings).
+          Start with <b>Quick match</b> from the menu. Press <HelpKey /> in a match for the full rules and your key bindings (change them with Keys, at the top of this guide).
         </p>
         <p>
           Create a <b>Save</b> to keep your decks and default picks, and to see stats and tips from your own matches. A Save also tracks <b>Faction mastery</b>: master a Build or World Faction to unlock its Mastery Signature card.
@@ -378,9 +381,10 @@ const readStep = () => {
   }
 };
 
-export function GuideScreen({ onBack, onPlay }: { onBack: () => void; onPlay: () => void }) {
+export function GuideScreen({ onBack, onPlay, settings, onSettings }: { onBack: () => void; onPlay: () => void; settings: Settings; onSettings: (s: Settings) => void }) {
   const [i, setIRaw] = useState(readStep); // reopens where you left off
   const [toc, setToc] = useState(false);
+  const [keys, setKeys] = useState(false); // the key-bindings panel (desktop)
   const step = STEPS[i];
   const last = i === STEPS.length - 1;
   const setI = (f: number | ((v: number) => number)) =>
@@ -401,7 +405,8 @@ export function GuideScreen({ onBack, onPlay }: { onBack: () => void; onPlay: ()
     if (e.key === 'ArrowRight') setI((v) => v + 1);
     if (e.key === 'ArrowLeft') setI((v) => v - 1);
     if (e.key === 'Escape') {
-      if (toc) setToc(false);
+      if (keys) setKeys(false);
+      else if (toc) setToc(false);
       else onBack();
     }
   };
@@ -421,28 +426,34 @@ export function GuideScreen({ onBack, onPlay }: { onBack: () => void; onPlay: ()
   };
   return (
     <div className="mx-auto flex min-h-dvh max-w-2xl flex-col gap-3 p-4 pb-0" onTouchStart={(e) => (touch.current = [e.touches[0].clientX, e.touches[0].clientY])} onTouchEnd={onTouchEnd}>
-      <div className="flex items-center gap-2">
-        <div className="min-w-0">
-          <div className="lab-label">Game guide · {i + 1} of {STEPS.length}</div>
-          <h1 className="font-display text-2xl font-bold phone:text-xl">{step.title}</h1>
-        </div>
-        <div className="ml-auto flex shrink-0 gap-1.5">
-          <button onClick={() => setToc((v) => !v)} aria-expanded={toc} className={`rounded-md border px-3 py-1.5 text-sm ${toc ? 'border-accent text-accent' : 'border-line text-ink2 hover:border-mute'}`}>
-            Contents
-          </button>
-          <button onClick={onBack} className="rounded-md border border-line px-3 py-1.5 text-sm text-ink2 hover:border-mute">
-            Close
-          </button>
-        </div>
-      </div>
-      <nav className="flex gap-1" aria-label="Guide pages">
+      <ScreenHeader
+        title={keys ? 'Key bindings' : step.title}
+        sub={keys ? 'Desktop controls' : `Game guide · ${i + 1} of ${STEPS.length}`}
+        onBack={onBack}
+        backLabel="Back to menu"
+        right={
+          <>
+            <button onClick={() => (setKeys(false), setToc((v) => !v))} aria-expanded={toc} className={`rounded-md border px-3 py-1.5 text-sm ${toc && !keys ? 'border-accent text-accent' : 'border-line text-ink2 hover:border-mute'}`}>
+              Contents
+            </button>
+            <button onClick={() => setKeys((v) => !v)} aria-expanded={keys} className={`rounded-md border px-3 py-1.5 text-sm pointer-coarse:hidden ${keys ? 'border-accent text-accent' : 'border-line text-ink2 hover:border-mute'}`} title="Key bindings">
+              Keys
+            </button>
+          </>
+        }
+      />
+      <nav className={`flex gap-1 ${keys ? 'hidden' : ''}`} aria-label="Guide pages">
         {STEPS.map((st, k) => (
           <button key={k} onClick={() => setI(k)} aria-label={`Page ${k + 1}: ${st.title}`} aria-current={k === i ? 'step' : undefined} title={st.title} className="group flex-1 py-1.5">
             <span className={`block h-1.5 rounded-full transition ${k === i ? 'bg-accent' : k < i ? 'bg-accent/50' : 'bg-line group-hover:bg-mute'}`} />
           </button>
         ))}
       </nav>
-      {toc ? (
+      {keys ? (
+        <section className="lab-panel rounded-2xl border border-line p-4">
+          <KeybindsPanel settings={settings} onChange={onSettings} />
+        </section>
+      ) : toc ? (
         <ol className="pop lab-panel divide-y divide-line/60 rounded-2xl border border-line" aria-label="Contents">
           {STEPS.map((st, k) => (
             <li key={k}>
@@ -469,6 +480,12 @@ export function GuideScreen({ onBack, onPlay }: { onBack: () => void; onPlay: ()
       )}
       {/* Always reachable, however long the page. */}
       <div className="sticky bottom-0 z-10 -mx-4 mt-auto flex gap-2 border-t border-line bg-bg/90 px-4 pt-3 backdrop-blur" style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}>
+        {keys ? (
+          <button onClick={() => setKeys(false)} className="flex-1 rounded-xl bg-accent px-4 py-3 font-display font-bold text-black">
+            Done
+          </button>
+        ) : (
+        <>
         <button onClick={() => setI((v) => v - 1)} disabled={i === 0} className="rounded-xl bg-panel2 px-5 py-3 font-semibold disabled:opacity-40">
           Back
         </button>
@@ -480,6 +497,8 @@ export function GuideScreen({ onBack, onPlay }: { onBack: () => void; onPlay: ()
           <button onClick={() => setI((v) => v + 1)} autoFocus className="min-w-0 flex-1 truncate rounded-xl bg-accent px-4 py-3 font-display font-bold text-black">
             Next<span className="hidden sm:inline phone:inline">: {STEPS[i + 1].title}</span>
           </button>
+        )}
+        </>
         )}
       </div>
     </div>

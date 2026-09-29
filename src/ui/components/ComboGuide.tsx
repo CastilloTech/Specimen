@@ -35,7 +35,7 @@ export function ComboGuide({ records }: { records: MatchRecord[] }) {
   const forms = (defaultConfig.evolutions as Record<string, { id: string; name: string; text: string }[]>)[combo.faction];
 
   return (
-    <Collapsible id="combo" title="Combo guide" meta={`${counts.size} of ${ALL_COMBOS.length} combos played`} bodyClass="flex flex-col gap-4">
+    <Collapsible id="combo" defaultOpen={false} title="Combo guide" meta={`${counts.size} of ${ALL_COMBOS.length} combos played`} bodyClass="flex flex-col gap-4">
       <div>
         <p className="text-xs text-mute">Pick a Build / World Faction combo for its game plan and what your matches with it say, card by card.</p>
       </div>

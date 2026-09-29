@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { ScreenHeader } from '../components/ScreenHeader';
 import { CARD_MAP, CARDS, chipRows, chipsFor, defaultConfig, FACTIONS, findNode, WORLD_FACTIONS } from '../../engine';
 import type { CardDef, Faction, WorldFactionId } from '../../engine';
 import { CardDetail } from '../components/CardDetail';
@@ -67,15 +68,7 @@ export function CollectionScreen({ onBack }: { onBack: () => void }) {
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-5xl flex-col gap-3 p-3 pb-0">
-      <header className="flex items-center gap-2">
-        <button onClick={onBack} className="rounded-lg border border-line px-2.5 py-1.5 text-sm text-ink2 hover:border-mute" aria-label="Back to Game Modes">
-          ←
-        </button>
-        <h1 className="font-display text-xl font-bold">Collection</h1>
-        <span className="ml-auto">
-          <BiomassBadge n={p.biomass} />
-        </span>
-      </header>
+      <ScreenHeader title="Collection" sub="Your Game Modes deck, built from cards you own" onBack={onBack} backLabel="Back to Game Modes" right={<BiomassBadge n={p.biomass} />} />
 
       <div className={`grid gap-2 ${p.builds.length + p.worlds.length <= 3 ? 'grid-cols-2' : 'sm:grid-cols-2'}`}>
         <Pills cols={p.builds.length} options={FACTIONS.filter((f) => p.builds.includes(f)).map((f) => ({ id: f, label: FACTION_META[f].name, color: FACTION_META[f].color, icon: <ChipArt id={f} size={28} /> }))} value={d.faction} onChange={switchBuild} />

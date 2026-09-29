@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { ScreenHeader } from '../components/ScreenHeader';
 import type { MatchSetup } from '../../engine';
 import { deckProblems, floorMatch, loadProgress, replayableUpTo, TOWER_FLOORS } from '../modes';
 import { activeSave } from '../storage';
@@ -66,20 +67,7 @@ export function TowerScreen({ onBack, onCollection, onFight, last }: { onBack: (
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col gap-3 p-3 pb-0">
-      <header className="flex items-center gap-2">
-        <button onClick={onBack} className="rounded-lg border border-line px-2.5 py-1.5 text-sm text-ink2 hover:border-mute" aria-label="Back to Game Modes">
-          ←
-        </button>
-        <div>
-          <h1 className="font-display text-xl font-bold leading-tight">The Tower</h1>
-          <div className="text-[11px] text-mute">
-            Best floor {t.best} · clears {t.clears}
-          </div>
-        </div>
-        <span className="ml-auto">
-          <BiomassBadge n={p.biomass} />
-        </span>
-      </header>
+      <ScreenHeader title="The Tower" sub={`Best floor ${t.best} · clears ${t.clears}`} onBack={onBack} backLabel="Back to Game Modes" right={<BiomassBadge n={p.biomass} />} />
 
       {last && (
         <section className={`pop rounded-xl border-2 p-3 text-center ${last.won ? 'border-emerald-400 bg-emerald-950/30' : 'border-red-500/70 bg-red-950/25'}`} aria-live="polite">

@@ -63,7 +63,21 @@ export function lineageMatch(l: LineageState, playerName: string): MatchSetup {
   const setup = floorMatch(FLOOR_FOR_MATCH[l.match - 1], l.seed, l.deck, playerName);
   const you = { ...setup.players[0], maxHp: l.maxHp, lostSlots: l.lostSlots, mutations: l.mutations.filter((id) => !MUTATION_MAP[id]?.lineage) };
   // The late floors keep their Tower rule twists (the bot starts evolved, early Meltdown, you vent less).
-  return { ...setup, players: [you, setup.players[1]] };
+  return { ...setup, players: [you, { ...setup.players[1], name: rivalName(l, setup.players[1].faction, setup.players[1].name) }] };
+}
+
+// Opponents are rival Specimens from other bloodlines, named for their Build; the bosses are a bloodline's
+// matriarch and, last of all, the Progenitor every lineage descends from.
+const EPITHETS = ['Ashen', 'Hollow-Eyed', 'Weeping', 'Feral', 'Grafted', 'Pale', 'Scarred', 'Starving', 'Twice-Born', 'Rotting', 'Silent', 'Hungering', 'Split', 'Blind', 'Cinder'];
+const BUILD_NOUN: Record<string, string> = { predator: 'Stalker', parasite: 'Leech', bastion: 'Bulwark' };
+const LINES = ['Vesk', 'Morrow', 'Kael', 'Ossian', 'Thule', 'Varn', 'Sable', 'Ixen', 'Corvid', 'Harrow'];
+
+function rivalName(l: LineageState, faction: string, towerName: string): string {
+  if (towerName === 'The Progenitor') return towerName;
+  const rng = makeRng((l.seed ^ (l.match * 0x2545f491)) >>> 0);
+  const line = rng.pick(LINES);
+  if (towerName.startsWith('Boss:')) return `Matriarch of the ${line} Line`;
+  return `${rng.pick(EPITHETS)} ${BUILD_NOUN[faction] ?? 'Specimen'} of ${line}`;
 }
 
 export interface MatchReport {
