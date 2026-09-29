@@ -4,7 +4,7 @@ import { budgetOf } from './budget';
 import { cardOf } from './data';
 import { legalPlays, reactionOptions } from './reducer';
 import type { makeRng } from './rng';
-import { computeStats, graftStrain, nodeParam } from './stats';
+import { cardCost, computeStats, graftStrain, nodeParam } from './stats';
 import type { Action, AttachedGraft, CardDef, GameState, PlayerId, Stance } from './types';
 import { other, STANCES } from './types';
 import { readerAction, searchAction } from './botTiers';
@@ -85,7 +85,27 @@ function scorePlay(s: GameState, p: PlayerId, a: Extract<Action, { type: 'PLAY_C
   const pl = s.players[p];
   const card = pl.hand.find((c) => c.uid === a.uid)!;
   const others = pl.hand.filter((c) => c.uid !== a.uid).map((c) => c.cardId);
-  return base + engineSynergy(cardOf(card.cardId), pl.grafts.filter((g) => !g.faceDown).map((g) => g.cardId), others);
+  const def = cardOf(card.cardId);
+  const board = pl.grafts.filter((g) => !g.faceDown && !g.disabled).map((g) => g.cardId);
+  return base + engineSynergy(def, board, others) + engineSequencing(s, p, def, board, others);
+}
+
+/** Order an engine combo: a payoff graft goes down before the one-shot enablers that set it off, and an
+ * enabler held back for a payoff the bot can afford to play first (then it fires straight away). */
+function engineSequencing(s: GameState, p: PlayerId, def: CardDef, board: string[], hand: string[]): number {
+  const pl = s.players[p];
+  const payoffOf = (id: string, e: string) => cardOf(id).engines?.some((t) => t.id === e && t.role === 'payoff') ?? false;
+  const oneShot = (id: string) => cardOf(id).type !== 'graft';
+  let adj = 0;
+  for (const t of def.engines ?? []) {
+    if (t.role === 'payoff' && def.type === 'graft') {
+      if (hand.some((id) => oneShot(id) && cardOf(id).engines?.some((x) => x.id === t.id && x.role === 'enabler'))) adj += 1;
+    } else if (t.role === 'enabler' && def.type !== 'graft') {
+      if (board.some((id) => payoffOf(id, t.id))) adj += 1.2;
+      else if (hand.some((id) => cardOf(id).type === 'graft' && payoffOf(id, t.id) && cardCost(s, pl, cardOf(id)) <= pl.energy)) adj -= 2;
+    }
+  }
+  return adj;
 }
 
 function scorePlayBase(s: GameState, p: PlayerId, a: Extract<Action, { type: 'PLAY_CARD' }>): number {
@@ -115,6 +135,11 @@ function scorePlayBase(s: GameState, p: PlayerId, a: Extract<Action, { type: 'PL
       const amt = (def.effect.ops ?? []).reduce((n, o) => n + (o.op === 'strain' && o.who !== 'self' ? o.amount : 0), 0);
       if ((def.effect.ops ?? []).some((o) => o.op === 'status' && o.who !== 'self')) return 5; // Bleed/Fever: worth it on its own
       // A Toxin that destroys a random enemy graft (Marrow Blight): worth it when there is something to hit.
+      // A jammer: worth it against an engine payoff on the board.
+      if ((def.effect.ops ?? []).some((o) => o.op === 'sabotage' && o.pick === 'engine')) {
+        const live = opp.grafts.some((g) => !g.faceDown && !g.disabled && cardOf(g.cardId).engines?.some((t) => t.role === 'payoff'));
+        return live ? 6 : opp.grafts.some((g) => !g.faceDown) ? 1 : -1;
+      }
       if ((def.effect.ops ?? []).some((o) => o.op === 'sabotage')) return opp.grafts.some((g) => !g.faceDown) ? 4 + Math.min(3, opp.grafts.length) * 0.5 : -1;
       if (opp.strain >= cfg.bot.toxinOppStrain || opp.strain + amt > T) return 6 + amt;
       return -1;

@@ -1,6 +1,7 @@
 import { CARDS, CARD_MAP, CHIPS, chipsFor, defaultConfig, FACTIONS, WORLD_FACTIONS } from '../engine';
 import type { CardDef, Faction, WorldFactionId } from '../engine';
 import type { MatchRecord } from './storage';
+import { ENGINE_META } from './meta';
 
 // Achievements are derived entirely from a save's match history, so they also count matches played
 // before achievements existed, and need no storage of their own.
@@ -19,6 +20,10 @@ export interface Achievement {
 const wins = (rs: MatchRecord[]) => rs.filter((r) => r.result === 'win');
 const anyMatch = (pred: (r: MatchRecord) => boolean) => (rs: MatchRecord[]): [number, number] => [rs.some(pred) ? 1 : 0, 1];
 const distinct = (rs: MatchRecord[], key: (r: MatchRecord) => string, pool: string[]): [number, number] => [pool.filter((k) => rs.some((r) => key(r) === k)).length, pool.length];
+const distinctMany = (rs: MatchRecord[], keys: (r: MatchRecord) => string[], pool: string[]): [number, number] => {
+  const seen = new Set(rs.flatMap(keys));
+  return [pool.filter((k) => seen.has(k)).length, pool.length];
+};
 function bestStreak(rs: MatchRecord[]): number {
   let best = 0;
   let run = 0;
@@ -50,6 +55,9 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'worlds', name: 'World Tour', icon: '◎', text: 'Win with each World Faction.', progress: (rs) => distinct(wins(rs), (r) => r.me.worldFaction, [...WORLD_FACTIONS]) },
   { id: 'chips', name: 'Chip Collector', icon: '▦', text: 'Win with every Chip.', progress: (rs) => distinct(wins(rs), (r) => r.me.chip, CHIPS.map((c) => c.id)) },
   { id: 'combos', name: 'Full Spectrum', icon: '✺', text: 'Win with all 12 Build and World Faction combinations.', progress: (rs) => distinct(wins(rs), (r) => `${r.me.faction}/${r.me.worldFaction}`, COMBOS) },
+  { id: 'engineer', name: 'Engineer', icon: '⚙', text: 'Fire engine payoffs 10+ times in one match.', progress: anyMatch((r) => (r.me.engineFires ?? 0) >= 10) },
+  { id: 'chainReaction', name: 'Chain Reaction', icon: '⛭', text: 'Fire 3 different engines in one match.', progress: anyMatch((r) => Object.values(r.me.engineFiresBy ?? {}).filter((n) => (n ?? 0) > 0).length >= 3) },
+  { id: 'mechanic', name: 'Master Mechanic', icon: '⚒', text: `Fire all ${Object.keys(ENGINE_META).length} engines (across matches).`, progress: (rs) => distinctMany(rs, (r) => Object.keys(r.me.engineFiresBy ?? {}).filter((k) => (r.me.engineFiresBy![k] ?? 0) > 0), Object.keys(ENGINE_META)) },
   { id: 'streak3', name: 'Hot Streak', icon: '▲', text: 'Win 3 matches in a row.', progress: (rs) => [Math.min(3, bestStreak(rs)), 3] },
   { id: 'streak5', name: 'Apex Specimen', icon: '♛', text: 'Win 5 matches in a row.', progress: (rs) => [Math.min(5, bestStreak(rs)), 5] },
   { id: 'veteran', name: 'Lab Regular', icon: '⌬', text: 'Finish 25 matches.', progress: (rs) => [Math.min(25, rs.length), 25] },

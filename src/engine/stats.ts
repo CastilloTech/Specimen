@@ -26,7 +26,8 @@ export function nodeParam(p: PlayerState, id: string, key: string, def = 0): num
  */
 export function engineAmp(s: GameState, p: PlayerState, card: CardDef): number {
   let amp = 0;
-  for (const t of card.engines ?? []) if (t.role === 'payoff') amp += sumLoadoutParam(s, p, `engine_${t.id}`);
+  // Amplify from Chip nodes and from the evolved form (each Build's forms boost one of its engines).
+  for (const t of card.engines ?? []) if (t.role === 'payoff') amp += sumLoadoutParam(s, p, `engine_${t.id}`) + evoNum(s, p, `engine_${t.id}`);
   return amp;
 }
 
@@ -158,11 +159,15 @@ export function evolutionBoosts(s: GameState, p: PlayerState, id: string): strin
   if (n('fortifyVent')) out.push(`Fortify vents ${n('fortifyVent')} Strain`);
   if (n('healOnOppReject')) out.push(`Heal ${n('healOnOppReject')} whenever the opponent rejects a graft`);
   if (n('toxinDrain')) out.push(`Your Toxins also drain ${n('toxinDrain')} HP`);
+  for (const k of Object.keys(e)) if (k.startsWith('engine_') && n(k)) out.push(`Amplify ${engineName(k.slice(7))} +${n(k)}: its payoffs are stronger`);
   if (e.ignoreFortifyHalving) out.push("Your attacks ignore Fortify's damage halving");
   if (e.armorToAttack) out.push(typeof e.armorToAttackCap === 'number' ? `Your armor adds to your attack (up to +${e.armorToAttackCap})` : 'Your armor adds to your attack');
   return out;
 }
 
+
+/** "doubleDose" -> "Double dose" (the engine names as the UI shows them). */
+export const engineName = (id: string) => id.replace(/([A-Z])/g, ' $1').toLowerCase().replace(/^./, (c) => c.toUpperCase());
 
 export function evoNum(s: GameState, p: PlayerState, key: string): number {
   const v = evoEffects(s, p)[key];

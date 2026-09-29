@@ -59,7 +59,7 @@ export type Op =
   | { op: 'energy'; amount: number }
   | { op: 'drain'; amount: number }
   | { op: 'buff'; stat: 'attack' | 'armor'; who?: 'self' | 'opp'; amount: number }
-  | { op: 'sabotage'; mode: 'sever' | 'poison' | 'disable' | 'necrosis'; rounds?: number; pick?: 'chosen' | 'random' | 'best' }
+  | { op: 'sabotage'; mode: 'sever' | 'poison' | 'disable' | 'necrosis'; rounds?: number; pick?: 'chosen' | 'random' | 'best' | 'engine' }
   | { op: 'reveal' }
   | { op: 'negate' }
   | { op: 'reflect' }
@@ -262,8 +262,9 @@ export interface PlayerStats {
   necrosisDealt: number;
   /** Energy the opponent actually lost to your drains (including carried-over drains paid next round). */
   energyDrained: number;
-  /** Engine payoff abilities that fired (see Ability.perRound). */
+  /** Engine payoff abilities that fired, in total and per engine. */
   engineFires: number;
+  engineFiresBy: Partial<Record<EngineId, number>>;
 }
 
 export interface PlayerState {
@@ -342,7 +343,7 @@ export interface ReactionWindow {
   play: PendingPlay;
 }
 
-export type LogKind = 'round' | 'stance' | 'play' | 'damage' | 'strain' | 'reject' | 'evolve' | 'heal' | 'end' | 'info' | 'hit' | 'wear';
+export type LogKind = 'round' | 'stance' | 'play' | 'damage' | 'strain' | 'reject' | 'evolve' | 'heal' | 'end' | 'info' | 'hit' | 'wear' | 'engine';
 
 export interface LogEntry {
   n: number;
@@ -351,6 +352,9 @@ export interface LogEntry {
   player: PlayerId | null;
   text: string;
   amount?: number;
+  /** For an 'engine' entry: the graft whose payoff fired, and which engine it belongs to. */
+  uid?: string;
+  engine?: EngineId;
 }
 
 /**

@@ -79,7 +79,7 @@ const strengthOf = (c: CardDef) => {
  * picks. Picks favour what the deck lacks (cheap cards, an empty slot type, a first Protocol, enough grafts)
  * and otherwise the stronger card by the power budget; a new card beats a second copy. Only adds cards.
  */
-export function autoFill(faction: Faction, worldFaction: WorldFactionId, counts: Record<string, number>, allowed: (c: CardDef) => boolean = () => true, /** Copies available (a Game Modes collection). */ owned?: (c: CardDef) => number): Record<string, number> {
+export function autoFill(faction: Faction, worldFaction: WorldFactionId, counts: Record<string, number>, allowed: (c: CardDef) => boolean = () => true, /** Copies available (a Game Modes collection). */ owned?: (c: CardDef) => number, /** Build around this engine: its payoffs and enablers come first. */ focus?: EngineId): Record<string, number> {
   const out = { ...counts };
   const deck = () => Object.entries(out).flatMap(([id, k]) => Array<string>(k).fill(id));
   const count = (f: string) => deck().filter((id) => CARD_MAP[id]?.faction === f).length;
@@ -96,6 +96,8 @@ export function autoFill(faction: Faction, worldFaction: WorldFactionId, counts:
     if (c.type === 'protocol' && s.types.protocol === 0) v += 1.5;
     // Keep engines together: a piece is worth more next to the other half of its engine.
     v += engineSynergy(c, cur, []) * 1.2;
+    const t = focus ? c.engines?.find((e) => e.id === focus) : undefined;
+    if (t) v += t.role === 'payoff' ? 5 : 4;
     return v;
   };
   const pick = (ok: (c: CardDef) => boolean) => {

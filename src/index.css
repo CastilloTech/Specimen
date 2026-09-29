@@ -907,6 +907,45 @@ button:disabled {
 .wear-float {
   animation: wear-rise 1.6s ease-out forwards;
 }
+/* An engine payoff firing: the graft rings in its engine's colour and a spinning ⚙ tag rises off it. */
+@keyframes engine-ring {
+  0% {
+    box-shadow: 0 0 0 0 var(--eng), 0 0 0 0 transparent;
+  }
+  30% {
+    box-shadow: 0 0 0 3px var(--eng), 0 0 18px 4px var(--eng);
+  }
+  100% {
+    box-shadow: 0 0 0 10px transparent, 0 0 0 0 transparent;
+  }
+}
+.engine-burst {
+  animation: engine-ring 1.1s ease-out forwards;
+}
+.engine-float {
+  animation: wear-rise 1.5s ease-out forwards;
+}
+@keyframes engine-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.engine-cog {
+  animation: engine-spin 1s linear;
+}
+/* A hand card that would set off a payoff already on your board. */
+@keyframes combo-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 2px var(--eng), 0 0 8px 0 var(--eng);
+  }
+  50% {
+    box-shadow: 0 0 0 2px var(--eng), 0 0 18px 3px var(--eng);
+  }
+}
+.combo-glow {
+  animation: combo-glow 1.8s ease-in-out infinite;
+}
 /* Strain: meter segments fill / drain, filled segments throb while Overclocked (faster and red past the
    threshold), and the tank shows motes, steam, an Overclock crackle, and a Rejection alarm. */
 @keyframes strain-seg-in {
@@ -2029,5 +2068,16 @@ body[data-coach='mulligan'] [data-coach-id='mulligan'] {
   }
   .wear-float {
     animation: none;
+  }
+  .engine-burst,
+  .engine-cog {
+    animation: none;
+  }
+  .engine-float {
+    animation: wear-rise 1.5s linear forwards;
+  }
+  .combo-glow {
+    animation: none;
+    box-shadow: 0 0 0 2px var(--eng), 0 0 10px 1px var(--eng);
   }
 }

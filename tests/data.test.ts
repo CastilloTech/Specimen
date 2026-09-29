@@ -16,7 +16,7 @@ function opShape(op: Op): string {
     case 'mod':
       return `mod:${op.stat}${op.per ? `:${op.per.what}` : ''}`;
     case 'sabotage':
-      return `sabotage:${op.mode}`;
+      return `sabotage:${op.mode}${op.pick && op.pick !== 'chosen' ? `:${op.pick}` : ''}`;
     case 'status':
       return `status:${op.kind}`;
     case 'purge':
@@ -41,8 +41,8 @@ function cardShape(c: CardDef): string {
 }
 
 describe('Card pool', () => {
-  it('has 18 tech cards', () => {
-    expect(CARDS.filter((c) => c.faction === 'tech')).toHaveLength(18);
+  it('has 23 tech cards', () => {
+    expect(CARDS.filter((c) => c.faction === 'tech')).toHaveLength(23);
   });
 
   for (const f of FACTIONS) {

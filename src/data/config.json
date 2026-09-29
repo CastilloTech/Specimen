@@ -112,48 +112,48 @@
       {
         "id": "apexStalker",
         "name": "Apex Stalker",
-        "text": "Deal 18+ total damage: +4 attack; your attacks ignore Fortify's damage halving.",
+        "text": "Deal 18+ total damage: +4 attack; your attacks ignore Fortify's damage halving; Amplify Overkill +1.",
         "condition": { "metric": "damageDealt", "target": 18, "label": "total damage dealt" },
-        "effects": { "attack": 4, "ignoreFortifyHalving": true }
+        "effects": { "attack": 4, "ignoreFortifyHalving": true, "engine_overkill": 1 }
       },
       {
         "id": "frenzyForm",
         "name": "Frenzy Form",
-        "text": "End a round at 7+ Strain with no rejection: the Overclocked bonus becomes +3, and +4 attack.",
+        "text": "End a round at 7+ Strain with no rejection: the Overclocked bonus becomes +3, +4 attack, and Amplify Frenzy +1.",
         "condition": { "metric": "endRoundStrain", "target": 7, "label": "Strain at round end (no rejection)" },
-        "effects": { "overclockBonus": 3, "attack": 4 }
+        "effects": { "overclockBonus": 3, "attack": 4, "engine_frenzy": 1 }
       }
     ],
     "parasite": [
       {
         "id": "hiveHost",
         "name": "Hive Host",
-        "text": "The opponent's Strain reaches 8+: heal 4 whenever the opponent later rejects a graft, and +1 armor, +2 attack.",
+        "text": "The opponent's Strain reaches 8+: heal 4 whenever the opponent later rejects a graft, +1 armor, +2 attack, and Amplify Overload +1.",
         "condition": { "metric": "oppMaxStrain", "target": 8, "label": "opponent peak Strain" },
-        "effects": { "healOnOppReject": 4, "armor": 1, "attack": 2 }
+        "effects": { "healOnOppReject": 4, "armor": 1, "attack": 2, "engine_overload": 1 }
       },
       {
         "id": "leechForm",
         "name": "Leech Form",
-        "text": "Take 15+ total damage: your Toxins also drain 2 HP, and +3 attack.",
+        "text": "Take 15+ total damage: your Toxins also drain 2 HP, +3 attack, and Amplify Feed +1.",
         "condition": { "metric": "damageTaken", "target": 15, "label": "total damage taken" },
-        "effects": { "toxinDrain": 2, "attack": 3 }
+        "effects": { "toxinDrain": 2, "attack": 3, "engine_feed": 1 }
       }
     ],
     "bastion": [
       {
         "id": "carapace",
         "name": "Carapace",
-        "text": "Vent 5 total Strain: +3 armor, +2 attack; Fortify vents 3 instead of 2.",
+        "text": "Vent 5 total Strain: +3 armor, +2 attack; Fortify vents 3 instead of 2; Amplify Pressure +1.",
         "condition": { "metric": "strainVented", "target": 5, "label": "Strain vented" },
-        "effects": { "armor": 3, "attack": 2, "fortifyVent": 3 }
+        "effects": { "armor": 3, "attack": 2, "fortifyVent": 3, "engine_pressure": 1 }
       },
       {
         "id": "juggernaut",
         "name": "Juggernaut",
-        "text": "Block 11 total damage: +2 armor, and your armor adds to your attack (up to +3).",
+        "text": "Block 11 total damage: +2 armor, and your armor adds to your attack (up to +3); Amplify Fortress +1.",
         "condition": { "metric": "damageBlocked", "target": 11, "label": "damage blocked" },
-        "effects": { "armor": 2, "armorToAttack": true, "armorToAttackCap": 3 }
+        "effects": { "armor": 2, "armorToAttack": true, "armorToAttackCap": 3, "engine_fortress": 1 }
       }
     ]
   },

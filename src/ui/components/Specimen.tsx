@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import specimenArt from '../../assets/specimen.jpg';
 import { CARD_MAP, publicGraft, SLOT_LABEL, veteranRank } from '../../engine';
-import type { GameState, PlayerId, PlayerState, SlotId } from '../../engine';
+import type { EngineId, GameState, PlayerId, PlayerState, SlotId } from '../../engine';
+import { ENGINE_META, engineColor } from '../meta';
 import { CardArt } from './CardArt';
 import { accentFor } from './CardView';
 import { CastCard, ImpactBurst, usePlayFx } from './PlayFx';
@@ -57,6 +58,29 @@ function useGraftFx(state: GameState, p: PlayerState, viewer: PlayerId): Partial
       setTimeout(() => setFx((f) => (f[slot]?.key === e.key ? { ...f, [slot]: undefined } : f)), FX_MS[e.kind]);
     }
   }, [p.grafts, p.necrosis, p.name, p.id, viewer, state.log]);
+  return fx;
+}
+
+/** Engine payoffs that just fired on this player's grafts: a ⚙ burst on each graft, named after its engine. */
+function useEngineFx(state: GameState, p: PlayerState): Partial<Record<SlotId, { key: number; engine: EngineId; n: number }>> {
+  const seen = useRef(state.log.length);
+  const [fx, setFx] = useState<Partial<Record<SlotId, { key: number; engine: EngineId; n: number }>>>({});
+  useEffect(() => {
+    const fresh = state.log.slice(seen.current);
+    seen.current = state.log.length;
+    const found: Partial<Record<SlotId, { key: number; engine: EngineId; n: number }>> = {};
+    for (const l of fresh) {
+      if (l.kind !== 'engine' || l.player !== p.id || !l.engine) continue;
+      const g = p.grafts.find((gr) => gr.uid === l.uid);
+      if (!g) continue;
+      const had = found[g.slot];
+      found[g.slot] = { key: ++fxKey, engine: l.engine, n: (had?.n ?? 0) + 1 };
+    }
+    const entries = Object.entries(found) as [SlotId, { key: number }][];
+    if (!entries.length) return;
+    setFx((f) => ({ ...f, ...found }));
+    for (const [slot, e] of entries) setTimeout(() => setFx((f) => (f[slot]?.key === e.key ? { ...f, [slot]: undefined } : f)), 1500);
+  }, [state.log, p.grafts, p.id]);
   return fx;
 }
 
@@ -188,6 +212,7 @@ export function Creature({ flip, surge, className = '' }: { flip?: boolean; surg
 export function Specimen({ state, player, viewer, flip, highlight, onSlot, color, fill }: Props) {
   const p = state.players[player];
   const fx = useGraftFx(state, p, viewer);
+  const engineFx = useEngineFx(state, p);
   const statusEvents = useStatusEvents(state);
   const plays = usePlayFx(state, viewer);
   const at = (slot: SlotId) => ({ x: flip ? 100 - POS[slot].x : POS[slot].x, y: POS[slot].y });
@@ -233,6 +258,7 @@ export function Specimen({ state, player, viewer, flip, highlight, onSlot, color
         const necrotic = p.necrosis[slot] ?? 0;
         const f = fx[slot];
         const wear = f?.kind === 'wear' ? f : null;
+        const eng = engineFx[slot];
         const maxIntegrity = Math.max(def?.integrity ?? state.config.integrity.default, pg?.integrity ?? 0);
         const accent = def ? accentFor(def.faction) : '#5a6b63';
         const asleep = !!pg?.faceDown;
@@ -266,6 +292,14 @@ export function Specimen({ state, player, viewer, flip, highlight, onSlot, color
                       : `${SLOT_LABEL[slot]} (empty)`
             }
           >
+            {eng && (
+              <span key={`eng-${eng.key}`} className="engine-burst pointer-events-none absolute inset-0 z-20 rounded-lg" style={{ ['--eng' as string]: engineColor(eng.engine) }} aria-live="polite">
+                <span className="engine-float absolute -bottom-4 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full border px-1.5 font-display text-[10px] font-bold uppercase tracking-wide shadow-lg" style={{ background: '#0b0f0d', borderColor: engineColor(eng.engine), color: engineColor(eng.engine) }}>
+                  <span className="engine-cog inline-block">⚙</span> {ENGINE_META[eng.engine].name}
+                  {eng.n > 1 ? ` ×${eng.n}` : ''}
+                </span>
+              </span>
+            )}
             {wear && (
               <span key={wear.key} className="wear-float pointer-events-none absolute -top-4 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-md border border-orange-300 bg-orange-600 px-1.5 font-display text-[12px] font-bold text-white shadow-lg" aria-live="polite">
                 −{wear.amount} ⬢

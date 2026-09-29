@@ -20,7 +20,7 @@ import {
   veteranRank,
   zoneOf,
 } from './stats';
-import type { Ability, AttachedGraft, CardInstance, DiscardReason, GameState, LogKind, Op, PendingPlay, PlayerId, PlayerState, PlayRecord, SlotId, Trigger } from './types';
+import type { Ability, AttachedGraft, CardDef, CardInstance, DiscardReason, EngineId, GameState, LogKind, Op, PendingPlay, PlayerId, PlayerState, PlayRecord, SlotId, Trigger } from './types';
 import { other } from './types';
 
 export const SLOT_LABEL: Record<SlotId, string> = {
@@ -147,10 +147,16 @@ export interface OpCtx {
   source: string;
 }
 
-function pickGraft(s: GameState, victim: PlayerId, pick: 'random' | 'best'): AttachedGraft | undefined {
-  const gs = s.players[victim].grafts;
+function pickGraft(s: GameState, victim: PlayerId, pick: 'random' | 'best' | 'engine'): AttachedGraft | undefined {
+  let gs = s.players[victim].grafts;
   if (!gs.length) return undefined;
   if (pick === 'random') return gs[nextInt(s, gs.length)];
+  // 'engine' (a jammer): the awake graft that is a payoff of the most engines; any graft if none is.
+  if (pick === 'engine') {
+    const payoffs = (g: AttachedGraft) => (g.faceDown ? 0 : (cardOf(g.cardId).engines ?? []).filter((t) => t.role === 'payoff').length);
+    const top = Math.max(...gs.map(payoffs));
+    if (top > 0) gs = gs.filter((g) => payoffs(g) === top);
+  }
   return [...gs].sort((a, b) => {
     const ca = cardOf(a.cardId);
     const cb = cardOf(b.cardId);
@@ -219,7 +225,7 @@ export function ambush(s: GameState, p: PlayerId): void {
 }
 function sabotage(s: GameState, ctx: OpCtx, op: Extract<Op, { op: 'sabotage' }>): void {
   const victim = s.players[ctx.victim];
-  const g = (op.pick ?? 'chosen') === 'chosen' ? victim.grafts.find((x) => x.slot === ctx.play?.target) : pickGraft(s, ctx.victim, op.pick as 'random' | 'best');
+  const g = (op.pick ?? 'chosen') === 'chosen' ? victim.grafts.find((x) => x.slot === ctx.play?.target) : pickGraft(s, ctx.victim, op.pick as 'random' | 'best' | 'engine');
   if (!g) {
     logMsg(s, 'play', ctx.caster, `${ctx.source} finds no graft to target.`);
     return;
@@ -511,7 +517,14 @@ export function fireAbilities(s: GameState, p: PlayerId, g: AttachedGraft, trigg
       const fired = (g.fired ??= {});
       if ((fired[i] ?? 0) >= ab.perRound) return;
       fired[i] = (fired[i] ?? 0) + 1;
-      s.players[p].stats.engineFires++;
+    }
+    // An engine payoff firing: counted per engine, and logged with the graft so the board can show it.
+    const engine = trigger === 'onAttach' ? null : engineOfAbility(card, ab);
+    if (engine) {
+      const st = s.players[p].stats;
+      st.engineFires++;
+      st.engineFiresBy[engine] = (st.engineFiresBy[engine] ?? 0) + 1;
+      s.log.push({ n: s.log.length, round: s.round, kind: 'engine', player: p, text: `⚙ ${card.name} fires.`, uid: g.uid, engine });
     }
     // Amplify (a Chip's engine node): +N to the payoff's main number. Not on attach effects.
     const amp = trigger === 'onAttach' ? 0 : engineAmp(s, s.players[p], card);
@@ -522,6 +535,37 @@ export function fireAbilities(s: GameState, p: PlayerId, g: AttachedGraft, trigg
     }
     runOps(s, ops, { caster: p, victim: other(p), source: card.name });
   });
+}
+
+/** Which engine a payoff ability belongs to: its card's only payoff engine, or (a Mastery card, a payoff of
+ * three) the one its trigger or condition belongs to. Null for abilities that are not engine payoffs. */
+const TRIGGER_ENGINE: Partial<Record<Trigger, EngineId>> = {
+  onGainStrain: 'frenzy',
+  onOppGainStrain: 'feed',
+  onVent: 'pressure',
+  onDrain: 'starvation',
+  onRepair: 'renewal',
+  onKill: 'carrion',
+  onOppReject: 'overload',
+  onBlock: 'fortress',
+  onWear: 'dissolve',
+  onPurge: 'cleanse',
+  onBigHit: 'overkill',
+  onAttachGraft: 'brood',
+  onOppFeverGraft: 'feverBurn',
+  onProtocol: 'ward',
+};
+const COND_ENGINE: Record<string, EngineId> = { oppStatusesAtLeast: 'doubleDose', discardAtLeast: 'grave', graftsAtLeast: 'endurance', oppHas: 'silence', oppEnergyAtMost: 'starvation' };
+export function engineOfAbility(card: CardDef, ab: Ability): EngineId | null {
+  const payoffs = (card.engines ?? []).filter((t) => t.role === 'payoff').map((t) => t.id);
+  if (!payoffs.length || ab.trigger === 'passive') return null;
+  // An engine event or engine condition names the engine; otherwise a capped ability on a single-engine payoff is
+  // that engine's. (An uncapped, unconditional ability, like a round-start heal, is not an engine firing.)
+  const byTrigger = TRIGGER_ENGINE[ab.trigger];
+  if (byTrigger && payoffs.includes(byTrigger)) return byTrigger;
+  for (const k of Object.keys(ab.cond ?? {})) if (COND_ENGINE[k] && payoffs.includes(COND_ENGINE[k])) return COND_ENGINE[k];
+  if (payoffs.length === 1 && (ab.perRound || ab.cond)) return payoffs[0];
+  return null;
 }
 
 // Engine events can set each other off (a vent that damages, damage that strains...). Per-round caps bound

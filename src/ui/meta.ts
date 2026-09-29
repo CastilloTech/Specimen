@@ -1,5 +1,5 @@
-import { defaultConfig } from '../engine';
-import type { CardType, EngineId, Faction, Stance, WorldFactionId } from '../engine';
+import { CARD_MAP, defaultConfig } from '../engine';
+import type { CardDef, CardType, EngineId, Faction, PlayerState, Stance, WorldFactionId } from '../engine';
 
 export const FACTION_META: Record<Faction, { name: string; color: string; tagline: string }> = {
   predator: { name: 'Predator', color: '#e0563a', tagline: 'Aggro. High Strain, high attack. Lives in Overclock.' },
@@ -60,3 +60,13 @@ export const engineColor = (id: EngineId) => {
   const o = ENGINE_META[id].owner;
   return (FACTION_META as Record<string, { color: string }>)[o]?.color ?? (WORLD_FACTION_META as Record<string, { color: string }>)[o].color;
 };
+
+/** The engine a hand card would set off: it enables an engine whose payoff graft is awake on your board. */
+export function comboEngine(def: CardDef, me: PlayerState): EngineId | null {
+  for (const t of def.engines ?? []) {
+    if (t.role !== 'enabler') continue;
+    const live = me.grafts.some((g) => !g.faceDown && !g.disabled && CARD_MAP[g.cardId]?.engines?.some((e) => e.id === t.id && e.role === 'payoff'));
+    if (live) return t.id;
+  }
+  return null;
+}

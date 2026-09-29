@@ -27,7 +27,7 @@ export function opPoints(op: Op, cfg: Config): number {
     case 'buff':
       return (op.who === 'opp' ? -1 : 1) * p.buff * op.amount;
     case 'sabotage':
-      return p[op.mode] * (op.pick === 'random' ? 0.5 : op.pick === 'best' ? 0.8 : 1);
+      return p[op.mode] * (op.pick === 'random' ? 0.5 : op.pick === 'best' || op.pick === 'engine' ? 0.8 : 1);
     case 'reveal':
       return p.reveal;
     case 'negate':

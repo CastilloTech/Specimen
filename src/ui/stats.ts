@@ -67,6 +67,8 @@ export function matchRecord(s: GameState, me: PlayerId): MatchRecord {
       feverDealt: p.stats.feverDealt,
       necrosisDealt: p.stats.necrosisDealt,
       energyDrained: p.stats.energyDrained,
+      engineFires: p.stats.engineFires,
+      engineFiresBy: { ...p.stats.engineFiresBy },
       deck,
       cards,
     },

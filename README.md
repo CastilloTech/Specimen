@@ -694,6 +694,56 @@ Tuning on the way: Febrile Crown alone was worth about 10 points (drawing every 
 
 **Faster measuring.** The engine sim builds each (engine, Build, World Faction) deck pair once and reuses it, and auto-fill scores each pick against the deck's stats computed once instead of once per candidate card (the same picks, many times faster; this also speeds up the Auto-fill button). The full measurement went from about an hour to under 15 minutes on this 8-thread laptop.
 
+### Engine upgrades: seeing combos fire, smarter bots, deeper engines, bridges and a jammer
+
+- **You can see engines fire.** Every engine payoff firing is logged with its graft (`engine` log entries, with `uid` and `engine`) and counted per engine (`stats.engineFiresBy`). On the board, the graft rings in its engine's colour and a spinning **⚙ Engine ×N** tag rises off it. A hand card that would set off a payoff already awake on your board **glows** in that engine's colour (`comboEngine` in `meta.ts`). Which ability belongs to which engine: the engine its trigger or condition names, else a capped or conditional ability on a single-engine payoff (`engineOfAbility` in `rules.ts`). Passive payoffs never "fire"; a plain round-start ability is not counted.
+- **Bots sequence combos.** A payoff graft goes down before the one-shot enablers in hand that set it off, and a one-shot enabler waits (for this action) while its payoff is in hand and affordable. Once the payoff is on the board, the enabler is worth more (`engineSequencing` in `bot.ts`).
+- **Deeper engines.** Twenty existing cards were tagged as enablers where they already did the job. Tech cards may now enable any identity's engine. For example, Field Scalpel enables Carrion, Hoarder enables Grave, Antitoxin Reflex and Paralytic Dart enable Ward, and Adrenaline Shot and Armor Piercer enable Overkill. The five engines that had one payoff (plus their Mastery card) got a second:
+
+| Card | Engine | Effect |
+|---|---|---|
+| Bone Gnawer (Predator) | Carrion | Destroying an enemy graft draws 1 and gives 1 Energy, once a round. |
+| Steam Ram (Bastion) | Pressure | Venting gives +1 attack, 3 times a round. |
+| Bloodletter (Corrosion) | Hemorrhage | A Clash hit on a bleeding opponent wears their graft by 1 and heals 1, once a round. |
+| Regrowth Node (Aegis) | Renewal (and enables Cleanse) | A repair heals 1 and Purges you, once a round. |
+| Compound Gland (Miasma) | Double dose | A Clash hit on an opponent with 2+ statuses: +1 Strain and Fever, once a round. |
+
+- **Evolutions amplify engines.** Each Build's two forms add Amplify +1 (the same `engine_<id>` key as the Chip nodes, read by `engineAmp`) to one of its engines:
+  - Apex Stalker: Overkill. Frenzy Form: Frenzy.
+  - Hive Host: Overload. Leech Form: Feed.
+  - Carapace: Pressure. Juggernaut: Fortress.
+- **Tech bridges and a jammer (Tech is 23 cards now).** Four Tech grafts are the payoff of one engine and the enabler of another, so a deck can link its Build engine to its World Faction engine:
+  - Steam Mender (Pressure → Renewal: venting repairs your grafts).
+  - Fever Leech (Feed → Fever burn: the opponent gaining Strain at 7+ gives them Fever for 1 round).
+  - Blood Hammer (Overkill → Hemorrhage: a big hit makes them bleed).
+  - Brood Siphon (Brood → Starvation: attaching a graft drains 1).
+
+  **Engine Jammer** (1 Energy Toxin) is the counterplay. It disables for 2 rounds the enemy graft that is a payoff of the most engines. The sabotage op has a new `pick: 'engine'` for this.
+- **Deck builder.** An **⚙ Engines** filter row under the pool tabs shows the six engines of your Build and World Faction. Picking one lists its payoffs and enablers from all three pools, payoffs first. **Build around it** replaces the deck with an Auto-fill focused on that engine (`autoFill(..., focus)`).
+- **Tracking and rewards.** The post-match report lists each side's engines as **⚙ Engine ×fires**, and match records keep `engineFires` and `engineFiresBy`. There are three new general achievements:
+  - **Engineer:** 10+ payoff fires in one match.
+  - **Chain Reaction:** 3 different engines in one match.
+  - **Master Mechanic:** all 21 engines, across matches.
+
+  They are general achievements on purpose. Adding them to the Faction feats would re-lock Mastery cards players have already earned.
+- **Pool:** 176 cards.
+
+**Balance.** Each new card was measured the same fair way as the waves: the Auto-filled deck with the card, against the same deck with it swapped for Auto-fill's next pick. That was 1,000 to 1,500 matches each, about ±2 to 3 points. Results:
+
+| Card | Points | Card | Points |
+|---|---|---|---|
+| Bone Gnawer | +3.0 | Steam Mender | −1.0 |
+| Steam Ram | +0.8 | Fever Leech | +4.3 |
+| Bloodletter | +2.9 | Blood Hammer | +2.9 |
+| Regrowth Node | −1.8 | Brood Siphon | −0.7 |
+| Compound Gland | +0.3 | Engine Jammer | −3.4 (a tech answer, weak when the opponent runs no payoffs) |
+
+Tuning on the way:
+- **Fever Leech first fired only when a Fevered opponent attached a graft.** That almost never happened, so it was a blank card (−16). Turned around to fire on any opponent Strain gain, it gave Fever every round, a soft lock (+18). It settled at 1 round of Fever, only at 7+ Strain.
+- **Blood Hammer** got a real body, paid for with +1 Strain. The first version was −8.
+
+The starter-deck sim is unchanged: the starter decks hold no engine payoffs. Builds are 47.0–53.0%.
+
 ### UI pass: containment-lab look and quality of life
 
 - **Art direction.** A dim containment-lab look: culture-plate grid background, bioluminescent accent, Chakra Petch display type (Google Fonts; falls back to system fonts offline), hazard tape for Meltdown. Every card has procedural "specimen plate" art (`src/ui/components/CardArt.tsx`), drawn from its type (and a graft's slot), tinted by faction and seeded by card id, so there are no image assets to maintain. Each Specimen is the bio-engineered creature from `src/assets/specimen.jpg` (cropped from the provided concept card art) in a containment tank, mirrored on the left-hand side so the two face each other, with graft sockets placed on its anatomy (helmet, neck cables, chest, resting hand, far forearm, hip; see `POS` in `Specimen.tsx`) and grafts shown as mini plates.

@@ -4,14 +4,14 @@ import { autoFill } from '../deckHelpers';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { ENERGY_BADGE } from '../components/EnergyIcon';
 import { CARD_MAP, CARDS, chipRows, chipsFor, defaultConfig, FACTIONS, starterDeck, validateDeck, validateLoadout, WORLD_FACTIONS } from '../../engine';
-import type { CardDef, Faction, WorldFactionId } from '../../engine';
+import type { CardDef, EngineId, Faction, WorldFactionId } from '../../engine';
 import { CardDetail } from '../components/CardDetail';
 import { CardView } from '../components/CardView';
 import { ChipPicker } from '../components/ChipPicker';
 import { ChipArt, Emblem } from '../components/Emblem';
 import { LoadoutPicker } from '../components/LoadoutPicker';
 import { Pills } from '../components/Pills';
-import { FACTION_META, TYPE_META, WORLD_FACTION_META } from '../meta';
+import { ENGINE_META, engineColor, FACTION_META, TYPE_META, WORLD_FACTION_META } from '../meta';
 import type { SavedDeck } from '../storage';
 import { activeSave, loadChipLoadouts, loadDecks, loadMatches, saveChipLoadout, saveDecks } from '../storage';
 import { FACTION_ACHIEVEMENTS, unlockedMastery } from '../achievements';
@@ -47,6 +47,7 @@ function DeckTab() {
   const [sheet, setSheet] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
   const [viewing, setViewing] = useState<string | null>(null); // card id open in the full view
+  const [engine, setEngine] = useState<EngineId | null>(null); // pool filter: one engine's cards, from all three pools
   const wide = useMediaQuery('(min-width: 1024px)');
   // Mastery Signatures stay locked until their faction's achievements are done in the loaded save.
   const unlocked = useMemo(() => unlockedMastery(loadMatches()), []);
@@ -62,7 +63,19 @@ function DeckTab() {
   const dirty = !sameDeck(counts, clean);
 
   const poolFaction = pool === 'build' ? faction : pool === 'world' ? worldFaction : 'tech';
-  const cards = CARDS.filter((c) => c.faction === poolFaction).sort(byTypeThenCost);
+  const engines = (Object.keys(ENGINE_META) as EngineId[]).filter((e) => ENGINE_META[e].owner === faction || ENGINE_META[e].owner === worldFaction);
+  const activeEngine = engine && engines.includes(engine) ? engine : null;
+  const inEngine = (c: CardDef) => !!c.engines?.some((t) => t.id === activeEngine);
+  const cards = (activeEngine
+    ? CARDS.filter((c) => (c.faction === faction || c.faction === worldFaction || c.faction === 'tech') && inEngine(c)).sort((a, b) => Number(b.engines!.some((t) => t.id === activeEngine && t.role === 'payoff')) - Number(a.engines!.some((t) => t.id === activeEngine && t.role === 'payoff')) || byTypeThenCost(a, b))
+    : CARDS.filter((c) => c.faction === poolFaction).sort(byTypeThenCost));
+  /** Replace the deck with one built around an engine: its payoffs and enablers first, the rest filled as usual. */
+  const buildAround = (e: EngineId) => {
+    if (dirty && !window.confirm(`Replace this deck with one built around ${ENGINE_META[e].name}?`)) return;
+    setCounts(autoFill(faction, worldFaction, {}, (c) => !locked(c), undefined, e));
+    setFlash(`Built around ⚙ ${ENGINE_META[e].name}`);
+    setTimeout(() => setFlash(null), 1600);
+  };
 
   const change = (id: string, delta: number) => setCounts((c) => ({ ...c, [id]: Math.max(0, (c[id] ?? 0) + delta) }));
   const reset = (next: Record<string, number>) => {
@@ -207,13 +220,16 @@ function DeckTab() {
         <div className="sticky top-0 z-10 -mx-3 mt-3 border-b border-line bg-bg/90 px-3 py-2 backdrop-blur" role="tablist" aria-label="Card pool">
           <div className="grid grid-cols-3 gap-1.5">
             {poolTabs.map((t) => {
-              const on = pool === t.id;
+              const on = pool === t.id && !activeEngine;
               return (
                 <button
                   key={t.id}
                   role="tab"
                   aria-selected={on}
-                  onClick={() => setPool(t.id)}
+                  onClick={() => {
+                    setPool(t.id);
+                    setEngine(null);
+                  }}
                   className={`flex min-w-0 flex-col items-center rounded-lg border px-1 py-1 leading-tight ${on ? 'bg-black/35' : 'border-line'}`}
                   style={on ? { borderColor: t.color } : undefined}
                 >
@@ -227,6 +243,30 @@ function DeckTab() {
             })}
           </div>
         </div>
+
+        {/* Engine filter: one engine's payoffs and enablers from all three pools, and a deck built around it. */}
+        <div className="mt-2 flex flex-wrap items-center gap-1" role="group" aria-label="Filter by engine">
+          <span className="mr-0.5 text-[10px] font-semibold uppercase tracking-wider text-mute">⚙ Engines</span>
+          {engines.map((e) => {
+            const on = activeEngine === e;
+            const c = engineColor(e);
+            return (
+              <button key={e} onClick={() => setEngine(on ? null : e)} aria-pressed={on} title={ENGINE_META[e].text} className="rounded-full border px-2 py-0.5 font-display text-[11px] font-bold uppercase tracking-wide" style={on ? { background: c, borderColor: c, color: '#0b0f0d' } : { borderColor: `${c}99`, color: c }}>
+                {ENGINE_META[e].name}
+              </button>
+            );
+          })}
+        </div>
+        {activeEngine && (
+          <div className="mt-2 flex items-center gap-2 rounded-lg border px-2 py-1.5 text-[11px]" style={{ borderColor: `${engineColor(activeEngine)}66` }}>
+            <span className="min-w-0 flex-1 text-ink2">
+              <b style={{ color: engineColor(activeEngine) }}>{ENGINE_META[activeEngine].name}:</b> {ENGINE_META[activeEngine].text} Payoffs first, then enablers (Tech included).
+            </span>
+            <button onClick={() => buildAround(activeEngine)} className="shrink-0 rounded-md px-2 py-1 font-bold text-black" style={{ background: engineColor(activeEngine) }} title="Replace the deck with one built around this engine">
+              Build around it
+            </button>
+          </div>
+        )}
 
         <div className="grid grid-cols-[repeat(auto-fill,minmax(100px,1fr))] justify-items-center gap-x-2 gap-y-4 pb-4 pt-4 sm:grid-cols-[repeat(auto-fill,minmax(136px,1fr))]">
           {cards.map((c) => {

@@ -260,6 +260,9 @@ export interface MatchRecord {
     feverDealt?: number;
     necrosisDealt?: number;
     energyDrained?: number;
+    /** Engine payoffs fired, in total and per engine (added later). */
+    engineFires?: number;
+    engineFiresBy?: Partial<Record<string, number>>;
     /** The 20 card ids you brought, and per card id how it fared (added later; absent in older records). */
     deck?: string[];
     cards?: Record<string, CardUse>;

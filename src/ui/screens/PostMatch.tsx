@@ -1,14 +1,14 @@
 import { useMemo, useState } from 'react';
 import { turningPoints } from '../turningPoints';
 import { CARD_MAP, findNode } from '../../engine';
-import type { GameState, MatchSetup } from '../../engine';
+import type { EngineId, GameState, MatchSetup } from '../../engine';
 import { Emblem } from '../components/Emblem';
 import { LineChart } from '../components/LineChart';
 import { Collapsible } from '../components/Collapsible';
 import { newlyUnlocked, newlyUnlockedMastery } from '../achievements';
 import { CardDetail } from '../components/CardDetail';
 import { CardView, factionName } from '../components/CardView';
-import { FACTION_META, PLAYER_COLORS, WORLD_FACTION_META } from '../meta';
+import { ENGINE_META, engineColor, FACTION_META, PLAYER_COLORS, WORLD_FACTION_META } from '../meta';
 import { activeSave, loadMatches } from '../storage';
 
 interface Props {
@@ -148,6 +148,24 @@ export function PostMatch({ state, setup, onRematch, onNext, onMenu, onReplay }:
                 ))}
               </tbody>
             </table>
+            {/* Which engines each side got running, and how often they fired. */}
+            {(a.stats.engineFires > 0 || b.stats.engineFires > 0) && (
+              <div className="mt-2 grid grid-cols-2 gap-2 border-t border-line/50 pt-2" aria-label="Engine payoffs fired, per engine">
+                {[a, b].map((p, i) => {
+                  const list = (Object.entries(p.stats.engineFiresBy) as [EngineId, number][]).filter(([, n]) => n > 0).sort((x, y) => y[1] - x[1]);
+                  return (
+                    <div key={p.id} className={`flex flex-wrap gap-1 ${i ? 'justify-start' : 'justify-end'}`}>
+                      {list.length === 0 && <span className="text-[10px] text-mute">No engines fired</span>}
+                      {list.map(([e, n]) => (
+                        <span key={e} className="rounded-full border px-1.5 font-display text-[10px] font-bold uppercase tracking-wide" style={{ borderColor: engineColor(e), color: engineColor(e) }} title={ENGINE_META[e].text}>
+                          ⚙ {ENGINE_META[e].name} ×{n}
+                        </span>
+                      ))}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </header>
 
           {newCards.length > 0 && (

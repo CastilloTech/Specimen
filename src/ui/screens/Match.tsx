@@ -21,7 +21,7 @@ import { PlayerPanel, PlayerPanelCompact } from '../components/PlayerPanel';
 import { incomingInfo, protocolVerdict, VERDICT_CLASS } from '../components/Reaction';
 import { Specimen } from '../components/Specimen';
 import { PHONE_LANDSCAPE, PHONE_PORTRAIT, tryLandscapeFullscreen, useMediaQuery } from '../useMediaQuery';
-import { FACTION_META, PLAYER_COLORS, STANCE_META, WORLD_FACTION_META } from '../meta';
+import { comboEngine, ENGINE_META, engineColor, FACTION_META, PLAYER_COLORS, STANCE_META, WORLD_FACTION_META } from '../meta';
 import { matchRecord } from '../stats';
 import type { KeyAction, Settings } from '../storage';
 import { keyLabel, recordMatch, saveReplay } from '../storage';
@@ -439,8 +439,9 @@ export function MatchScreen({ setup, settings, onExit, onFinish, label, tutorial
               {mine.hand.map((c, i) => {
                 const d = cardOf(c.cardId);
                 const dim = !cycleMode && !playable.has(c.uid);
+                const combo = dim || arrivals.has(c.uid) ? null : comboEngine(d, mine);
                 return (
-                  <div key={c.uid} className={`${i > 0 ? (fan ? '-ml-3' : 'ml-1') : ''} ${arrivals.has(c.uid) ? 'card-draw' : ''}`} style={arrivals.has(c.uid) ? ({ '--i': `${arrivals.get(c.uid)! * 90}ms` } as React.CSSProperties) : undefined}>
+                  <div key={c.uid} className={`${i > 0 ? (fan ? '-ml-3' : 'ml-1') : ''} ${arrivals.has(c.uid) ? 'card-draw' : ''} ${combo ? 'combo-glow rounded-lg' : ''}`} style={{ ...(arrivals.has(c.uid) ? { '--i': `${arrivals.get(c.uid)! * 90}ms` } : {}), ...(combo ? { '--eng': engineColor(combo) } : {}) } as React.CSSProperties} title={combo ? `Combo: sets off your ${ENGINE_META[combo].name} payoff` : undefined}>
                     <CardView def={d} cost={cardCost(state, mine, d)} size="xs" dim={dim} reason={dim ? (whyNot(c.uid) ?? undefined) : undefined} onClick={() => onHandClick(c.uid)} onDoubleClick={() => onHandDoubleClick(c.uid)} onInspect={() => setViewCard(c.cardId)} />
                   </div>
                 );
@@ -718,8 +719,9 @@ export function MatchScreen({ setup, settings, onExit, onFinish, label, tutorial
                 {mine.hand.map((c, i) => {
                   const d = cardOf(c.cardId);
                   const dim = !cycleMode && !playable.has(c.uid);
+                  const combo = dim || arrivals.has(c.uid) ? null : comboEngine(d, mine);
                   return (
-                    <div key={c.uid} className={arrivals.has(c.uid) ? 'card-draw' : ''} style={arrivals.has(c.uid) ? ({ '--i': `${arrivals.get(c.uid)! * 90}ms` } as React.CSSProperties) : undefined}>
+                    <div key={c.uid} className={`${arrivals.has(c.uid) ? 'card-draw' : ''} ${combo ? 'combo-glow rounded-xl' : ''}`} style={{ ...(arrivals.has(c.uid) ? { '--i': `${arrivals.get(c.uid)! * 90}ms` } : {}), ...(combo ? { '--eng': engineColor(combo) } : {}) } as React.CSSProperties} title={combo ? `Combo: sets off your ${ENGINE_META[combo].name} payoff` : undefined}>
                     <CardView
                       def={d}
                       cost={cardCost(state, mine, d)}

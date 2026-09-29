@@ -316,14 +316,14 @@ describe('Wave 3 engine events', () => {
 
 describe('Engine data', () => {
   const ENGINES: EngineId[] = ['frenzy', 'feed', 'pressure', 'hemorrhage', 'doubleDose', 'starvation', 'renewal', 'carrion', 'overload', 'fortress', 'dissolve', 'silence', 'necropolis', 'cleanse', 'overkill', 'brood', 'endurance', 'rust', 'feverBurn', 'grave', 'ward'];
-  it('every engine has at least one payoff and three enablers, all from one identity', () => {
+  it('every engine has at least one payoff and three enablers, all from one identity (plus Tech enablers)', () => {
     for (const e of ENGINES) {
       const cards = CARDS.filter((c) => c.engines?.some((t) => t.id === e));
       const payoffs = cards.filter((c) => c.engines!.some((t) => t.id === e && t.role === 'payoff'));
       const enablers = cards.filter((c) => c.engines!.some((t) => t.id === e && t.role === 'enabler'));
       expect(payoffs.length, e).toBeGreaterThanOrEqual(1);
       expect(enablers.length, e).toBeGreaterThanOrEqual(3);
-      expect(new Set(cards.map((c) => c.faction)).size, `${e} spans one identity`).toBe(1);
+      expect(new Set(cards.filter((c) => c.faction !== 'tech').map((c) => c.faction)).size, `${e} spans one identity`).toBe(1);
     }
   });
 
