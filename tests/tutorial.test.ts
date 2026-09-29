@@ -55,5 +55,36 @@ describe('Advanced training (part 2)', () => {
       if (playBotMatch({ ...setup, seed: 500 + i, players: [{ ...setup.players[0], isBot: true }, setup.players[1]] }, 900 + i).result?.winner === 0) w++;
     }
     expect(w / 40).toBeGreaterThan(0.6);
-  }, 30000); // 40 full matches: slow on a busy machine
+  }, 60000); // 40 full matches: slow on a busy machine
+});
+
+describe('Combos & engines (part 3)', () => {
+  it('deals the Pressure payoff, two enablers and the Steam Mender bridge, with Mending Carapace next', async () => {
+    const { enginesSetup, ENGINES_BOT_HP } = await import('../src/ui/tutorial');
+    const setup = enginesSetup('You');
+    const s = createMatch(setup);
+    expect(s.lastError ?? null).toBeNull();
+    const hand = s.players[0].hand.map((c) => c.cardId);
+    expect(hand).toEqual(['bast_exhaust_bladder', 'bast_venting_sigh', 'bast_relief_spiracle', 'tech_steam_mender', 'bast_scale_patch']);
+    expect(cardOf('bast_exhaust_bladder').engines).toContainEqual({ id: 'pressure', role: 'payoff' });
+    expect(s.players[0].deck.at(-1)!.cardId).toBe('aeg_mending_carapace');
+    expect(s.players[0].loadout).toContain('renewingCore');
+    expect(s.players[1].maxHp).toBe(ENGINES_BOT_HP);
+    // The payoff is affordable in round 1.
+    expect(cardOf('bast_exhaust_bladder').cost).toBeLessThanOrEqual(s.config.energy.min);
+  });
+
+  it('is winnable for a bot playing the student, and its engines fire', async () => {
+    const { enginesSetup } = await import('../src/ui/tutorial');
+    let w = 0;
+    let fired = 0;
+    for (let i = 0; i < 20; i++) {
+      const setup = enginesSetup('You');
+      const end = playBotMatch({ ...setup, seed: 700 + i, players: [{ ...setup.players[0], isBot: true }, setup.players[1]] }, 950 + i);
+      if (end.result?.winner === 0) w++;
+      fired += end.players[0].stats.engineFires;
+    }
+    expect(w / 20).toBeGreaterThan(0.6);
+    expect(fired / 20).toBeGreaterThan(2);
+  }, 60000); // 20 full matches: slow on a busy machine
 });

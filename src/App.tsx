@@ -12,7 +12,7 @@ import { Menu } from './ui/screens/Menu';
 import { quickBotSetup } from './ui/picks';
 import { loadSettings, saveSettings } from './ui/storage';
 import type { SavedReplay, Settings } from './ui/storage';
-import { lessonSetup, setLessonDone } from './ui/tutorial';
+import { LESSON_LABEL, lessonSetup, setLessonDone } from './ui/tutorial';
 import type { Lesson } from './ui/tutorial';
 import { activeSave } from './ui/storage';
 import { applyDaily } from './ui/daily';
@@ -111,7 +111,7 @@ function Screens() {
   }, []);
   const menu = () => setScreen({ name: 'menu' });
   const quick = () => setScreen({ name: 'match', setup: quickBotSetup(), run: Date.now(), label: 'Quick match' });
-  const tutorial = (lesson: Lesson = 'basics') => setScreen({ name: 'match', setup: lessonSetup(lesson, activeSave()?.meta.name ?? 'Player 1'), run: Date.now(), tutorial: lesson, label: lesson === 'advanced' ? 'Advanced training' : 'Tutorial' });
+  const tutorial = (lesson: Lesson = 'basics') => setScreen({ name: 'match', setup: lessonSetup(lesson, activeSave()?.meta.name ?? 'Player 1'), run: Date.now(), tutorial: lesson, label: LESSON_LABEL[lesson] });
 
   switch (screen.name) {
     case 'menu':
@@ -195,11 +195,12 @@ function Screens() {
           state={screen.state}
           lesson={screen.lesson}
           onAdvanced={() => tutorial('advanced')}
+          onEngines={() => tutorial('engines')}
           onQuick={quick}
           onGuide={() => setScreen({ name: 'guide' })}
           onModes={() => setScreen({ name: 'modes' })}
           onMenu={menu}
-          onReplay={() => setScreen({ name: 'replay', back: screen, replay: replayOf(screen.setup, screen.state, screen.lesson === 'advanced' ? 'Advanced training' : 'Tutorial') })}
+          onReplay={() => setScreen({ name: 'replay', back: screen, replay: replayOf(screen.setup, screen.state, LESSON_LABEL[screen.lesson]) })}
         />
       );
     case 'daily':

@@ -14,6 +14,7 @@ import { StatusIcon } from '../components/StatusFx';
 import { BUILD_GUIDE } from '../comboGuide';
 import { keyLabel, loadSettings } from '../storage';
 import { EngineIcon } from '../components/EngineIcon';
+import type { Lesson } from '../tutorial';
 
 const c = defaultConfig;
 
@@ -398,7 +399,7 @@ const STEPS: Step[] = [
       </>
     ),
     visual: <EngineTable />,
-    tip: 'The Deck stats panel counts your enablers and payoffs per engine (for example "Pressure 4/2") and warns when payoffs have too few enablers to fire.',
+    tip: 'The Deck stats panel counts your enablers and payoffs per engine (for example "Pressure 4/2") and warns when payoffs have too few enablers to fire. To try one with a coach, play Part 3 of the tutorial (on the last page of this guide).',
   },
   {
     title: "You're ready",
@@ -425,7 +426,7 @@ const readStep = () => {
   }
 };
 
-export function GuideScreen({ onBack, onPlay, onTutorial, settings, onSettings }: { onBack: () => void; onPlay: () => void; onTutorial: (lesson: 'basics' | 'advanced') => void; settings: Settings; onSettings: (s: Settings) => void }) {
+export function GuideScreen({ onBack, onPlay, onTutorial, settings, onSettings }: { onBack: () => void; onPlay: () => void; onTutorial: (lesson: Lesson) => void; settings: Settings; onSettings: (s: Settings) => void }) {
   const [i, setIRaw] = useState(readStep); // reopens where you left off
   const [toc, setToc] = useState(false);
   const [keys, setKeys] = useState(false); // the key-bindings panel (desktop)
@@ -540,6 +541,9 @@ export function GuideScreen({ onBack, onPlay, onTutorial, settings, onSettings }
             </button>
             <button onClick={() => onTutorial('advanced')} className="rounded-xl border border-amber-400/70 px-3 py-3 text-sm font-semibold text-amber-200" title="Part 2: Chips, evolution, status effects, face-down grafts and Protocols">
               Part 2
+            </button>
+            <button onClick={() => onTutorial('engines')} className="rounded-xl border border-amber-400/70 px-3 py-3 text-sm font-semibold text-amber-200" title="Part 3: combos and engines, coached">
+              Part 3
             </button>
             <button onClick={onPlay} className="flex-1 rounded-xl bg-accent px-4 py-3 font-display font-bold text-black">
               Play a Quick match

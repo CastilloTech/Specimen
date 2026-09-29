@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-import { cardOf, other } from '../../engine';
-import type { CardDef, GameState, PlayerId } from '../../engine';
-import { STANCE_META } from '../meta';
+import { cardCost, cardOf, other } from '../../engine';
+import type { CardDef, EngineId, GameState, PlayerId } from '../../engine';
+import { comboEngine, STANCE_META } from '../meta';
+import { EngineIcon } from './EngineIcon';
 
 // The tutorial coach: short notes that appear as each part of a round comes up, with the part of the screen
 // they talk about pulsing. It reads the match state, so it follows along whatever you (or the bot) do.
@@ -298,6 +299,120 @@ const ADVANCED: Tip[] = [
   },
 ];
 
+const onBoard = (c: CoachCtx, id: string) => me_(c).grafts.some((g) => g.cardId === id && !g.faceDown);
+const inHand = (c: CoachCtx, id: string) => me_(c).hand.some((h) => h.cardId === id);
+const fires = (c: CoachCtx, e: EngineId) => me_(c).stats.engineFiresBy[e] ?? 0;
+const name = (id: string) => <b>{cardOf(id).name}</b>;
+
+/** Part 3, combos and engines: a payoff, the enablers that set it off, a Tech bridge and Amplify. */
+const ENGINES: Tip[] = [
+  {
+    id: 'eng-welcome',
+    title: 'Combos & engines',
+    body: () => (
+      <>
+        An <b>engine</b> is a pair of jobs. <b>Enablers</b> make something happen (here: venting Strain). <b>Payoffs</b> cash in every time it does. This <b>Bastion / Aegis</b> deck runs Bastion's <b>Pressure</b> engine and Aegis's <b>Renewal</b> engine, with a card that links the two.
+      </>
+    ),
+    show: (c) => c.state.phase === 'mulligan',
+    stale: (c) => c.state.phase !== 'mulligan',
+  },
+  {
+    id: 'eng-tags',
+    title: 'Read the engine tags',
+    body: () => (
+      <>
+        Look over the art of your cards: the <EngineIcon /> tag names the engine. A <b>filled</b> tag is a <b>payoff</b> ({name('bast_exhaust_bladder')}: each vent deals 1 damage). An <b>outlined</b> tag is an <b>enabler</b> ({name('bast_venting_sigh')}, {name('bast_relief_spiracle')}). Keep this hand.
+      </>
+    ),
+    target: 'hand',
+    show: (c) => c.state.phase === 'mulligan' && !me_(c).mulliganDecided,
+    done: (c) => me_(c).mulliganDecided || c.state.phase !== 'mulligan',
+  },
+  {
+    id: 'eng-payoff',
+    title: 'Payoff first',
+    body: () => (
+      <>
+        A payoff only counts what happens <b>after</b> it is on your Specimen, so it goes down first. Play {name('bast_exhaust_bladder')} into a Limb slot now; save the enablers for when it is in place.
+      </>
+    ),
+    target: 'hand',
+    show: (c) => c.state.phase === 'actions' && c.myTurn && inHand(c, 'bast_exhaust_bladder'),
+    done: (c) => onBoard(c, 'bast_exhaust_bladder'),
+    stale: (c) => c.state.round >= 4 || (!inHand(c, 'bast_exhaust_bladder') && !onBoard(c, 'bast_exhaust_bladder')),
+  },
+  {
+    id: 'eng-glow',
+    title: 'Set it off',
+    body: (c) => {
+      const combos = [...new Set(me_(c).hand.map((h) => cardOf(h.cardId)).filter((d) => comboEngine(d, me_(c)) === 'pressure'))];
+      const glowing = combos.filter((d) => cardCost(c.state, me_(c), d) <= me_(c).energy);
+      if (!glowing.length)
+        return (
+          <>
+            The Bladder is in place. You're out of Energy for its enablers this round, so <b>Pass</b>. Next round, cards that would fire it will <b>glow</b> in your hand{combos.length ? <> ({combos.map((d) => d.name).join(', ')})</> : null}.
+          </>
+        );
+      return (
+        <>
+          Cards that would fire a payoff on your board now <b>glow</b> in its colour ({glowing.map((d) => d.name).join(', ')}). Play one: every vent makes the Bladder hit. {name('bast_relief_spiracle')} vents whenever you gain Strain, so attaching grafts after it sets the Bladder off too.
+        </>
+      );
+    },
+    target: (c) => (me_(c).hand.some((h) => comboEngine(cardOf(h.cardId), me_(c)) === 'pressure' && cardCost(c.state, me_(c), cardOf(h.cardId)) <= me_(c).energy) ? 'hand' : 'pass'),
+    show: (c) => c.state.phase === 'actions' && c.myTurn && onBoard(c, 'bast_exhaust_bladder'),
+    done: (c) => fires(c, 'pressure') > 0,
+    stale: (c) => c.state.round >= 6 || !onBoard(c, 'bast_exhaust_bladder'),
+  },
+  {
+    id: 'eng-fired',
+    title: 'It fired!',
+    body: () => (
+      <>
+        The graft flashed its engine emblem: that is a payoff firing. Most payoffs have a <b>cap</b>, like the Bladder's "4 times a round". It resets every round, so spread your enablers out instead of dumping them all at once.
+      </>
+    ),
+    target: 'me',
+    show: (c) => fires(c, 'pressure') > 0,
+    stale: (c) => c.state.round >= 7,
+  },
+  {
+    id: 'eng-bridge',
+    title: 'A bridge between two engines',
+    body: () => (
+      <>
+        {name('tech_steam_mender')} is a <b>Tech bridge</b>: a <b>payoff</b> for Pressure and an <b>enabler</b> for Renewal. Each vent repairs your grafts, and every repair fires your Renewal payoffs, like {name('aeg_mending_carapace')} (+2 armor). One vent, two engines. Get both on your Specimen.
+      </>
+    ),
+    target: 'hand',
+    show: (c) => c.state.phase === 'actions' && c.myTurn && (inHand(c, 'tech_steam_mender') || onBoard(c, 'tech_steam_mender')) && (inHand(c, 'aeg_mending_carapace') || onBoard(c, 'aeg_mending_carapace')),
+    done: (c) => onBoard(c, 'tech_steam_mender') && onBoard(c, 'aeg_mending_carapace'),
+    stale: (c) => c.state.round >= 7 || (!inHand(c, 'tech_steam_mender') && !onBoard(c, 'tech_steam_mender')),
+  },
+  {
+    id: 'eng-amplify',
+    title: 'Amplify',
+    body: (c) => (
+      <>
+        Your Chip, <b>Mending Coil</b>, backs Renewal: its <b>Renewing Core</b> node gives every Renewal payoff +1. Evolutions amplify too: Bastion's <b>Carapace</b> form adds +1 to Pressure payoffs, <b>Juggernaut</b> to Fortress. {fires(c, 'renewal') > 0 ? <>Your Renewal engine has fired {fires(c, 'renewal')} time(s) already.</> : null}
+      </>
+    ),
+    target: 'me',
+    show: (c) => c.state.phase === 'actions' && c.myTurn && c.state.round >= 3,
+  },
+  {
+    id: 'eng-finish',
+    title: 'Build your own',
+    body: () => (
+      <>
+        Every Build and World Faction has three engines. In <b>Decks &amp; Chips</b>, the <EngineIcon /> <b>Engines</b> row filters the pool to one engine, and <b>Build around it</b> makes a deck for it. After each match, the report shows how often each engine fired. Now finish the bot off.
+      </>
+    ),
+    show: (c) => c.state.phase === 'actions' && c.myTurn && c.state.round >= 4,
+  },
+];
+
 /** Advanced-only moments (added to the shared ones in that lesson). */
 const ADVANCED_MOMENTS: Tip[] = [
   {
@@ -357,8 +472,8 @@ const MOMENTS: Tip[] = [
 ];
 
 /** Which step of the lesson is showing (null: nothing right now), and the targets to pulse. */
-export function Coach({ ctx, active, onSkip, lesson = 'basics' }: { ctx: CoachCtx; active: boolean; onSkip: () => void; lesson?: 'basics' | 'advanced' }) {
-  const LESSON = lesson === 'advanced' ? ADVANCED : BASICS;
+export function Coach({ ctx, active, onSkip, lesson = 'basics' }: { ctx: CoachCtx; active: boolean; onSkip: () => void; lesson?: 'basics' | 'advanced' | 'engines' }) {
+  const LESSON = lesson === 'advanced' ? ADVANCED : lesson === 'engines' ? ENGINES : BASICS;
   const moments = lesson === 'advanced' ? [...ADVANCED_MOMENTS, ...MOMENTS] : MOMENTS;
   const [idx, setIdx] = useState(0);
   const [seen, setSeen] = useState<Set<string>>(() => new Set());

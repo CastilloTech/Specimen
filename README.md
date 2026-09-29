@@ -727,6 +727,7 @@ Tuning on the way: Febrile Crown alone was worth about 10 points (drawing every 
 
   They are general achievements on purpose. Adding them to the Faction feats would re-lock Mastery cards players have already earned.
 - **Pool:** 176 cards.
+- **Tutorial Part 3: Combos & engines.** A coached match that uses a Bastion / Aegis deck (Pressure plus Renewal, with the Mending Coil Chip's Amplify node), stacked so the opening hand holds Exhaust Bladder, two vent enablers and the Steam Mender bridge. The coach goes through reading the tags (filled for a payoff, outlined for an enabler), playing the payoff first, then the glow in your hand when a card would fire it. It covers the burst and per-round caps, the bridge into Renewal (Mending Carapace), Amplify, and the deck builder's Engines filter. Start it from the end of Part 2 or from the last page of the Game guide (`enginesSetup` in `tutorial.ts`, the `ENGINES` lesson in `Coach.tsx`).
 
 **Balance.** Each new card was measured the same fair way as the waves: the Auto-filled deck with the card, against the same deck with it swapped for Auto-fill's next pick. That was 1,000 to 1,500 matches each, about ±2 to 3 points. Results:
 

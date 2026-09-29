@@ -1,12 +1,14 @@
 import { chipRows, chipsFor, starterDeck } from '../engine';
+import { autoFill } from './deckHelpers';
 import type { MatchSetup } from '../engine';
 
 // The tutorial: a first match against a gentle bot, with a coach that explains each part of a round as it
 // comes up. Your deck is stacked so the opening hand has cheap grafts to learn on.
 
-export type Lesson = 'basics' | 'advanced';
+export type Lesson = 'basics' | 'advanced' | 'engines';
 const KEY = 'specimen.tutorialDone';
 const KEY2 = 'specimen.tutorial2Done';
+const KEY3 = 'specimen.tutorial3Done';
 export const TUTORIAL_BOT_HP = 24;
 
 export const tutorialDone = (): boolean => {
@@ -23,10 +25,17 @@ export const advancedDone = (): boolean => {
     return true;
   }
 };
+export const enginesDone = (): boolean => {
+  try {
+    return localStorage.getItem(KEY3) === '1';
+  } catch {
+    return true;
+  }
+};
 export const setLessonDone = (lesson: Lesson) => {
   if (lesson === 'basics') return setTutorialDone();
   try {
-    localStorage.setItem(KEY2, '1');
+    localStorage.setItem(lesson === 'engines' ? KEY3 : KEY2, '1');
   } catch {
     /* not remembered this time */
   }
@@ -80,4 +89,27 @@ export function advancedSetup(name: string): MatchSetup {
   };
 }
 
-export const lessonSetup = (lesson: Lesson, name: string) => (lesson === 'advanced' ? advancedSetup(name) : tutorialSetup(name));
+/** Part 3 (combos and engines): a Bastion / Aegis deck built around Pressure, stacked so the opening hand has
+ * the payoff (Exhaust Bladder), two enablers that set it off, and the Steam Mender bridge into Aegis's Renewal
+ * (Mending Carapace is the first draw). The Mending Coil Chip's Amplify node backs Renewal. */
+export const ENGINES_BOT_HP = 22;
+const TOP3 = ['bast_exhaust_bladder', 'bast_venting_sigh', 'bast_relief_spiracle', 'tech_steam_mender', 'bast_scale_patch', 'aeg_mending_carapace', 'bast_pressure_release', 'aeg_restoration_mist'];
+
+export function enginesSetup(name: string): MatchSetup {
+  // The rest of the deck: Auto-fill built around Pressure (deterministic), without Mastery cards.
+  const counts = autoFill('bastion', 'aegis', Object.fromEntries(TOP3.map((id) => [id, 1])), (c) => !c.mastery, undefined, 'pressure');
+  const rest = Object.entries(counts).flatMap(([id, n]) => Array<string>(TOP3.includes(id) ? n - 1 : n).fill(id));
+  const chip = 'mendingCoil';
+  const loadout = chipRows(chip).map((r) => (r.nodes.find((n) => n.id === 'renewingCore') ?? r.nodes[0]).id);
+  const botChip = chipsFor('corrosion')[0].id;
+  return {
+    seed: 20260930,
+    players: [
+      { name, faction: 'bastion', worldFaction: 'aegis', chip, loadout, deck: [...TOP3, ...rest], stackedDeck: true },
+      { name: 'Training Specimen', faction: 'predator', worldFaction: 'corrosion', chip: botChip, loadout: chipRows(botChip).map((r) => r.nodes[0].id), deck: starterDeck('predator', 'corrosion'), isBot: true, ai: 'basic', maxHp: ENGINES_BOT_HP },
+    ],
+  };
+}
+
+export const LESSON_LABEL: Record<Lesson, string> = { basics: 'Tutorial', advanced: 'Advanced training', engines: 'Combos & engines' };
+export const lessonSetup = (lesson: Lesson, name: string) => (lesson === 'advanced' ? advancedSetup(name) : lesson === 'engines' ? enginesSetup(name) : tutorialSetup(name));
