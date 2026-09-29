@@ -10,6 +10,7 @@ import { CardDetail } from '../components/CardDetail';
 import { CardView, factionName } from '../components/CardView';
 import { ENGINE_META, engineColor, FACTION_META, PLAYER_COLORS, WORLD_FACTION_META } from '../meta';
 import { activeSave, loadMatches } from '../storage';
+import { EngineIcon } from '../components/EngineIcon';
 
 interface Props {
   state: GameState;
@@ -158,7 +159,7 @@ export function PostMatch({ state, setup, onRematch, onNext, onMenu, onReplay }:
                       {list.length === 0 && <span className="text-[10px] text-mute">No engines fired</span>}
                       {list.map(([e, n]) => (
                         <span key={e} className="rounded-full border px-1.5 font-display text-[10px] font-bold uppercase tracking-wide" style={{ borderColor: engineColor(e), color: engineColor(e) }} title={ENGINE_META[e].text}>
-                          ⚙ {ENGINE_META[e].name} ×{n}
+                          <EngineIcon /> {ENGINE_META[e].name} ×{n}
                         </span>
                       ))}
                     </div>

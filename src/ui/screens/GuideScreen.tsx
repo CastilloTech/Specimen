@@ -13,6 +13,7 @@ import { ENGINE_META, engineColor, FACTION_META, STANCE_META, WORLD_FACTION_META
 import { StatusIcon } from '../components/StatusFx';
 import { BUILD_GUIDE } from '../comboGuide';
 import { keyLabel, loadSettings } from '../storage';
+import { EngineIcon } from '../components/EngineIcon';
 
 const c = defaultConfig;
 
@@ -159,7 +160,7 @@ function EngineTable() {
               .filter(([, e]) => e.owner === o)
               .map(([id, e]) => (
                 <li key={id} className="text-[12px] leading-snug">
-                  <b style={{ color: engineColor(id) }}>⚙ {e.name}</b> <span className="text-ink2">{e.text}</span>
+                  <b style={{ color: engineColor(id) }}><EngineIcon /> {e.name}</b> <span className="text-ink2">{e.text}</span>
                 </li>
               ))}
           </ul>
@@ -389,7 +390,7 @@ const STEPS: Step[] = [
     body: (
       <>
         <p>
-          Cards marked <b>⚙</b> belong to an <b>engine</b>. <b>Enablers</b> (outlined tag) make something happen, like venting or making the opponent bleed; <b>payoffs</b> (filled tag) cash in every time it does. Each Build and World Faction has three engines. A deck usually runs one Build engine and one World Faction engine.
+          Cards marked <EngineIcon /> belong to an <b>engine</b>. <b>Enablers</b> (outlined tag) make something happen, like venting or making the opponent bleed; <b>payoffs</b> (filled tag) cash in every time it does. Each Build and World Faction has three engines. A deck usually runs one Build engine and one World Faction engine.
         </p>
         <p>
           Each World Faction's three <b>Chips</b> back one engine each (their engine node gives that engine's payoffs +1). Each <b>Mastery Signature</b> is a payoff of all three of its engines, built so they set each other off.

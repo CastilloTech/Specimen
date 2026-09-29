@@ -9,6 +9,7 @@ import { CastCard, ImpactBurst, usePlayFx } from './PlayFx';
 import { Flatline, TankLogFx, useLogFx } from './MatchFx';
 import { StrainTankFx, useStrainFx } from './StrainFx';
 import { StatusAura, StatusBadges, StatusCallouts, StatusIcon, useStatusEvents } from './StatusFx';
+import { EngineIcon } from './EngineIcon';
 
 /** A short-lived graft event on one slot: Integrity lost, the graft destroyed or ejected, or the slot necrosed. */
 interface GraftFx {
@@ -61,7 +62,7 @@ function useGraftFx(state: GameState, p: PlayerState, viewer: PlayerId): Partial
   return fx;
 }
 
-/** Engine payoffs that just fired on this player's grafts: a ⚙ burst on each graft, named after its engine. */
+/** Engine payoffs that just fired on this player's grafts: an engine burst on each graft, named after its engine. */
 function useEngineFx(state: GameState, p: PlayerState): Partial<Record<SlotId, { key: number; engine: EngineId; n: number }>> {
   const seen = useRef(state.log.length);
   const [fx, setFx] = useState<Partial<Record<SlotId, { key: number; engine: EngineId; n: number }>>>({});
@@ -295,7 +296,7 @@ export function Specimen({ state, player, viewer, flip, highlight, onSlot, color
             {eng && (
               <span key={`eng-${eng.key}`} className="engine-burst pointer-events-none absolute inset-0 z-20 rounded-lg" style={{ ['--eng' as string]: engineColor(eng.engine) }} aria-live="polite">
                 <span className="engine-float absolute -bottom-4 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full border px-1.5 font-display text-[10px] font-bold uppercase tracking-wide shadow-lg" style={{ background: '#0b0f0d', borderColor: engineColor(eng.engine), color: engineColor(eng.engine) }}>
-                  <span className="engine-cog inline-block">⚙</span> {ENGINE_META[eng.engine].name}
+                  <EngineIcon className="engine-cog" /> {ENGINE_META[eng.engine].name}
                   {eng.n > 1 ? ` ×${eng.n}` : ''}
                 </span>
               </span>

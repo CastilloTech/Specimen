@@ -1,5 +1,6 @@
 import type { CardDef } from '../../engine';
 import { ENGINE_META, engineColor } from '../meta';
+import { EngineIcon } from './EngineIcon';
 
 /** A card's engine keyword(s): filled for a payoff, outlined for an enabler. Sized for the card it sits on. */
 export function EngineChips({ def, size = 'md', className = '' }: { def: CardDef; size?: 'xs' | 'sm' | 'md'; className?: string }) {
@@ -13,7 +14,7 @@ export function EngineChips({ def, size = 'md', className = '' }: { def: CardDef
           className={`rounded-full border border-amber-300 bg-black/75 font-display font-bold uppercase leading-[1.5] tracking-wide text-amber-200 shadow-[0_1px_3px_rgba(0,0,0,0.8)] ${text}`}
           title={`Payoff for ${def.engines.map((t) => ENGINE_META[t.id].name).join(', ')}`}
         >
-          ⚙ ×{def.engines.length} engines
+          <EngineIcon className="mr-px" />×{def.engines.length} engines
         </span>
       </div>
     );
@@ -30,7 +31,7 @@ export function EngineChips({ def, size = 'md', className = '' }: { def: CardDef
             style={payoff ? { background: c, borderColor: c, color: '#0b0f0d' } : { background: 'rgba(0,0,0,0.75)', borderColor: c, color: c }}
             title={`${ENGINE_META[t.id].name} ${payoff ? 'payoff' : 'enabler'}: ${ENGINE_META[t.id].text}`}
           >
-            ⚙ {ENGINE_META[t.id].name}
+            <EngineIcon className="mr-px" />{ENGINE_META[t.id].name}
           </span>
         );
       })}

@@ -9,6 +9,7 @@ import { TYPE_META } from '../meta';
 import { CardArt } from './CardArt';
 import { accentFor, factionName } from './CardView';
 import { Emblem } from './Emblem';
+import { EngineIcon } from './EngineIcon';
 
 const S = defaultConfig.status;
 /** One-line reminders for the rules words a card's text can use, shown under the text when they appear. */
@@ -115,7 +116,7 @@ export function CardDetail({ def, onClose, onPrev, onNext, children }: { def: Ca
           {def.engines?.map((t) => (
             <p key={t.id} className="rounded-lg border px-2 py-1.5 text-[11px] leading-snug text-ink2" style={{ borderColor: `${engineColor(t.id)}88` }}>
               <span className="font-display font-bold" style={{ color: engineColor(t.id) }}>
-                ⚙ {ENGINE_META[t.id].name} {t.role === 'payoff' ? 'payoff' : 'enabler'}.
+                <EngineIcon /> {ENGINE_META[t.id].name} {t.role === 'payoff' ? 'payoff' : 'enabler'}.
               </span>{' '}
               {ENGINE_META[t.id].text}
             </p>

@@ -19,6 +19,7 @@ import { factionName } from '../components/CardView';
 
 type FactionId = Faction | WorldFactionId;
 import { useMediaQuery } from '../useMediaQuery';
+import { EngineIcon } from '../components/EngineIcon';
 
 const D = defaultConfig.deck;
 const TYPE_ORDER = ['graft', 'serum', 'toxin', 'sabotage', 'protocol'] as const;
@@ -246,7 +247,7 @@ function DeckTab() {
 
         {/* Engine filter: one engine's payoffs and enablers from all three pools, and a deck built around it. */}
         <div className="mt-2 flex flex-wrap items-center gap-1" role="group" aria-label="Filter by engine">
-          <span className="mr-0.5 text-[10px] font-semibold uppercase tracking-wider text-mute">⚙ Engines</span>
+          <span className="mr-0.5 text-[10px] font-semibold uppercase tracking-wider text-mute"><EngineIcon /> Engines</span>
           {engines.map((e) => {
             const on = activeEngine === e;
             const c = engineColor(e);
