@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { ENERGY_BADGE } from '../components/EnergyIcon';
 import { CARD_MAP, CARDS, chipRows, chipsFor, defaultConfig, FACTIONS, starterDeck, validateDeck, validateLoadout, WORLD_FACTIONS } from '../../engine';
 import type { CardDef, Faction, WorldFactionId } from '../../engine';
 import { CardDetail } from '../components/CardDetail';
@@ -125,7 +126,7 @@ function DeckTab() {
             const max = c.signature ? D.signatureCopies : D.maxCopies;
             return (
               <li key={c.id} className="flex items-center gap-2 px-2 py-1 text-xs">
-                <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-sky-600 text-[10px] font-bold text-white">{c.cost}</span>
+                <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full text-[10px] font-bold text-white" style={ENERGY_BADGE}>{c.cost}</span>
                 <button onClick={() => setViewing(c.id)} className="min-w-0 flex-1 truncate text-left font-semibold hover:underline" title="Show the full card">
                   {c.signature && <span className="text-amber-300">★</span>}
                   {c.name}

@@ -141,7 +141,6 @@ export function Setup({ onStart, onBack }: { onStart: (s: MatchSetup) => void; o
   const save = activeSave();
   const [p1, setP1] = useState<PlayerCfg>(myDefaults);
   const [p2, setP2] = useState<PlayerCfg>(() => fromPick(loadLastSetup()?.[1], true) ?? makeDefaultCfg('Bot', 'bastion', 'aegis', true));
-  const [seedText, setSeedText] = useState('');
   const [editBot, setEditBot] = useState(false);
 
   const errors = useMemo(
@@ -159,7 +158,7 @@ export function Setup({ onStart, onBack }: { onStart: (s: MatchSetup) => void; o
   );
 
   const start = () => {
-    const seed = seedText.trim() && Number.isFinite(+seedText) ? Math.floor(+seedText) : Math.floor(Math.random() * 2 ** 31);
+    const seed = Math.floor(Math.random() * 2 ** 31);
     saveChipLoadout(p1.chip, p1.loadout);
     saveLastSetup([toPick(p1), toPick(p2)]);
     onStart({
@@ -214,14 +213,6 @@ export function Setup({ onStart, onBack }: { onStart: (s: MatchSetup) => void; o
           </div>
         )}
       </section>
-
-      <details className="text-xs text-ink2">
-        <summary className="cursor-pointer select-none text-mute">Advanced</summary>
-        <label className="mt-2 flex items-center gap-2">
-          Seed (for exact replays)
-          <input value={seedText} onChange={(e) => setSeedText(e.target.value)} inputMode="numeric" placeholder="random" className="w-32 rounded-md border border-line bg-black/30 px-2 py-1 text-sm" />
-        </label>
-      </details>
 
       {errors.length > 0 && (
         <ul className="rounded-lg border border-red-500/40 bg-red-950/30 p-2 text-xs text-red-300" role="alert">

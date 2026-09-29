@@ -7,6 +7,7 @@ import type { makeRng } from './rng';
 import { computeStats, graftStrain, nodeParam } from './stats';
 import type { Action, AttachedGraft, CardDef, GameState, PlayerId, Stance } from './types';
 import { other, STANCES } from './types';
+import { readerAction, searchAction } from './botTiers';
 
 type Rng = ReturnType<typeof makeRng>;
 
@@ -42,10 +43,22 @@ export function pickStance(s: GameState, p: PlayerId, rng: Rng): Stance {
   return weightedPick(rng, STANCES, weights);
 }
 
+/** Toxins the opponent has played this match (public information). */
+export function oppToxinsPlayed(s: GameState, p: PlayerId): number {
+  return s.plays.filter((r) => r.player === other(p) && r.cardId && cardOf(r.cardId).type === 'toxin').length;
+}
+
 /** How far below the Rejection threshold the bot keeps its Strain when grafting (per-faction override). */
 function strainMargin(s: GameState, p: PlayerId): number {
   const byFaction = s.config.bot.graftStrainMarginByFaction as Record<string, number | undefined>;
-  return byFaction[s.players[p].faction] ?? s.config.bot.graftStrainMargin;
+  const base = byFaction[s.players[p].faction] ?? s.config.bot.graftStrainMargin;
+  return base;
+}
+
+/** Face-down (Dormant) habits: higher tiers bluff more, with pricier grafts and later in the match. */
+function dormantHabits(s: GameState, p: PlayerId) {
+  const b = s.config.bot;
+  return s.players[p].ai === 'basic' ? { chance: b.dormantChance, maxCost: b.dormantMaxCost, maxRound: b.dormantMaxRound } : { chance: 0.5, maxCost: 4, maxRound: 6 };
 }
 
 // ---------- Scoring plays ----------
@@ -99,7 +112,7 @@ function scorePlay(s: GameState, p: PlayerId, a: Extract<Action, { type: 'PLAY_C
       for (const op of def.effect.ops ?? []) {
         switch (op.op) {
           case 'heal':
-            if (cfg.specimen.hp - pl.hp >= Math.ceil(op.amount * 0.7)) score += op.amount * 0.7;
+            if (pl.maxHp - pl.hp >= Math.ceil(op.amount * 0.7)) score += op.amount * 0.7;
             break;
           case 'vent':
             if (pl.strain >= 5) score += Math.min(op.amount, pl.strain) * 1.2 + 0.6;
@@ -175,7 +188,8 @@ export function botMainAction(s: GameState, p: PlayerId, rng: Rng): Action {
   if (best && best.type === 'PLAY_CARD') {
     const def = cardOf(pl.hand.find((c) => c.uid === best!.uid)!.cardId);
     // Sleep cheap grafts on purpose (the audit's best simple rule: they cost little to leave idle) so they can wake later with an Ambush.
-    const dormant = def.type === 'graft' && !best.faceDown && def.cost <= s.config.bot.dormantMaxCost && s.round <= s.config.bot.dormantMaxRound && rng.float() < s.config.bot.dormantChance;
+    const dh = dormantHabits(s, p);
+    const dormant = def.type === 'graft' && !best.faceDown && def.cost <= dh.maxCost && s.round <= dh.maxRound && rng.float() < dh.chance;
     const wantFace = dormant && plays.some((a) => a.uid === best!.uid && a.slot === (best as { slot?: string }).slot && a.faceDown);
     return wantFace ? { ...best, faceDown: true } : best;
   }
@@ -262,8 +276,16 @@ export function botReaction(s: GameState, p: PlayerId): Action {
   return best ?? { type: 'DECLINE_REACTION', player: p };
 }
 
-/** Decide the next action for player p, whatever the phase requires. */
+/** Decide the next action for player p, whatever the phase requires, at the player's bot tier. */
 export function botAction(s: GameState, p: PlayerId, rng: Rng): Action {
+  const tier = s.players[p].ai;
+  if (tier === 'reader') return readerAction(s, p, rng);
+  if (tier === 'search') return searchAction(s, p, rng);
+  return basicAction(s, p, rng);
+}
+
+/** The prototype heuristic bot (tier 'basic'), also the rollout policy of the search bot. */
+export function basicAction(s: GameState, p: PlayerId, rng: Rng): Action {
   const pl = s.players[p];
   switch (s.phase) {
     case 'mulligan': {

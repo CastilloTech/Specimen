@@ -3,6 +3,7 @@ import type { CardDef } from '../../engine';
 import { FACTION_META, TYPE_META, WORLD_FACTION_META } from '../meta';
 import { CardArt } from './CardArt';
 import { Emblem } from './Emblem';
+import { ENERGY_BADGE } from './EnergyIcon';
 
 export function accentFor(faction: CardDef['faction']): string {
   if (faction === 'tech') return '#8a948f';
@@ -85,7 +86,8 @@ export function CardView({ def, cost, size = 'md', selected, dim, onClick, onDou
   const accent = accentFor(def.faction);
   const sm = size === 'sm';
   const tooltip = `${def.name} (${factionName(def.faction)} ${t.label})${reason ? ` - ${reason}` : ''}\n${def.text}`;
-  const costClass = costChanged ? (cost! > def.cost ? 'bg-orange-600' : 'bg-emerald-600') : 'bg-sky-600';
+  // A changed cost shows as a coloured ring around the Energy emblem.
+  const costClass = costChanged ? (cost! > def.cost ? 'ring-2 ring-orange-500' : 'ring-2 ring-emerald-400') : '';
   if (size === 'xs') {
     return (
       <button
@@ -97,7 +99,9 @@ export function CardView({ def, cost, size = 'md', selected, dim, onClick, onDou
         style={{ background: `linear-gradient(180deg, ${accent}26, transparent 45%), var(--color-panel)`, ...holdStyle }}
         aria-pressed={selected}
       >
-        <span className={`absolute -left-1.5 -top-1.5 z-10 grid h-5 w-5 place-items-center rounded-full border border-bg font-display text-[11px] font-bold text-white ${costClass}`}>{shownCost}</span>
+        <span className={`absolute -left-1.5 -top-1.5 z-10 grid h-5 w-5 place-items-center rounded-full border border-bg font-display text-[11px] font-bold text-white ${costClass}`} style={ENERGY_BADGE}>
+          {shownCost}
+        </span>
         {count !== undefined && <span className="absolute -right-1.5 -top-1.5 z-10 grid h-4 min-w-4 place-items-center rounded-full bg-accent px-0.5 text-[9px] font-bold text-black">×{count}</span>}
         <div className="h-[30px] overflow-hidden rounded-t-[7px] border-b border-black/60">
           <CardArt def={def} accent={accent} className="h-full w-full" />
@@ -139,6 +143,7 @@ export function CardView({ def, cost, size = 'md', selected, dim, onClick, onDou
     >
       <span
         className={`absolute -left-2 -top-2 z-10 grid place-items-center rounded-full border-2 border-bg font-display font-bold text-white shadow ${sm ? 'h-6 w-6 text-[12px]' : 'h-7 w-7 text-sm'} ${costClass}`}
+        style={ENERGY_BADGE}
         title={costChanged ? `Energy cost (normally ${def.cost})` : 'Energy cost'}
       >
         {shownCost}

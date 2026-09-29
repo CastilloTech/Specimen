@@ -4,6 +4,7 @@ import { activeSave, loadLastSetup } from '../storage';
 
 interface Props {
   onQuick: () => void;
+  onModes: () => void;
   onBot: () => void;
   onSaves: () => void;
   onGuide: () => void;
@@ -13,7 +14,7 @@ interface Props {
 
 // Portrait / desktop: one centered column. Phone landscape (`phone:`): art and title on the left,
 // compact buttons on the right, so the whole menu fits a short screen without scrolling.
-export function Menu({ onQuick, onBot, onSaves, onGuide, onDecks, onSettings }: Props) {
+export function Menu({ onQuick, onModes, onBot, onSaves, onGuide, onDecks, onSettings }: Props) {
   const save = activeSave();
   const last = loadLastSetup()?.[0];
   const btn = 'lab-panel w-full rounded-xl border border-line px-4 py-3 text-left transition hover:-translate-y-0.5 hover:border-accent phone:rounded-lg phone:px-3 phone:py-1.5';
@@ -55,6 +56,10 @@ export function Menu({ onQuick, onBot, onSaves, onGuide, onDecks, onSettings }: 
               'Jump straight into a game against a random bot build.'
             )}
           </div>
+        </button>
+        <button className={`${btn} border-accent/50`} onClick={onModes}>
+          <div className="font-display font-bold text-accent">Game Modes</div>
+          <div className={desc}>The Tower, Lineage and Containment Breach: earn biomass, craft cards and unlock Builds, World Factions and Chips.</div>
         </button>
         <div className="flex flex-col gap-3 phone:grid phone:grid-cols-2 phone:gap-1.5">
           <button className={btn} onClick={onBot}>

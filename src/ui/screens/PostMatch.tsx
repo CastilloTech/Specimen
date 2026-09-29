@@ -134,7 +134,7 @@ export function PostMatch({ state, setup, onRematch, onNext, onMenu }: Props) {
         </section>
       )}
 
-      <LineChart title="HP by round" names={names} rounds={rounds} values={hp} yMax={state.config.specimen.hp} yStep={10} />
+      <LineChart title="HP by round" names={names} rounds={rounds} values={hp} yMax={Math.max(state.config.specimen.hp, ...state.players.map((p) => p.maxHp))} yStep={10} />
       <LineChart title="Strain by round" names={names} rounds={rounds} values={strain} yMax={yStrain} yStep={5} refLine={{ y: T, label: `T=${T}` }} />
 
       <section className="lab-panel rounded-xl border border-line p-3">
@@ -151,7 +151,7 @@ export function PostMatch({ state, setup, onRematch, onNext, onMenu }: Props) {
       </section>
 
       <div className="mt-auto pb-3">
-        <button onClick={() => download(`specimen-match-seed${state.seed}.json`, exportMatchJson(state, setup))} className="w-full rounded-lg bg-panel2 px-4 py-3 text-sm font-semibold">
+        <button onClick={() => download(`specimen-match-${new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-')}.json`, exportMatchJson(state, setup))} className="w-full rounded-lg bg-panel2 px-4 py-3 text-sm font-semibold">
           Export match log (JSON)
         </button>
       </div>

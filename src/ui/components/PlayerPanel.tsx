@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { computeStats, condOk, evolutionProgress, evoNum, findNode, stableMax } from '../../engine';
+import { computeStats, condOk, evolutionProgress, evoNum, findNode, MUTATION_MAP, stableMax } from '../../engine';
 import type { GameState, PlayerId, Stance } from '../../engine';
 import { FACTION_META, STANCE_META, WORLD_FACTION_META } from '../meta';
 import { DiscardSheet, TrashIcon } from './DiscardSheet';
 import { Emblem } from './Emblem';
+import { EnergyIcon } from './EnergyIcon';
 import { EvolutionSheet, EvolvedBadge } from './Evolution';
 import { EnergyPips, EvolutionBars, HpBar, HpFlash, HpGhost, StrainMeter } from './Meters';
 import { STATUS_META, StatusIcon, statusCount } from './StatusFx';
@@ -50,7 +51,7 @@ export function PlayerPanelCompact({ state, player, color, active, onSheet, view
   const sMax = stableMax(state, p);
   const zone = p.strain <= sMax ? 'text-emerald-300' : p.strain <= T ? 'text-amber-300' : 'text-red-400';
   const prog = evolutionProgress(state, player);
-  const hpPct = Math.max(0, Math.min(100, (p.hp / state.config.specimen.hp) * 100));
+  const hpPct = Math.max(0, Math.min(100, (p.hp / p.maxHp) * 100));
   const chg = useChange(p.strain);
   const hpChg = useChange(p.hp, 900);
   const [evoOpen, setEvoOpenRaw] = useState(false);
@@ -91,7 +92,7 @@ export function PlayerPanelCompact({ state, player, color, active, onSheet, view
         <div className={`relative h-full ${hpPct > 50 ? 'bg-emerald-500' : hpPct > 25 ? 'bg-amber-500' : 'bg-red-600'} transition-all duration-300`} style={{ width: `${hpPct}%` }} />
         <HpFlash chg={hpChg} />
         <span className="absolute inset-0 grid place-items-center font-display text-[10px] font-bold text-white drop-shadow">
-          {p.hp}/{state.config.specimen.hp}
+          {p.hp}/{p.maxHp}
         </span>
       </div>
       <div>
@@ -110,8 +111,9 @@ export function PlayerPanelCompact({ state, player, color, active, onSheet, view
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-1 text-[9px] font-bold leading-none">
-        <span key={enChg?.key} className={`rounded bg-sky-900/60 px-1 py-0.5 text-sky-100 ${enChg ? 'energy-bump' : ''}`} title="Energy">
-          ◉{p.energy}
+        <span key={enChg?.key} className={`flex items-center gap-0.5 rounded bg-sky-900/60 px-1 py-0.5 text-sky-100 ${enChg ? 'energy-bump' : ''}`} title="Energy">
+          <EnergyIcon className="h-3 w-3" />
+          {p.energy}
         </span>
         <span className="rounded bg-red-900/60 px-1 py-0.5 text-red-100" title="Attack">
           ⚔{st.attack}
@@ -203,7 +205,7 @@ export function PlayerPanel({ state, player, color, active, onSheet, viewer = 0 
       </div>
       <div className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-1.5">
         <div className="col-span-2">
-          <HpBar hp={p.hp} max={state.config.specimen.hp} />
+          <HpBar hp={p.hp} max={p.maxHp} />
         </div>
         <StrainMeter state={state} player={player} />
         <div className="flex flex-col justify-between">
@@ -242,6 +244,15 @@ export function PlayerPanel({ state, player, color, active, onSheet, viewer = 0 
         </div>
         <div className="col-span-2">
           <LoadoutChips loadout={p.loadout} stances={recent} state={state} player={player} />
+          {p.mutations.length > 0 && (
+            <div className="mt-1 flex flex-wrap gap-1" aria-label="Mutations">
+              {p.mutations.map((id) => (
+                <span key={id} title={MUTATION_MAP[id]?.text} className="rounded border border-fuchsia-400/40 bg-fuchsia-950/30 px-1.5 py-0.5 text-[10px] text-fuchsia-200">
+                  ✦ {MUTATION_MAP[id]?.name ?? id}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </section>

@@ -334,6 +334,17 @@ export function Specimen({ state, player, viewer, flip, highlight, onSlot, color
           </button>,
         ];
       })}
+      {/* Lineage scars: slots this Specimen has lost for good show as dead sockets. */}
+      {(state.config.slots as SlotId[])
+        .filter((sl) => !p.slots.includes(sl))
+        .map((sl) => {
+          const pos = at(sl);
+          return (
+            <span key={`scar-${sl}`} className="pointer-events-none absolute z-[5] -translate-x-1/2 -translate-y-1/2 rounded-full border border-red-500/60 bg-red-950/80 px-1.5 py-0.5 font-display text-[8px] font-semibold uppercase tracking-wider text-red-300 line-through" style={{ left: `${pos.x}%`, top: `${pos.y}%` }} title={`${SLOT_LABEL[sl]}: lost for good (a Lineage scar)`}>
+              {SLOT_LABEL[sl]}
+            </span>
+          );
+        })}
       <StatusCallouts events={statusEvents} player={player} />
       <StrainTankFx state={state} player={player} events={strainFx} flip={flip} layer="over" />
       <TankLogFx events={logFx} />

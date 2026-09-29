@@ -1,6 +1,6 @@
 import { CARD_MAP, chipOf, chipRows, defaultConfig, mergeConfig } from './data';
 import { nextInt, shuffleInPlace } from './rng';
-import { slotsFor } from './stats';
+import { graftStrain, slotsFor } from './stats';
 import type { Config, Faction, GameState, MatchSetup, PlayerId, PlayerSetup, PlayerState, WorldFactionId } from './types';
 import { FACTIONS, WORLD_FACTIONS } from './types';
 
@@ -68,16 +68,20 @@ function makePlayer(id: PlayerId, setup: PlayerSetup, config: Config): PlayerSta
     worldFaction: setup.worldFaction,
     chip: setup.chip,
     isBot: !!setup.isBot,
+    ai: setup.ai ?? 'basic',
+    ventMalus: setup.ventMalus ?? 0,
+    maxHp: Math.max(1, Math.min(config.specimen.hp * 2, setup.maxHp ?? config.specimen.hp)),
+    mutations: [...(setup.mutations ?? [])],
     loadout: [...setup.loadout],
-    hp: config.specimen.hp,
-    strain: 0,
+    hp: Math.max(1, Math.min(setup.startHp ?? Infinity, Math.min(config.specimen.hp * 2, setup.maxHp ?? config.specimen.hp))),
+    strain: Math.max(0, setup.startStrain ?? 0),
     energy: 0,
     bank: 0,
     energyDebt: 0,
     deck: [],
     hand: [],
     discard: [],
-    slots: slotsFor(config, setup.loadout),
+    slots: slotsFor(config, setup.loadout).filter((sl) => !(setup.lostSlots ?? []).includes(sl)),
     grafts: [],
     stance: null,
     stanceHistory: [],
@@ -108,7 +112,8 @@ export function createMatch(setup: MatchSetup): GameState {
   const config = mergeConfig(defaultConfig, setup.config);
   const errors: string[] = [];
   setup.players.forEach((p, i) => {
-    errors.push(...validateDeck(p.faction, p.worldFaction, p.deck, config).map((e) => `Player ${i + 1}: ${e}`));
+    if (!p.unrestricted) errors.push(...validateDeck(p.faction, p.worldFaction, p.deck, config).map((e) => `Player ${i + 1}: ${e}`));
+    else if (p.deck.some((id) => !CARD_MAP[id])) errors.push(`Player ${i + 1}: unknown card in deck.`);
     errors.push(...validateChipChoice(p.worldFaction, p.chip).map((e) => `Player ${i + 1}: ${e}`));
     errors.push(...validateLoadout(p.chip, p.loadout).map((e) => `Player ${i + 1}: ${e}`));
   });
@@ -143,16 +148,31 @@ export function createMatch(setup: MatchSetup): GameState {
   for (const pl of s.players) {
     pl.deck = setup.players[pl.id].deck.map((cardId) => ({ uid: `${pl.id}:${s.uidCounter++}`, cardId }));
     shuffleInPlace(s, pl.deck);
-    for (let i = 0; i < config.match.startingHand; i++) pl.hand.push(pl.deck.pop()!);
+    for (let i = 0; i < config.match.startingHand && pl.deck.length; i++) pl.hand.push(pl.deck.pop()!);
+    // Pre-attached grafts (Containment Breach escapees).
+    for (const cardId of setup.players[pl.id].startGrafts ?? []) {
+      const def = CARD_MAP[cardId];
+      if (!def || def.type !== 'graft') continue;
+      const slot = pl.slots.find((sl) => config.slotTypes[sl] === def.slot && !pl.grafts.some((g) => g.slot === sl));
+      if (!slot) continue;
+      const strain = graftStrain(pl, def);
+      pl.grafts.push({ uid: `${pl.id}:${s.uidCounter++}`, cardId, slot, strain, seq: ++s.graftSeq, faceDown: false, poisoned: 0, disabled: 0, roundsSurvived: 0, integrity: def.integrity ?? config.integrity.default });
+      pl.strain += strain;
+    }
+  }
+  // A Tower rule twist: start already evolved.
+  for (const pl of s.players) {
+    const form = setup.players[pl.id].startEvolution;
+    if (form && (config.evolutions as Record<string, { id: string }[]>)[pl.faction]?.some((d) => d.id === form)) pl.evolution = form;
   }
   s.lastInitiative = nextInt(s, 2) as PlayerId;
-  s.snapshots.push({ round: 0, hp: [config.specimen.hp, config.specimen.hp], strain: [0, 0] });
+  s.snapshots.push({ round: 0, hp: [s.players[0].hp, s.players[1].hp], strain: [0, 0] });
   s.log.push({
     n: 0,
     round: 0,
     kind: 'info',
     player: null,
-    text: `Match start. ${s.players[0].name} (${s.players[0].faction}/${s.players[0].worldFaction}) vs ${s.players[1].name} (${s.players[1].faction}/${s.players[1].worldFaction}). Seed ${setup.seed}.`,
+    text: `Match start. ${s.players[0].name} (${s.players[0].faction}/${s.players[0].worldFaction}) vs ${s.players[1].name} (${s.players[1].faction}/${s.players[1].worldFaction}).`,
   });
   return s;
 }

@@ -109,7 +109,7 @@ export function deleteSave(slot: number): void {
   idx.slots[slot] = null;
   if (idx.active === slot) idx.active = null;
   writeIndex(idx);
-  for (const k of ['decks', 'chipLoadouts', 'lastSetup.bot', 'matches']) remove(`specimen.save${slot}.${k}`);
+  for (const k of ['decks', 'chipLoadouts', 'lastSetup.bot', 'matches', 'progress']) remove(`specimen.save${slot}.${k}`);
 }
 
 /** Per-save data lives under that save's own keys; with no save loaded it uses the unsaved (guest) keys. */
@@ -205,4 +205,14 @@ export function recordMatch(rec: MatchRecord): void {
   const slot = loadSaveIndex().active;
   if (slot === null) return;
   write(scoped('matches', slot), [...loadMatches(slot), rec].slice(-MAX_RECORDS));
+}
+
+// ---------- Game Modes progression (per save; nothing without a loaded save) ----------
+export function loadSaveData<T>(key: string): T | null {
+  const slot = loadSaveIndex().active;
+  return slot === null ? null : read<T | null>(scoped(key, slot), null);
+}
+export function saveSaveData(key: string, value: unknown): void {
+  const slot = loadSaveIndex().active;
+  if (slot !== null) write(scoped(key, slot), value);
 }

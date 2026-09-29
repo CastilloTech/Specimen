@@ -1,4 +1,5 @@
 import { CARD_MAP, publicGraft, publicPlay, SLOT_LABEL } from '../../engine';
+import { ENERGY_BADGE } from './EnergyIcon';
 import type { CardDef, GameState, PlayerId, PlayRecord } from '../../engine';
 import { PLAYER_COLORS, TYPE_META } from '../meta';
 import { CardDetail } from './CardDetail';
@@ -134,7 +135,7 @@ export function PlayToast({ state, viewer, recs, onDismiss, onOpen }: { state: G
             >
               <div className="flex min-w-0 items-center gap-1">
                 {v.def && (
-                  <span className="grid h-4 w-4 shrink-0 place-items-center rounded-full bg-sky-600 text-[9px] font-bold text-white" title="Energy cost">
+                  <span className="grid h-4 w-4 shrink-0 place-items-center rounded-full text-[9px] font-bold text-white" title="Energy cost" style={ENERGY_BADGE}>
                     {v.def.cost}
                   </span>
                 )}

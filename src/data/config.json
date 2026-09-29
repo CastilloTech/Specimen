@@ -217,7 +217,8 @@
     "dormantMaxRound": 3,
     "dormantMaxCost": 2,
     "mulliganIfPlayableGraftsBelow": 2,
-    "actionDelayMs": 700
+    "actionDelayMs": 700,
+    "searchIterations": 120
   },
   "ui": { "bigHitThreshold": 7 }
 }

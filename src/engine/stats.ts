@@ -1,3 +1,4 @@
+import { MUTATION_MAP } from './mutations';
 // Read-only rule helpers: zones, derived stats, costs, evolution progress.
 import { cardOf, findNode } from './data';
 import type { AttachedGraft, CardDef, Cond, EvolutionDef, GameState, PlayerState, SlotId, Stance, Zone } from './types';
@@ -24,6 +25,12 @@ export function sumLoadoutParam(s: GameState, p: PlayerState, key: string): numb
     const node = findNode(id);
     const v = node?.params[key];
     if (typeof v === 'number' && (!node!.cond || condOk(s, p, node!.cond))) total += v;
+  }
+  // Lineage mutations work exactly like extra nodes.
+  for (const id of p.mutations) {
+    const m = MUTATION_MAP[id];
+    const v = m?.params[key];
+    if (typeof v === 'number' && (!m!.cond || condOk(s, p, m!.cond))) total += v;
   }
   return total;
 }
@@ -218,7 +225,7 @@ export function computeStats(s: GameState, p: PlayerState): DerivedStats {
           if (op.op !== 'mod') continue;
           let mult = 1;
           if (op.per) {
-            const count = op.per.what === 'grafts' ? awake.length : op.per.what === 'strain' ? p.strain : op.per.what === 'oppStrain' ? opp.strain : Math.max(0, cfg.specimen.hp - p.hp);
+            const count = op.per.what === 'grafts' ? awake.length : op.per.what === 'strain' ? p.strain : op.per.what === 'oppStrain' ? opp.strain : Math.max(0, p.maxHp - p.hp);
             mult = Math.floor(count / Math.max(1, op.per.div));
           }
           if (op.stat === 'attack') attack += op.amount * mult;

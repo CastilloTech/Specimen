@@ -42,7 +42,8 @@ const name = (s: GameState, p: PlayerId) => s.players[p].name;
 // ---------- Primitive mutations ----------
 /** Put a card in its owner's discard pile, remembering how and when it got there. */
 export function toDiscard(s: GameState, pl: PlayerState, c: CardInstance, why: DiscardReason, by?: string): void {
-  pl.discard.push({ uid: c.uid, cardId: c.cardId, why, round: s.round, ...(by ? { by } : {}) });
+  const slot = (c as { slot?: SlotId }).slot;
+  pl.discard.push({ uid: c.uid, cardId: c.cardId, why, round: s.round, ...(by ? { by } : {}), ...(slot ? { slot } : {}) });
 }
 
 /** Draws up to n cards. A card drawn into a full hand (config.match.maxHand) is burned: discarded face-up. */
@@ -65,7 +66,7 @@ export function drawCards(s: GameState, p: PlayerId, n: number): number {
 
 export function heal(s: GameState, p: PlayerId, amount: number, source: string): number {
   const pl = s.players[p];
-  const actual = Math.max(0, Math.min(amount, s.config.specimen.hp - pl.hp));
+  const actual = Math.max(0, Math.min(amount, pl.maxHp - pl.hp));
   if (actual > 0) {
     pl.hp += actual;
     pl.stats.hpHealed += actual;
@@ -95,7 +96,9 @@ export function addStrain(s: GameState, p: PlayerId, amount: number): void {
 /** Voluntary venting (counts toward Carapace). Returns the Strain actually removed. */
 export function vent(s: GameState, p: PlayerId, amount: number): number {
   const pl = s.players[p];
-  const actual = Math.max(0, Math.min(amount, pl.strain));
+  // A Tower rule twist: this player vents less (never below 1 for a real vent).
+  const eff = pl.ventMalus > 0 && amount > 0 ? Math.max(1, amount - pl.ventMalus) : amount;
+  const actual = Math.max(0, Math.min(eff, pl.strain));
   pl.strain -= actual;
   pl.stats.strainVented += actual;
   return actual;

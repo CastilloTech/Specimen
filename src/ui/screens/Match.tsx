@@ -1003,7 +1003,7 @@ function Intro({ state, onGo, onExit }: { state: GameState; onGo: () => void; on
   return (
     <div className="mx-auto flex min-h-dvh max-w-3xl flex-col gap-3 p-3 phone:h-dvh phone:min-h-0 phone:max-w-none phone:gap-1.5 phone:p-2">
       <div>
-        <div className="lab-label">Pre-match briefing · seed {state.seed}</div>
+        <div className="lab-label">Pre-match briefing</div>
         <h1 className="font-display text-2xl font-bold phone:text-base">Specimens and loadouts</h1>
         <p className="text-xs text-ink2 phone:hidden">Both players see both Chip loadouts and each Build's two evolutions.</p>
       </div>

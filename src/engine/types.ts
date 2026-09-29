@@ -146,6 +146,8 @@ export type DiscardReason =
 
 export interface DiscardEntry extends CardInstance {
   why: DiscardReason;
+  /** For a graft that left the board: the slot it was in. */
+  slot?: SlotId;
   round: number;
   /** What caused it, when something did (a card name, "Clash wear"). */
   by?: string;
@@ -226,6 +228,14 @@ export interface PlayerState {
   tempArmor: number;
   evolution: string | null;
   evolutionOptions: string[];
+  /** Bot tier for a bot player (see PlayerSetup.ai). */
+  ai: BotTier;
+  /** See PlayerSetup.ventMalus. */
+  ventMalus: number;
+  /** This Specimen's max HP (config.specimen.hp unless Lineage scars lowered it). */
+  maxHp: number;
+  /** Lineage mutations: work like extra Chip nodes (see sumLoadoutParam). */
+  mutations: string[];
   stats: PlayerStats;
   /** Rounds remaining of a bleed-out. */
   bleed: number;
@@ -345,7 +355,27 @@ export interface PlayerSetup {
   deck: string[];
   loadout: string[];
   isBot?: boolean;
+  /** Bot tier (Game Modes): 'basic' heuristic (default), 'reader' (reads stance history, plays around Toxins,
+   * bluffs with face-down grafts) or 'search' (Monte Carlo tree search). */
+  ai?: BotTier;
+  /** Starts the match already evolved into this form (a Tower rule twist). */
+  startEvolution?: string;
+  /** Every vent this player makes is this much smaller, never below 1 (a Tower rule twist). */
+  ventMalus?: number;
+  /** Skip the deck-building rules for this player (the Tower's final boss uses every pool). */
+  unrestricted?: boolean;
+  /** Lineage scars and mutations: a lower max HP, graft slots that are gone, permanent mutations. */
+  maxHp?: number;
+  lostSlots?: SlotId[];
+  mutations?: string[];
+  /** Containment Breach carry-over: start the match on this HP (≤ max HP) and with this much Strain. */
+  startHp?: number;
+  startStrain?: number;
+  /** Grafts already attached at the start (face-up, in the first free matching slot), adding their Strain. */
+  startGrafts?: string[];
 }
+
+export type BotTier = 'basic' | 'reader' | 'search';
 
 export interface MatchSetup {
   seed: number;

@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { ENERGY_BADGE } from './EnergyIcon';
 import type { ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { defaultConfig } from '../../engine';
@@ -73,7 +74,7 @@ export function CardDetail({ def, onClose, onPrev, onNext, children }: { def: Ca
       >
         <div className="relative aspect-[4/3] shrink-0 phone:aspect-auto phone:w-[42%]">
           <CardArt def={def} accent={accent} className="h-full w-full" />
-          <span className="absolute left-2 top-2 grid h-9 w-9 place-items-center rounded-full border-2 border-bg bg-sky-600 font-display text-lg font-bold text-white shadow" title="Energy cost">
+          <span className="absolute left-2 top-2 grid h-9 w-9 place-items-center rounded-full border-2 border-bg font-display text-lg font-bold text-white shadow" title="Energy cost" style={ENERGY_BADGE}>
             {def.cost}
           </span>
           <button onClick={onClose} className="absolute right-2 top-2 grid h-8 w-8 place-items-center rounded-full bg-black/70 text-ink" aria-label="Close">

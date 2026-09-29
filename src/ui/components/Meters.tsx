@@ -1,5 +1,6 @@
 import { evolutionProgress, stableMax } from '../../engine';
 import type { GameState, PlayerId } from '../../engine';
+import energyArt from '../../assets/energy.webp';
 import { StrainDelta, strainSegFx, useChange } from './StrainFx';
 import type { Change } from './StrainFx';
 
@@ -80,8 +81,8 @@ export function EnergyPips({ energy, round, cap }: { energy: number; round: numb
           return (
             <span
               key={gained || spent ? `${i}:${chg!.key}` : i}
-              className={`h-3 w-3 rounded-full border ${i < energy ? 'border-sky-300 bg-sky-400' : 'border-line bg-transparent'} ${gained ? 'energy-in' : spent ? 'energy-out' : ''}`}
-              style={gained ? { animationDelay: `${(i - chg!.from) * 80}ms` } : undefined}
+              className={`h-3.5 w-3.5 rounded-full bg-cover bg-center ${i < energy ? '' : 'opacity-25 grayscale'} ${gained ? 'energy-in' : spent ? 'energy-out' : ''}`}
+              style={{ backgroundImage: `url(${energyArt})`, ...(gained ? { animationDelay: `${(i - chg!.from) * 80}ms` } : {}) }}
             />
           );
         })}
