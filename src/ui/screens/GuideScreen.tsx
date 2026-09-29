@@ -381,7 +381,7 @@ const readStep = () => {
   }
 };
 
-export function GuideScreen({ onBack, onPlay, onTutorial, settings, onSettings }: { onBack: () => void; onPlay: () => void; onTutorial: () => void; settings: Settings; onSettings: (s: Settings) => void }) {
+export function GuideScreen({ onBack, onPlay, onTutorial, settings, onSettings }: { onBack: () => void; onPlay: () => void; onTutorial: (lesson: 'basics' | 'advanced') => void; settings: Settings; onSettings: (s: Settings) => void }) {
   const [i, setIRaw] = useState(readStep); // reopens where you left off
   const [toc, setToc] = useState(false);
   const [keys, setKeys] = useState(false); // the key-bindings panel (desktop)
@@ -491,8 +491,11 @@ export function GuideScreen({ onBack, onPlay, onTutorial, settings, onSettings }
         </button>
         {last ? (
           <>
-            <button onClick={onTutorial} className="rounded-xl border border-amber-400/70 px-3 py-3 text-sm font-semibold text-amber-200" title="A coached first match against a gentle bot">
-              Tutorial match
+            <button onClick={() => onTutorial('basics')} className="rounded-xl border border-amber-400/70 px-3 py-3 text-sm font-semibold text-amber-200" title="Part 1: a coached first match against a gentle bot">
+              Tutorial
+            </button>
+            <button onClick={() => onTutorial('advanced')} className="rounded-xl border border-amber-400/70 px-3 py-3 text-sm font-semibold text-amber-200" title="Part 2: Chips, evolution, status effects, face-down grafts and Protocols">
+              Part 2
             </button>
             <button onClick={onPlay} className="flex-1 rounded-xl bg-accent px-4 py-3 font-display font-bold text-black">
               Play a Quick match

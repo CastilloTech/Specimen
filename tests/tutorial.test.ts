@@ -29,3 +29,31 @@ describe('Tutorial match', () => {
     expect(s.phase).toBe('over');
   });
 });
+
+describe('Advanced training (part 2)', () => {
+  it('deals the Fever Toxin, a Protocol and grafts to play face-down, against a Bleeding bot', async () => {
+    const { advancedSetup } = await import('../src/ui/tutorial');
+    const setup = advancedSetup('You');
+    const s = createMatch(setup);
+    const hand = s.players[0].hand.map((c) => c.cardId);
+    expect(hand).toContain('mia_wasting_cloud');
+    expect(hand.map((id) => cardOf(id).type)).toContain('protocol');
+    expect(hand.filter((id) => cardOf(id).type === 'graft').length).toBeGreaterThanOrEqual(2);
+    expect(s.players[1].worldFaction).toBe('corrosion');
+    expect(s.players[1].maxHp).toBe(22);
+    // Pressure Release is the first draw: it vents toward Carapace.
+    expect(s.players[0].deck.at(-1)!.cardId).toBe('bast_pressure_release');
+    const end = playBotMatch({ ...setup, players: [{ ...setup.players[0], isBot: true }, setup.players[1]] });
+    expect(end.phase).toBe('over');
+  });
+
+  it('is winnable for a bot playing the student', async () => {
+    const { advancedSetup } = await import('../src/ui/tutorial');
+    let w = 0;
+    for (let i = 0; i < 40; i++) {
+      const setup = advancedSetup('You');
+      if (playBotMatch({ ...setup, seed: 500 + i, players: [{ ...setup.players[0], isBot: true }, setup.players[1]] }, 900 + i).result?.winner === 0) w++;
+    }
+    expect(w / 40).toBeGreaterThan(0.6);
+  });
+});

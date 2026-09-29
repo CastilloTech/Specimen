@@ -1,6 +1,7 @@
 import { CARD_MAP, chipRows, chipsFor, defaultConfig, FACTIONS, makeRng, MUTATIONS, starterDeck, WORLD_FACTIONS } from '../engine';
-import type { BotTier, Config, DeepPartial, Faction, GameState, MatchSetup, PlayerSetup, WorldFactionId } from '../engine';
+import type { Action, BotTier, Config, DeepPartial, Faction, GameState, MatchSetup, PlayerSetup, WorldFactionId } from '../engine';
 import type { Progress } from './modes';
+import { roundGrid } from './share';
 
 // The daily challenge: one fixed match a day, the same for everyone. You play a loaned Specimen (a set
 // Build, World Faction, Chip and starter deck) against a set opponent under one rule twist, from the same
@@ -132,6 +133,9 @@ export interface DailyRecord {
   bestHp: number;
   /** Rounds of that best win. */
   bestRounds?: number;
+  /** That win round by round (🟩🟥⬜, see roundGrid) and its actions, for sharing it as a result or a replay. */
+  bestGrid?: string;
+  bestActions?: Action[];
 }
 export interface DailyStreak {
   count: number;
@@ -172,7 +176,7 @@ export function applyDaily(p: Progress, key: string, s: GameState): { progress: 
   const rec = todayRecord(p, key);
   const firstWin = won && !rec.won;
   const newBest = won && (hp > rec.bestHp || (hp === rec.bestHp && s.round < (rec.bestRounds ?? Infinity)));
-  const daily: DailyRecord = { key, attempts: rec.attempts + 1, won: rec.won || won, bestHp: newBest ? hp : rec.bestHp, bestRounds: newBest ? s.round : rec.bestRounds };
+  const daily: DailyRecord = newBest ? { key, attempts: rec.attempts + 1, won: true, bestHp: hp, bestRounds: s.round, bestGrid: roundGrid(s, 0), bestActions: s.history } : { ...rec, attempts: rec.attempts + 1 };
   let dailyStreak = p.dailyStreak;
   let reward = 0;
   if (firstWin) {
@@ -185,4 +189,18 @@ export function applyDaily(p: Progress, key: string, s: GameState): { progress: 
     progress: { ...p, daily, dailyStreak, biomass: p.biomass + reward, earned: p.earned + reward },
     outcome: { won, firstWin, reward, streak, hp, newBest },
   };
+}
+
+/** The shareable result text: the matchup, the twist, and your best win as a grid of rounds. */
+export function dailyShareText(d: Daily, rec: DailyRecord, streak: number): string {
+  const [y, m, day] = d.key.split('-').map(Number);
+  const date = new Date(y, m - 1, day).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  const cap = (x: string) => x[0].toUpperCase() + x.slice(1);
+  const lines = [`Specimen daily · ${date} 🧬`, `${cap(d.you.faction)}/${cap(d.you.worldFaction)} vs ${cap(d.opponent.faction)}/${cap(d.opponent.worldFaction)} · ${d.twist.name}`];
+  if (rec.won) {
+    lines.push(`✅ Won in ${rec.bestRounds} rounds with ${rec.bestHp} HP left${rec.attempts > 1 ? ` (${rec.attempts} attempts)` : ' first try'}`);
+    if (rec.bestGrid) lines.push(rec.bestGrid);
+  } else lines.push(`❌ Not beaten yet · ${rec.attempts} attempt${rec.attempts === 1 ? '' : 's'}`);
+  if (streak > 1) lines.push(`🔥 ${streak}-day streak`);
+  return lines.join('\n');
 }

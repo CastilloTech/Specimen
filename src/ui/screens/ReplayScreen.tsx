@@ -12,6 +12,8 @@ import { Specimen } from '../components/Specimen';
 import { PLAYER_COLORS } from '../meta';
 import { useMatchSounds } from '../sfx';
 import type { SavedReplay } from '../storage';
+import { saveReplay } from '../storage';
+import { replayLink, shareOrCopy } from '../share';
 import type { PlayRecord } from '../../engine';
 
 // The replay viewer: rebuild every state of a finished match from its seed and actions, then step through it
@@ -56,10 +58,22 @@ function quietText(prev: GameState, a: Action): string {
   }
 }
 
-export function ReplayScreen({ replay, onBack }: { replay: SavedReplay; onBack: () => void }) {
+export function ReplayScreen({ replay, onBack, shared, startAt = 0 }: { replay: SavedReplay; onBack: () => void; /** Opened from someone's link. */ shared?: boolean; /** Open at this step (a turning point). */ startAt?: number }) {
+  const [note, setNote] = useState<string | null>(null);
+  const [kept, setKept] = useState(false);
+  const share = async () => {
+    const url = await replayLink(replay);
+    const res = await shareOrCopy({ title: 'Specimen replay', text: `${replay.names[replay.me]} vs ${replay.names[1 - replay.me]} (${replay.result}) — watch the match:`, url });
+    setNote(res === 'copied' ? 'Link copied: anyone who opens it watches this match.' : res === 'shared' ? null : "Couldn't share from this browser.");
+  };
+  useEffect(() => {
+    if (!note) return;
+    const t = setTimeout(() => setNote(null), 3500);
+    return () => clearTimeout(t);
+  }, [note]);
   const { states, broken } = useMemo(() => build(replay), [replay]);
   const last = states.length - 1;
-  const [i, setI] = useState(0);
+  const [i, setI] = useState(startAt);
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState<(typeof SPEEDS)[number]>(1);
   const [reveal, setReveal] = useState(true);
@@ -114,7 +128,32 @@ export function ReplayScreen({ replay, onBack }: { replay: SavedReplay; onBack: 
 
   const date = new Date(replay.at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
   const resultText = replay.result === 'win' ? 'Win' : replay.result === 'loss' ? 'Loss' : 'Draw';
-  const header = <ScreenHeader title="Replay" sub={`${replay.names[me]} vs ${replay.names[opp]} · ${resultText} · ${replay.label ? `${replay.label} · ` : ''}${date}`} onBack={onBack} backLabel="Back" />;
+  const shareBtns = (
+    <>
+      {shared && (
+        <button
+          onClick={() => {
+            saveReplay({ ...replay, id: `${Date.now()}-kept` });
+            setKept(true);
+          }}
+          disabled={kept}
+          className="shrink-0 rounded-lg border border-line px-2 py-1.5 text-xs font-semibold text-ink2 disabled:opacity-50"
+          title="Add it to your Replays on the Saves screen"
+        >
+          {kept ? '✓ Kept' : 'Keep'}
+        </button>
+      )}
+      <button onClick={() => void share()} className="shrink-0 rounded-lg bg-accent px-2.5 py-1.5 text-xs font-bold text-black" title="Share a link that opens this replay">
+        ↗ Share
+      </button>
+    </>
+  );
+  const toast = note && (
+    <div className="coach-pop fixed bottom-24 left-1/2 z-[70] -translate-x-1/2 rounded-lg border border-accent/60 bg-panel px-3 py-1.5 text-xs shadow-lg" role="status">
+      {note}
+    </div>
+  );
+  const header = <ScreenHeader title={shared ? 'Shared replay' : 'Replay'} sub={`${replay.names[me]} vs ${replay.names[opp]} · ${resultText} · ${replay.label ? `${replay.label} · ` : ''}${date}`} onBack={onBack} backLabel="Back" right={shareBtns} />;
 
   if (!state)
     return (
@@ -180,6 +219,7 @@ export function ReplayScreen({ replay, onBack }: { replay: SavedReplay; onBack: 
             {state.round > 0 ? `Round ${state.round}` : 'Start'} · {replay.names[me]} vs {replay.names[opp]} · {resultText}
           </span>
           {revealBtn}
+          {shareBtns}
         </header>
         <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] gap-1">
           <PlayerPanelCompact state={state} player={me} viewer={view(me)} color={PLAYER_COLORS[me]} active={false} />
@@ -206,6 +246,7 @@ export function ReplayScreen({ replay, onBack }: { replay: SavedReplay; onBack: 
           {speeds}
         </div>
         {sheets}
+        {toast}
       </div>
     );
 
@@ -277,6 +318,7 @@ export function ReplayScreen({ replay, onBack }: { replay: SavedReplay; onBack: 
         </div>
       </div>
       {sheets}
+      {toast}
     </div>
   );
 }

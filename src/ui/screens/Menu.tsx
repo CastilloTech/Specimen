@@ -1,6 +1,7 @@
+import { InstallCard } from '../components/AppPrompts';
 import { useState } from 'react';
 import { setTutorialDone, tutorialDone } from '../tutorial';
-import { DIFFICULTY, lastDifficulty } from './Setup';
+import { DIFFICULTY, lastDifficulty } from '../picks';
 import { SoundToggle } from '../sfx';
 import { Creature } from '../components/Specimen';
 import { FACTION_META, WORLD_FACTION_META } from '../meta';
@@ -102,6 +103,7 @@ export function Menu({ onQuick, onModes, onBot, onSaves, onGuide, onDecks, onTut
             <span aria-hidden>›</span>
           </button>
         </section>
+        <InstallCard />
         <button className={`${btn} border-accent/50`} onClick={onModes}>
           <div className="font-display font-bold text-accent">Game Modes</div>
           <div className={desc}>A daily challenge, the Tower, Lineage and Containment Breach: earn biomass, craft cards and unlock Builds, World Factions and Chips.</div>

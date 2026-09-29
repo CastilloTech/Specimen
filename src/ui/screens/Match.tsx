@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { SoundToggle, useMatchSounds } from '../sfx';
 import { Coach } from '../components/Coach';
-import { setTutorialDone } from '../tutorial';
+import { setLessonDone } from '../tutorial';
+import type { Lesson } from '../tutorial';
 import { ambushText, cardCost, cardOf, chipOf, defaultConfig, evolutionBoosts, findNode, legalPlays, other, reactionOptions, SLOT_LABEL, STANCES } from '../../engine';
 import type { Action, CardDef, GameState, MatchSetup, PlayerId, PlayRecord, SlotId, Stance } from '../../engine';
 import { CardDetail } from '../components/CardDetail';
@@ -32,8 +33,8 @@ interface Props {
   onFinish: (s: GameState, setup: MatchSetup) => void;
   /** Where this match is played (named on its replay). */
   label?: string;
-  /** The tutorial match: no timers, and the coach explains each step. */
-  tutorial?: boolean;
+  /** A tutorial match: no timers, and the coach explains each step of this lesson. */
+  tutorial?: Lesson;
 }
 
 interface Detail {
@@ -354,11 +355,12 @@ export function MatchScreen({ setup, settings, onExit, onFinish, label, tutorial
       <MatchEndOverlay state={state} me={me} />
       {coaching && (
         <Coach
+          lesson={tutorial}
           ctx={{ state, me, myTurn, reacting, selDef }}
           active={!detail && !playSheet && !showHelp && !viewCard && !evoSheet && !confirmExit && !showHistory}
           onSkip={() => {
             setCoaching(false);
-            setTutorialDone();
+            setLessonDone(tutorial!);
           }}
         />
       )}

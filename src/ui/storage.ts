@@ -1,3 +1,4 @@
+import { keepStorage } from './pwa';
 import type { Action, BotTier, Faction, MatchSetup, PlayerId, Stance, WorldFactionId } from '../engine';
 
 // Everything here is a per-browser convenience: reads/writes are wrapped so a blocked
@@ -66,6 +67,8 @@ export const SAVE_SLOTS = 3;
 export interface SaveMeta {
   name: string;
   created: number;
+  /** When this save was last exported (a backup file or code). */
+  backedUp?: number;
 }
 interface SaveIndex {
   active: number | null;
@@ -87,6 +90,7 @@ export function activeSave(): { slot: number; meta: SaveMeta } | null {
 }
 
 export function createSave(slot: number, name: string): void {
+  keepStorage();
   const idx = loadSaveIndex();
   idx.slots[slot] = { name: name.trim().slice(0, 16) || `Player ${slot + 1}`, created: Date.now() };
   idx.active = slot;
@@ -109,7 +113,72 @@ export function deleteSave(slot: number): void {
   idx.slots[slot] = null;
   if (idx.active === slot) idx.active = null;
   writeIndex(idx);
-  for (const k of ['decks', 'chipLoadouts', 'lastSetup.bot', 'matches', 'progress', 'replays']) remove(`specimen.save${slot}.${k}`);
+  for (const k of slotKeys(slot)) remove(k);
+}
+
+// ---------- Backups: a save as a file or a code ----------
+const slotPrefix = (slot: number) => `specimen.save${slot}.`;
+function slotKeys(slot: number): string[] {
+  const keys: string[] = [];
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k?.startsWith(slotPrefix(slot))) keys.push(k);
+    }
+  } catch {
+    /* storage unavailable */
+  }
+  return keys;
+}
+
+export interface SaveBackup {
+  game: 'Specimen';
+  kind: 'save';
+  v: 1;
+  exportedAt: number;
+  meta: SaveMeta;
+  /** Every per-save key (decks, progress, matches, replays, ...) by its name inside the save. */
+  data: Record<string, unknown>;
+}
+
+/** Everything a save holds, ready to write to a file or a code. Marks the save as backed up. */
+export function exportSave(slot: number): SaveBackup | null {
+  keepStorage();
+  const idx = loadSaveIndex();
+  const meta = idx.slots[slot];
+  if (!meta) return null;
+  const data: Record<string, unknown> = {};
+  for (const k of slotKeys(slot)) data[k.slice(slotPrefix(slot).length)] = read<unknown>(k, null);
+  const now = Date.now();
+  idx.slots[slot] = { ...meta, backedUp: now };
+  writeIndex(idx);
+  return { game: 'Specimen', kind: 'save', v: 1, exportedAt: now, meta: { name: meta.name, created: meta.created }, data };
+}
+
+/** Check that something is a Specimen save backup (from a file or a code); throws a readable error if not. */
+export function parseBackup(x: unknown): SaveBackup {
+  const b = x as Partial<SaveBackup> | null;
+  if (!b || typeof b !== 'object' || b.game !== 'Specimen' || b.kind !== 'save') throw new Error("That isn't a Specimen save.");
+  if (b.v !== 1) throw new Error('This save comes from a newer version of the game.');
+  if (!b.meta || typeof b.meta.name !== 'string' || !b.data || typeof b.data !== 'object') throw new Error('The save is damaged.');
+  const keys = Object.keys(b.data);
+  if (keys.length > 64 || keys.some((k) => !/^[A-Za-z][A-Za-z0-9.]{0,40}$/.test(k))) throw new Error('The save is damaged.');
+  return { game: 'Specimen', kind: 'save', v: 1, exportedAt: Number(b.exportedAt) || Date.now(), meta: { name: b.meta.name.slice(0, 16) || 'Imported', created: Number(b.meta.created) || Date.now() }, data: b.data };
+}
+
+/** Put a backup into a slot (replacing whatever was there) and load it. Throws if storage is full. */
+export function importSave(slot: number, b: SaveBackup): void {
+  for (const k of slotKeys(slot)) remove(k);
+  try {
+    for (const [k, v] of Object.entries(b.data)) localStorage.setItem(slotPrefix(slot) + k, JSON.stringify(v));
+  } catch {
+    for (const k of slotKeys(slot)) remove(k);
+    throw new Error("There isn't enough storage space on this device for that save.");
+  }
+  const idx = loadSaveIndex();
+  idx.slots[slot] = { name: b.meta.name, created: b.meta.created, backedUp: b.exportedAt };
+  idx.active = slot;
+  writeIndex(idx);
 }
 
 /** Per-save data lives under that save's own keys; with no save loaded it uses the unsaved (guest) keys. */

@@ -40,7 +40,7 @@ const zone = (c: CoachCtx) => {
 const S = (id: keyof typeof STANCE_META) => <b>{STANCE_META[id].glyph + ' ' + STANCE_META[id].name}</b>;
 
 /** The lesson, in order. Each waits for its moment. */
-const LESSON: Tip[] = [
+const BASICS: Tip[] = [
   {
     id: 'welcome',
     title: 'Welcome to the lab',
@@ -201,6 +201,127 @@ const LESSON: Tip[] = [
   },
 ];
 
+const forms = (c: CoachCtx) => (c.state.config.evolutions as Record<string, { id: string; name: string; text: string }[]>)[me_(c).faction] ?? [];
+const statusOn = (c: CoachCtx, p: PlayerId) => {
+  const x = c.state.players[p];
+  return x.bleed > 0 || x.numb > 0 || x.fever > 0 || Object.values(x.necrosis).some((n) => (n ?? 0) > 0);
+};
+
+/** Part 2, advanced training: Chips, evolution, status effects, face-down grafts and Protocols. */
+const ADVANCED: Tip[] = [
+  {
+    id: 'adv-welcome',
+    title: 'Advanced training',
+    body: (c) => (
+      <>
+        This time you play a <b>Bastion / Miasma</b> Specimen. You'll try the tools the first match skipped: your <b>Chip</b>, <b>evolution</b>, <b>status effects</b>, <b>face-down grafts</b> and <b>Protocols</b>. The bot again has {c.state.players[other(c.me)].maxHp} HP.
+      </>
+    ),
+    show: (c) => c.state.phase === 'mulligan',
+    stale: (c) => c.state.phase !== 'mulligan',
+  },
+  {
+    id: 'adv-chip',
+    title: 'Your Chip',
+    body: (c) => (
+      <>
+        The small tags at the bottom of your panel are your <b>Chip nodes</b>: passive bonuses from your World Faction's Chip, one per row. You chose them before a match in <b>Decks &amp; Chips</b>. This loan Chip gives you {me_(c).loadout.length} of them. Their full text is in Decks &amp; Chips.
+      </>
+    ),
+    target: 'me',
+    show: (c) => c.state.phase === 'mulligan',
+    stale: (c) => c.state.phase !== 'mulligan',
+  },
+  {
+    id: 'adv-evo',
+    title: 'Evolution',
+    body: (c) => {
+      const [a, b] = forms(c);
+      return (
+        <>
+          The two bars on your panel are your <b>evolutions</b>. Fill one and you may evolve, for good: {a && <b>{a.name}</b>} ({a?.text.replace(/\.$/, '')}){b && <>, or <b>{b.name}</b> ({b.text.replace(/\.$/, '')})</>}. Venting Strain fills Carapace fast: Fortify, Hold, or the Pressure Release serum in your hand.
+        </>
+      );
+    },
+    target: 'me',
+    show: (c) => c.state.phase === 'mulligan' && !me_(c).mulliganDecided,
+    done: (c) => me_(c).mulliganDecided || c.state.phase !== 'mulligan',
+  },
+  {
+    id: 'adv-status',
+    title: 'Status effects',
+    body: () => (
+      <>
+        Miasma inflicts <b className="text-violet-300">Numb</b> (no Protocols) and <b className="text-orange-300">Fever</b> (their grafts cost 1 more). Play <b>{cardOf('mia_wasting_cloud').name}</b> from your hand: it gives the bot Fever. Statuses show as an aura and a badge with the rounds left.
+      </>
+    ),
+    target: 'hand',
+    show: (c) => c.state.phase === 'actions' && c.myTurn && me_(c).hand.some((h) => h.cardId === 'mia_wasting_cloud'),
+    done: (c) => statusOn(c, other(c.me)) || !me_(c).hand.some((h) => h.cardId === 'mia_wasting_cloud'),
+    stale: (c) => c.state.round >= 4,
+  },
+  {
+    id: 'adv-facedown',
+    title: 'Play a graft face-down',
+    body: (c) =>
+      c.selDef?.type === 'graft' ? (
+        <>
+          Now tick <b>Face-down</b> before you tap the slot. It sleeps: no stats yet, less Strain, and the bot sees only its slot.
+        </>
+      ) : (
+        <>
+          Pick a graft, like <b>{cardOf('mia_creeping_rot').name}</b>, and tick <b>Face-down</b> before you tap a slot. It sleeps: no stats yet, less Strain now, and the bot can't see what it is. Wake it after a round for an <b>Ambush</b>.
+        </>
+      ),
+    target: (c) => (c.selDef?.type === 'graft' ? undefined : 'hand'),
+    show: (c) => c.state.phase === 'actions' && c.myTurn && me_(c).hand.some((h) => cardOf(h.cardId).type === 'graft'),
+    done: (c) => me_(c).grafts.some((g) => g.faceDown),
+    stale: (c) => c.state.round >= 5,
+  },
+  {
+    id: 'adv-wake',
+    title: 'Wake it for an Ambush',
+    body: (c) => (
+      <>
+        Your sleeping graft has rested a round. Tap it on your Specimen and choose <b>Wake</b> (or press W): it switches on and adds the Strain it saved, plus an <b>Ambush</b> burst this round ({c.state.config.dormant.quietStrain} less Strain was the price of hiding it).
+      </>
+    ),
+    show: (c) => c.state.phase === 'actions' && c.myTurn && me_(c).grafts.some((g) => g.faceDown && (g.sleptSince ?? c.state.round) < c.state.round),
+    done: (c) => !me_(c).grafts.some((g) => g.faceDown),
+    stale: (c) => c.state.round >= 6,
+  },
+  {
+    id: 'adv-finish',
+    title: 'The full toolkit',
+    body: () => <>Chips, evolutions, statuses, face-down grafts and Protocols: that's everything. Finish the bot off. Each Build and World Faction plays these differently; the Game guide has a page for each.</>,
+    show: (c) => c.state.phase === 'actions' && c.myTurn && c.state.round >= 4,
+  },
+];
+
+/** Advanced-only moments (added to the shared ones in that lesson). */
+const ADVANCED_MOMENTS: Tip[] = [
+  {
+    id: 'adv-protocol',
+    title: 'Answer with a Protocol',
+    body: (c) => {
+      const protocols = [...new Set(me_(c).hand.map((h) => cardOf(h.cardId)).filter((d) => d.type === 'protocol'))];
+      return (
+        <>
+          The bot just played a card, and you hold a <b className="text-amber-300">Protocol</b> that can answer it{protocols.length ? <> ({protocols.map((d) => d.name).join(', ')})</> : null}. Read it, then play it now or let the card through and keep your Energy.
+        </>
+      );
+    },
+    show: (c) => c.reacting,
+    done: (c) => !c.reacting,
+  },
+  {
+    id: 'adv-afflicted',
+    title: "You've got a status",
+    body: () => <>The bot's Corrosion cards made you <b className="text-red-300">Bleed</b>: damage at every Strain check for a few rounds, more per stack. Aegis cards can Purge statuses; otherwise it wears off.</>,
+    show: (c) => statusOn(c, c.me),
+  },
+];
+
 /** Moments that can happen any time: explained once, the first time. */
 const MOMENTS: Tip[] = [
   {
@@ -236,7 +357,9 @@ const MOMENTS: Tip[] = [
 ];
 
 /** Which step of the lesson is showing (null: nothing right now), and the targets to pulse. */
-export function Coach({ ctx, active, onSkip }: { ctx: CoachCtx; active: boolean; onSkip: () => void }) {
+export function Coach({ ctx, active, onSkip, lesson = 'basics' }: { ctx: CoachCtx; active: boolean; onSkip: () => void; lesson?: 'basics' | 'advanced' }) {
+  const LESSON = lesson === 'advanced' ? ADVANCED : BASICS;
+  const moments = lesson === 'advanced' ? [...ADVANCED_MOMENTS, ...MOMENTS] : MOMENTS;
   const [idx, setIdx] = useState(0);
   const [seen, setSeen] = useState<Set<string>>(() => new Set());
   const [minimized, setMinimized] = useState(false);
@@ -248,7 +371,7 @@ export function Coach({ ctx, active, onSkip }: { ctx: CoachCtx; active: boolean;
     if (i !== idx) setIdx(i);
   });
 
-  const moment = MOMENTS.find((m) => !seen.has(m.id) && m.show(ctx));
+  const moment = moments.find((m) => !seen.has(m.id) && m.show(ctx));
   const step = idx < LESSON.length && LESSON[idx].show(ctx) ? LESSON[idx] : undefined;
   const tip = active && ctx.state.phase !== 'over' ? (moment ?? step) : undefined;
 

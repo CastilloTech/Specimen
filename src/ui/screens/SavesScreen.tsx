@@ -6,6 +6,7 @@ import { FACTION_META, STANCE_META, WORLD_FACTION_META } from '../meta';
 import type { Analysis, Split, StanceUse } from '../stats';
 import { analyze, pct } from '../stats';
 import { Collapsible } from '../components/Collapsible';
+import { BackupPanel } from '../components/BackupPanel';
 import { ComboGuide } from '../components/ComboGuide';
 import { FactionMastery } from '../components/FactionMastery';
 import type { MatchRecord, SavedReplay } from '../storage';
@@ -116,6 +117,8 @@ export function SavesScreen({ onBack, onWatch }: { onBack: () => void; onWatch: 
         })}
       </div>
       </Collapsible>
+
+      <BackupPanel onChange={refresh} />
 
       <ReplayList onWatch={onWatch} onChange={refresh} />
 

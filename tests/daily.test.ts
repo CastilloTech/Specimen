@@ -5,7 +5,7 @@ import { applyDaily, dailyChallenge, dailyReward, dailySetup, dayKey, prevDay, T
 import { startProgress } from '../src/ui/modes';
 
 const days = (n: number) => Array.from({ length: n }, (_, i) => dayKey(new Date(2026, 0, 1 + i)));
-const fakeEnd = (won: boolean, hp = 20, round = 6) => ({ result: { winner: won ? 0 : 1, reason: 'x' }, round, players: [{ hp }, { hp: 0 }] }) as unknown as GameState;
+const fakeEnd = (won: boolean, hp = 20, round = 6) => ({ result: { winner: won ? 0 : 1, reason: 'x' }, round, players: [{ hp }, { hp: 0 }], snapshots: [{ round: 0, hp: [40, 40], strain: [0, 0] }, { round: 1, hp: [hp, 0], strain: [0, 0] }], history: [] }) as unknown as GameState;
 
 describe('Daily challenge', () => {
   it('is the same match all day and changes from day to day', () => {

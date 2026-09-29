@@ -2,6 +2,9 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
 import './index.css';
+import { startPwa } from './ui/pwa';
+
+startPwa();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

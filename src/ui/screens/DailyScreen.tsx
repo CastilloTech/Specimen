@@ -6,14 +6,16 @@ import { CardView } from '../components/CardView';
 import { Collapsible } from '../components/Collapsible';
 import { ChipArt } from '../components/Emblem';
 import { ScreenHeader } from '../components/ScreenHeader';
-import { dailyChallenge, dailyReward, dailySetup, dayKey, liveStreak, todayRecord } from '../daily';
+import { dailyChallenge, dailyReward, dailySetup, dailyShareText, dayKey, liveStreak, todayRecord } from '../daily';
+import { appLink, replayLink, shareOrCopy } from '../share';
+import type { SavedReplay } from '../storage';
 import type { DailyOutcome } from '../daily';
 import { FACTION_META, PLAYER_COLORS, WORLD_FACTION_META } from '../meta';
 import { loadProgress } from '../modes';
 import type { Progress } from '../modes';
 import { activeSave } from '../storage';
 import { BiomassBadge, BiomassIcon } from './GameModes';
-import { DIFFICULTY } from './Setup';
+import { DIFFICULTY } from '../picks';
 
 /** Time until the next local midnight, as "5h 12m". */
 function untilTomorrow(now: Date): string {
@@ -46,7 +48,7 @@ function SpecimenCard({ s, who, color }: { s: PlayerSetup; who: string; color: s
 }
 
 /** The daily challenge: today's fixed match, your attempts, and your streak. */
-export function DailyScreen({ onBack, onFight, last }: { onBack: () => void; onFight: (setup: MatchSetup, key: string) => void; last?: DailyOutcome | null }) {
+export function DailyScreen({ onBack, onFight, onWatch, last }: { onBack: () => void; onFight: (setup: MatchSetup, key: string) => void; onWatch: (r: SavedReplay) => void; last?: DailyOutcome | null }) {
   const [p] = useState<Progress>(() => loadProgress()!);
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
@@ -66,6 +68,19 @@ export function DailyScreen({ onBack, onFight, last }: { onBack: () => void; onF
     return [...counts].sort((a, b) => CARD_MAP[a[0]].cost - CARD_MAP[b[0]].cost);
   }, [d]);
   const dateText = now.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+  const [note, setNote] = useState<string | null>(null);
+  const bestReplay = (): SavedReplay | null =>
+    rec.won && rec.bestActions ? { id: `daily-${key}`, at: Date.now(), me: 0, names: [d.you.name, d.opponent.name], result: 'win', rounds: rec.bestRounds ?? 0, label: `Daily challenge ${key}`, setup: dailySetup(d), actions: rec.bestActions } : null;
+  const shareResult = async () => {
+    const res = await shareOrCopy({ title: 'Specimen daily', text: dailyShareText(d, rec, streak), url: appLink('daily') });
+    setNote(res === 'copied' ? 'Result copied: paste it anywhere.' : res === 'failed' ? "Couldn't share from this browser." : null);
+  };
+  const shareWin = async () => {
+    const r = bestReplay();
+    if (!r) return;
+    const res = await shareOrCopy({ title: 'Specimen daily replay', text: `${dailyShareText(d, rec, streak)}\nWatch my win:`, url: await replayLink(r) });
+    setNote(res === 'copied' ? 'Replay link copied.' : res === 'failed' ? "Couldn't share from this browser." : null);
+  };
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col gap-3 p-3 pb-0">
@@ -132,6 +147,39 @@ export function DailyScreen({ onBack, onFight, last }: { onBack: () => void; onF
           <div className="text-[10px] uppercase tracking-wider text-mute">Day streak{p.dailyStreak?.best ? ` · best ${p.dailyStreak.best}` : ''}</div>
         </div>
       </section>
+
+      {rec.attempts > 0 && (
+        <section className="lab-panel rounded-xl border border-line p-2.5" aria-label="Share">
+          {rec.won && rec.bestGrid && (
+            <div className="mb-2 text-center">
+              <div className="text-[10px] uppercase tracking-wider text-mute">Your best win, round by round</div>
+              <div className="mt-0.5 text-xl tracking-[0.15em]" aria-label="Rounds: green won, red lost, white even">
+                {rec.bestGrid}
+              </div>
+            </div>
+          )}
+          <div className="flex flex-wrap gap-2">
+            <button onClick={() => void shareResult()} className="flex-1 rounded-lg bg-accent px-3 py-2 text-xs font-bold text-black">
+              ↗ Share result
+            </button>
+            {bestReplay() && (
+              <>
+                <button onClick={() => onWatch(bestReplay()!)} className="rounded-lg border border-line px-3 py-2 text-xs font-semibold text-ink2 hover:border-mute">
+                  ▶ Watch best win
+                </button>
+                <button onClick={() => void shareWin()} className="rounded-lg border border-line px-3 py-2 text-xs font-semibold text-ink2 hover:border-mute">
+                  Share the replay
+                </button>
+              </>
+            )}
+          </div>
+          {note && (
+            <p className="mt-1.5 text-center text-[11px] text-emerald-300" role="status">
+              {note}
+            </p>
+          )}
+        </section>
+      )}
 
       <p className="text-center text-xs text-ink2">
         {rec.won ? (
