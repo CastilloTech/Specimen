@@ -452,7 +452,13 @@
     "kind": "tower",
     "n": 45
    },
-   "text": "Re: the new handler.\n\nTell them they're the first. It's simpler. Do not tell them about the previous attempts, or why the records of those attempts stop.\n\n— [FACTION REDACTED], Recruitment"
+   "text": "Re: the new handler.\n\nTell them they're the first. It's simpler. Do not tell them about the previous attempts, or why the records of those attempts stop.\n\n— [FACTION REDACTED], Recruitment\n\n{clue}",
+   "clues": {
+    "corrosion": "The corner of the memo is stained brown, as if someone sealed it by pressing a cut thumb to the fold.",
+    "aegis": "The memo arrived in a sealed sterile sleeve. The paper still smells of disinfectant.",
+    "miasma": "The handwriting shakes at the end of each line, and the paper was warm when it was found, as if it had been held against a fevered body.",
+    "hollow": "The memo is unsigned. The space where a signature would go has been cut out, neatly, with a blade."
+   }
   },
   {
    "id": "handler_1",
@@ -534,6 +540,26 @@
    "text": "Transcript, partial (audio degraded):\n\n\"...four of us. One from each. We met where the war frays at the edges... none of us could have built it alone...\n...two of the others are still alive...\n...you already know enough to work out which one sent you.\""
   },
   {
+   "id": "recruiter_answer",
+   "source": "handler",
+   "title": "Asking Your Recruiter",
+   "where": "When you know the right question, and have the memo",
+   "unlock": {
+    "kind": "all",
+    "ids": [
+     "op_3",
+     "recruit"
+    ]
+   },
+   "text": "You asked about the four defectors. You asked whether one of them recruited you.\n\n{clue}",
+   "clues": {
+    "corrosion": "\"Nobody leaves us. We keep our wounds open, remember?\" The answer comes instantly, word for word, like something rehearsed. Then they ask about your next assignment. There is a fresh cut on their thumb.",
+    "aegis": "\"We don't discuss contaminated personnel.\" They wash their hands, twice, although nothing touched them. Then they ask about your next assignment.",
+    "miasma": "They listen for a long time. Too long. \"She told you that? ...Interesting.\" Their forehead is damp, as if with fever. Then, gently, your next assignment.",
+    "hollow": "\"We don't keep records of that.\" They say it so smoothly you almost don't notice they never said no. Then your next assignment, as if you had never asked."
+   }
+  },
+  {
    "id": "op_4",
    "source": "operative",
    "title": "Unsigned Letter",
@@ -581,10 +607,11 @@
      "z_settled",
      "op_4",
      "lone_scientist",
-     "cross_ref"
+     "cross_ref",
+     "recruiter_answer"
     ]
    },
-   "text": "Four defectors. A Corrosion researcher with the bleed schematics. An Aegis analyst with the purge protocols. A Miasma field tech with the numb-and-fever data. A Hollow operative with the necrosis research nobody outside Hollow had seen.\n\nThey weren't building a weapon. They were trying to heal the split: one full cycle, in one body.\n\nIt worked. It finished. And a body that finishes its own cycle no longer needs anyone's permission, least of all theirs.\n\nThey called it Z, because it was meant to be the end of something."
+   "text": "Four defectors. A Corrosion researcher with the bleed schematics. An Aegis analyst with the purge protocols. A Miasma field tech with the numb-and-fever data. A Hollow operative with the necrosis research nobody outside Hollow had seen.\n\nThey weren't building a weapon. They were trying to heal the split: one full cycle, in one body.\n\nIt worked. It finished. And a body that finishes its own cycle no longer needs anyone's permission, least of all theirs.\n\nThey called it Z, because it was meant to be the end of something.\n\nTwo of the four are still alive. One of them signed the memo you were recruited with."
   },
   {
    "id": "evolution",
@@ -639,9 +666,37 @@
   ],
   "Z": [
    {
-    "before": "The clearing. The horde keeps it open like a wound. Something at the centre is working, and it has already turned toward you.",
+    "before": "The clearing. The horde keeps it open like a wound. Something at the centre is working, and it has already turned toward you. It reaches for anything that is not settled.",
     "win": "It stops. Not dead. Not beaten. Settled, for the first time. Around you, the horde goes still.",
-    "loss": "It reaches for your Specimen, gently by its standards. The bond holds, barely. Not today."
+    "loss": "It reaches for your Specimen, gently by its standards, and takes what was loose. The bond holds, barely. Not today."
+   }
+  ],
+  "boss:corrosion": [
+   {
+    "before": "A Corrosion champion. Its handler's hands are scarred to the wrist, and every scar is open. \"You'll open up. Everyone does.\"",
+    "win": "\"A wound that closes that fast... someone has been teaching you.\"",
+    "loss": "\"There. Now you're listening.\""
+   }
+  ],
+  "boss:aegis": [
+   {
+    "before": "An Aegis champion, sealed in layers of clean plate. Its handler won't come within arm's reach. \"You've been near the horde. We can smell it on you.\"",
+    "win": "\"Contaminated,\" the handler says, as if that explained it, and scrubs their hands on the way out.",
+    "loss": "\"Filter yourself. Before something else does.\""
+   }
+  ],
+  "boss:miasma": [
+   {
+    "before": "A Miasma champion, humming just below hearing. Its handler smiles at your Specimen, not at you. \"Does it talk to you yet?\"",
+    "win": "\"It answered you. Not us. Remember that we asked first.\"",
+    "loss": "\"Listen. It was trying to tell you something the whole time.\""
+   }
+  ],
+  "boss:hollow": [
+   {
+    "before": "A Hollow champion. Its handler says nothing and writes nothing down. You get the feeling they already know how this ends.",
+    "win": "The handler nods once, as if a debt were settled, and leaves without a word.",
+    "loss": "\"Everything costs something,\" the handler says. \"You just paid.\""
    }
   ]
  }

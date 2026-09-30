@@ -1,4 +1,6 @@
 import lore from '../data/lore.json';
+import { WORLD_FACTIONS } from '../engine';
+import type { WorldFactionId } from '../engine';
 import type { MatchRecord } from './storage';
 import type { Progress } from './modes';
 import { activeSave, loadSaveData, saveSaveData } from './storage';
@@ -25,7 +27,9 @@ export interface Fragment {
   title: string;
   /** A vague hint at where it turns up, shown while it is still missing. */
   where: string;
+  /** May hold "{clue}": filled in from `clues` by the save's recruiter (see recruiterOf). */
   text: string;
+  clues?: Record<string, string>;
   unlock: Unlock;
 }
 
@@ -60,6 +64,22 @@ export const SOURCE_META: Record<LoreSource, { name: string; color: string }> = 
 
 /** Lineage rivals are named "<epithet> <Build noun> of <line>" or "Matriarch of the <line> Line". */
 const LINEAGE_RIVAL = /( of [A-Z][a-z]+$|^Matriarch of the )/;
+
+/**
+ * Which World Faction recruited this save's handler. Never shown: it only changes a few clues in the records,
+ * so each save has its own answer to work out. Fixed by the save's creation time.
+ */
+export function recruiterOf(created: number | null | undefined): WorldFactionId {
+  const n = Math.abs(Math.floor(created ?? 0));
+  const h = (Math.imul(n ^ (n >>> 16), 0x45d9f3b) ^ Math.imul(Math.floor(n / 4294967296), 0x27d4eb2d)) >>> 0;
+  return WORLD_FACTIONS[h % WORLD_FACTIONS.length];
+}
+export const currentRecruiter = (): WorldFactionId => recruiterOf(activeSave()?.meta.created);
+
+/** A record's text, with its clue filled in for this recruiter. */
+export function fragmentText(f: Fragment, recruiter: WorldFactionId): string {
+  return f.clues ? f.text.replace('{clue}', f.clues[recruiter] ?? '') : f.text;
+}
 
 /** Which fragments this save has recovered, from its match history and Game Modes progress. */
 export function unlockedFragments(rs: MatchRecord[], p: Progress | null): Set<string> {
@@ -127,8 +147,10 @@ export const unreadLore = (rs: MatchRecord[], p: Progress | null): number => {
  * What a named opponent says. `met` is how many earlier matches you have played against them: the n-th
  * meeting uses the n-th set of lines (the last set repeats).
  */
-export function encounterLines(name: string, met: number): EncounterLines | null {
-  const list = ENCOUNTERS[name];
+export function encounterLines(name: string, met: number, worldFaction?: string): EncounterLines | null {
+  // Faction bosses (Tower) and bloodline Matriarchs (Lineage) speak for their World Faction.
+  const boss = /^Boss: |^Matriarch of the /.test(name) && worldFaction ? ENCOUNTERS[`boss:${worldFaction}`] : undefined;
+  const list = ENCOUNTERS[name] ?? boss;
   if (!list?.length) return null;
   return list[Math.min(met, list.length - 1)];
 }

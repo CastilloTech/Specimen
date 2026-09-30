@@ -56,7 +56,7 @@ const TOP = ['pred_predator_eye', 'pred_bone_spur', 'pred_bile_spit', 'pred_bloo
 export function tutorialSetup(name: string): MatchSetup {
   const base = starterDeck('predator', 'corrosion');
   const rest = [...base];
-  for (const id of TOP) rest.splice(rest.indexOf(id), 1);
+  for (const id of TOP) if (rest.includes(id)) rest.splice(rest.indexOf(id), 1);
   const chip = chipsFor('corrosion')[0].id;
   const botChip = chipsFor('aegis')[0].id;
   return {
@@ -77,7 +77,7 @@ const TOP2 = ['mia_wasting_cloud', 'bast_brace', 'mia_creeping_rot', 'bast_bone_
 export function advancedSetup(name: string): MatchSetup {
   const base = starterDeck('bastion', 'miasma');
   const rest = [...base];
-  for (const id of TOP2) rest.splice(rest.indexOf(id), 1);
+  for (const id of TOP2) if (rest.includes(id)) rest.splice(rest.indexOf(id), 1);
   const chip = chipsFor('miasma')[0].id;
   const botChip = chipsFor('corrosion')[0].id;
   return {

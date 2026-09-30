@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { LoreText } from '../components/Flavor';
-import { FRAGMENTS, loadSeenLore, markLoreSeen, SOURCE_META, unlockedFragments } from '../lore';
+import { currentRecruiter, FRAGMENTS, fragmentText, loadSeenLore, markLoreSeen, SOURCE_META, unlockedFragments } from '../lore';
 import type { Fragment, LoreSource } from '../lore';
 import { loadProgress } from '../modes';
 import { activeSave, loadMatches } from '../storage';
@@ -31,6 +31,7 @@ export function ArchiveScreen({ onBack }: { onBack: () => void }) {
   const [seen, setSeen] = useState(loadSeenLore);
   const [source, setSource] = useState<LoreSource | 'all'>('all');
   const [open, setOpen] = useState<Fragment | null>(null);
+  const recruiter = useMemo(currentRecruiter, []);
   // Only sources you have recovered something from: an empty tab would name what is still to come.
   const sources = (Object.keys(SOURCE_META) as LoreSource[]).filter((s) => FRAGMENTS.some((f) => f.source === s && unlocked.has(f.id)));
   const list = FRAGMENTS.filter((f) => source === 'all' || f.source === source);
@@ -79,7 +80,7 @@ export function ArchiveScreen({ onBack }: { onBack: () => void }) {
                   <>
                     <span className="font-display text-sm font-bold text-ink">{f.title}</span>
                     <span className="line-clamp-2 font-serif text-[12px] italic text-ink2">
-                      <LoreText text={f.text.split('\n')[0]} />
+                      <LoreText text={fragmentText(f, recruiter).split('\n')[0]} />
                     </span>
                   </>
                 ) : (
@@ -108,7 +109,7 @@ export function ArchiveScreen({ onBack }: { onBack: () => void }) {
             </div>
             <h2 className="font-display text-lg font-bold">{open.title}</h2>
             <div className="mt-3 space-y-3 font-serif text-[15px] leading-relaxed text-ink">
-              {open.text.split('\n\n').map((para, i) => (
+              {fragmentText(open, recruiter).split('\n\n').map((para, i) => (
                 <p key={i} className="whitespace-pre-line">
                   <LoreText text={para} />
                 </p>

@@ -10,6 +10,8 @@ export default defineConfig({
   plugins: [react(), tailwindcss(), serviceWorker()],
   test: {
     include: ['tests/**/*.test.ts'],
+    // Many tests play whole matches: generous limits so a busy machine gives slow results, not false failures.
+    testTimeout: 30000,
     environment: 'node',
   },
 });

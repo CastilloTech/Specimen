@@ -764,6 +764,36 @@ The story is never explained. It lives in fragments, each from a biased source, 
 - **The Unregistered Handler**, a Hollow handler on nobody's roster, waits on Tower floors 22, 38 and 47. Floors 22 and 38 are also Lineage matches 6 and 8. Her lines change each time you meet her (`OPERATIVE_FLOORS` in `modes.ts`, lines in `lore.json`).
 - **Containment Breach is unchanged:** it stays wave survival against escapees, with no story encounters.
 
+### Engines in the starter decks, Z's integration, the recruiter, and faction voices
+
+- **Every starter deck runs an engine.** One card per Build and World Faction was swapped for a payoff of an engine its enablers already fed:
+
+  | Starter | Payoff added | Card it replaced |
+  |---|---|---|
+  | Predator | Frenzy Gland | Furnace Heart |
+  | Parasite | Siphon Sac | Hooked Limb |
+  | Bastion | Exhaust Bladder | Reflective Carapace |
+  | Corrosion | Hemorrhage Fang | Rot Serum |
+  | Aegis | Mending Carapace | Ironclad Frame |
+  | Miasma | Choking Nexus | Wasting Husk |
+  | Hollow | Hunger Tap | Wraith Touch |
+
+  The choices were tuned over nine 4,000–6,000-match runs. Several other payoffs swung matchups by 10+ points: Rust Bloom lost to Aegis's repairs, and Glutton Tendril crushed Bastion.
+- **Starter balance.** Builds are 46.1–53.9%. World Factions are 48–52% except Corrosion vs Miasma at 57%, since Miasma has no Purge against Bleed payoffs. Before this pass, four World Faction pairs were out of range, including Aegis vs Miasma at 43% and Corrosion vs Hollow at 45%.
+- **Z integrates** (`PlayerSetup.integrates`, the Strain check in `rules.ts`). At each Strain check, if your Specimen is Overclocked or worse, Z absorbs your most worn-down awake graft. Staying Stable keeps it: the story's "settled, not fraying". The pre-match screen states the rule under Z's line.
+  - Against a bot player, Z wins about 3 points more often with the rule than without (the bot ignores it).
+  - A version where Z also healed doubled Z's wins, so `z.integrateHeal` is 0.
+- **The recruiter.** Each save is quietly given the World Faction that recruited its handler, derived from the save's creation time (`recruiterOf` in `lore.ts`). Two records carry clues that differ by faction but never name it:
+  - the Recruitment Memo;
+  - a new record, **Asking Your Recruiter**, which unlocks once you hold the memo and the Unregistered Handler's third account.
+
+  The last record now also needs it, and ends: "one of them signed the memo you were recruited with."
+- **Faction bosses speak.** Tower faction bosses and Lineage Matriarchs have lines before and after the match, in their World Faction's voice.
+- **Engine Jammer** also draws a card.
+- **Fixes.**
+  - The tutorials' stacked decks silently dropped a card when a listed card was no longer in the starter deck.
+  - Tests get a 30-second default timeout, since many play whole matches.
+
 ### UI pass: containment-lab look and quality of life
 
 - **Art direction.** A dim containment-lab look: culture-plate grid background, bioluminescent accent, Chakra Petch display type (Google Fonts; falls back to system fonts offline), hazard tape for Meltdown. Every card has procedural "specimen plate" art (`src/ui/components/CardArt.tsx`), drawn from its type (and a graft's slot), tinted by faction and seeded by card id, so there are no image assets to maintain. Each Specimen is the bio-engineered creature from `src/assets/specimen.jpg` (cropped from the provided concept card art) in a containment tank, mirrored on the left-hand side so the two face each other, with graft sockets placed on its anatomy (helmet, neck cables, chest, resting hand, far forearm, hip; see `POS` in `Specimen.tsx`) and grafts shown as mini plates.

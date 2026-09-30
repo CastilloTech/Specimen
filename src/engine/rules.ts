@@ -993,6 +993,20 @@ export function strainCheck(s: GameState): void {
   const rejecting = ids.filter((p) => s.players[p].strain > T);
   for (const p of rejecting) rejectGraft(s, p);
   if (endIfDead(s)) return;
+  // 3a. Integration (Z): a Specimen that is not settled (Overclocked or worse) loses its most worn-down awake
+  // graft into Z, which heals. Staying Stable is the only defence.
+  for (const p of ids) {
+    const pl = s.players[p];
+    if (!pl.integrates) continue;
+    const o = s.players[other(p)];
+    if (zoneOf(s, o) === 'stable') continue;
+    const g = [...o.grafts].filter((x) => !x.faceDown).sort((a, b) => a.integrity - b.integrity || b.seq - a.seq)[0];
+    if (!g) continue;
+    const card = cardOf(g.cardId);
+    destroyGraft(s, o, g, 'destroyed', pl.name);
+    const h = heal(s, p, cfg.z.integrateHeal, 'integration');
+    logMsg(s, 'wear', p, `${pl.name} integrates ${o.name}'s ${card.name}: their Specimen was not settled${h > 0 ? ` (${pl.name} heals ${h})` : ''}.`);
+  }
   // 3b. End-of-check text (graft "Strain check" abilities)
   for (const p of ids) {
     const pl = s.players[p];

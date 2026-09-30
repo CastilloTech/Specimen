@@ -96,7 +96,7 @@ export function MatchScreen({ setup, settings, onExit, onFinish, label, tutorial
   // A finished match goes into the loaded save's history (once), for the stats and tips on the Save screen.
   const recorded = useRef(false);
   // A named opponent (Z, the Unregistered Handler) speaks before and after; the lines depend on how often you've met.
-  const [encounter] = useState<EncounterLines | null>(() => encounterLines(state.players[1].name, metBefore(loadMatches(), state.players[1].name)));
+  const [encounter] = useState<EncounterLines | null>(() => encounterLines(state.players[1].name, metBefore(loadMatches(), state.players[1].name), state.players[1].worldFaction));
   const [newLore, setNewLore] = useState(0);
   useEffect(() => {
     if (!over || recorded.current) return;
@@ -1066,6 +1066,11 @@ function Intro({ state, encounter, onGo, onExit }: { state: GameState; encounter
       {encounter && (
         <p className="lab-panel rounded-xl border border-amber-400/40 px-3 py-2 font-serif text-[14px] italic leading-snug text-ink phone:py-1.5 phone:text-[12px]">
           <LoreText text={encounter.before} />
+          {state.players.some((p) => p.integrates) && (
+            <span className="mt-1.5 block font-sans text-[12px] not-italic text-amber-200 phone:text-[11px]">
+              <b>Integration:</b> at each Strain check, if your Specimen is Overclocked or worse, {state.players.find((p) => p.integrates)!.name} absorbs your most worn-down awake graft. Stay Stable to hold on to it.
+            </span>
+          )}
         </p>
       )}
       <div className="grid gap-3 sm:grid-cols-2 phone:min-h-0 phone:flex-1 phone:grid-cols-2 phone:gap-2 phone:overflow-y-auto">

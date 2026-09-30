@@ -51,6 +51,7 @@
     "feverCostIncrease": 2,
     "parasiteInfectStrain": 2
   },
+  "z": { "integrateHeal": 0 },
   "stances": {
     "aggressBeatsAdaptBonus": 3,
     "fortifyDamageDivisor": 2,

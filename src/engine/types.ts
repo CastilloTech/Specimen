@@ -307,6 +307,8 @@ export interface PlayerState {
   ai: BotTier;
   /** See PlayerSetup.ventMalus. */
   ventMalus: number;
+  /** See PlayerSetup.integrates. */
+  integrates: boolean;
   /** This Specimen's max HP (config.specimen.hp unless Lineage scars lowered it). */
   maxHp: number;
   /** Lineage mutations: work like extra Chip nodes (see sumLoadoutParam). */
@@ -442,6 +444,8 @@ export interface PlayerSetup {
   ventMalus?: number;
   /** Skip the deck-building rules for this player (the Tower's final boss uses every pool). */
   unrestricted?: boolean;
+  /** Z: at each Strain check, integrates the opponent's most worn-down awake graft if their Specimen is not settled (Stable). */
+  integrates?: boolean;
   /** Lineage scars and mutations: a lower max HP, graft slots that are gone, permanent mutations. */
   maxHp?: number;
   lostSlots?: SlotId[];

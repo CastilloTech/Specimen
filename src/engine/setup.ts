@@ -70,6 +70,7 @@ function makePlayer(id: PlayerId, setup: PlayerSetup, config: Config): PlayerSta
     isBot: !!setup.isBot,
     ai: setup.ai ?? 'basic',
     ventMalus: setup.ventMalus ?? 0,
+    integrates: setup.integrates ?? false,
     maxHp: Math.max(1, Math.min(config.specimen.hp * 2, setup.maxHp ?? config.specimen.hp)),
     mutations: [...(setup.mutations ?? [])],
     loadout: [...setup.loadout],

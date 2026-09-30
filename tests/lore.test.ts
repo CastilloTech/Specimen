@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { CARDS, CHIPS, chipsFor, defaultConfig } from '../src/engine';
 import { startBreach, waveMatch } from '../src/ui/breach';
 import { FLOOR_FOR_MATCH, lineageMatch, startLineage } from '../src/ui/lineage';
-import { CARD_FLAVOR, CHIP_FLAVOR, encounterLines, EVOLUTION_FLAVOR, FRAGMENTS, OPERATIVE_NAME, unlockedFragments, Z_NAME } from '../src/ui/lore';
+import { CARD_FLAVOR, CHIP_FLAVOR, encounterLines, EVOLUTION_FLAVOR, FRAGMENTS, fragmentText, OPERATIVE_NAME, recruiterOf, unlockedFragments, Z_NAME } from '../src/ui/lore';
 import { floorMatch, OPERATIVE_FLOORS, startProgress, TOWER_FLOORS } from '../src/ui/modes';
 import type { Progress } from '../src/ui/modes';
 import type { MatchRecord } from '../src/ui/storage';
@@ -64,6 +64,10 @@ describe('The Archive', () => {
     expect(encounterLines(OPERATIVE_NAME, 0)!.before).not.toBe(encounterLines(OPERATIVE_NAME, 2)!.before);
     expect(encounterLines(OPERATIVE_NAME, 9)).toEqual(encounterLines(OPERATIVE_NAME, 2)); // the last lines repeat
     expect(encounterLines('Floor 3', 0)).toBeNull();
+    // Faction bosses and Lineage Matriarchs speak for their World Faction.
+    expect(encounterLines('Boss: Predator / Aegis', 0, 'aegis')?.before).toMatch(/Aegis champion/);
+    expect(encounterLines('Matriarch of the Vesk Line', 0, 'hollow')?.before).toMatch(/Hollow champion/);
+    expect(encounterLines('Floor 3', 0, 'hollow')).toBeNull();
     // She and Z also wait in the Tower: meeting them there is not a Lineage match.
     expect(meet(3).has('handler_1')).toBe(false);
     expect(unlockedFragments([rec({ opp: 'Pale Leech of Vesk' })], null).has('handler_1')).toBe(true);
@@ -82,6 +86,29 @@ describe('The Archive', () => {
     const p = { ...startProgress('predator', 'corrosion', chipsFor('corrosion')[0].id), tower: { floor: 50, best: TOWER_FLOORS, checkpoint: 50 }, lineagesCompleted: 1 } as Progress;
     const got = unlockedFragments(rs, p);
     expect(FRAGMENTS.filter((f) => !got.has(f.id)).map((f) => f.id)).toEqual([]);
+  });
+});
+
+describe('The recruiter', () => {
+  it('each save gets one of the four World Factions, fixed by when it was created', () => {
+    const seen = new Set(Array.from({ length: 200 }, (_, i) => recruiterOf(1_700_000_000_000 + i * 7919)));
+    expect(seen.size).toBe(4);
+    expect(recruiterOf(1_712_345_678_901)).toBe(recruiterOf(1_712_345_678_901));
+  });
+
+  it('records with a clue carry one for every faction, and the clue replaces the placeholder', () => {
+    const withClues = FRAGMENTS.filter((f) => f.text.includes('{clue}'));
+    expect(withClues.map((f) => f.id).sort()).toEqual(['recruit', 'recruiter_answer']);
+    for (const f of withClues) {
+      expect(Object.keys(f.clues ?? {}).sort()).toEqual(['aegis', 'corrosion', 'hollow', 'miasma']);
+      for (const w of ['aegis', 'corrosion', 'hollow', 'miasma'] as const) {
+        const t = fragmentText(f, w);
+        expect(t).not.toContain('{clue}');
+        expect(t).toContain(f.clues![w]);
+        // A clue hints; it never names the faction.
+        expect(f.clues![w].toLowerCase()).not.toContain(w);
+      }
+    }
   });
 });
 

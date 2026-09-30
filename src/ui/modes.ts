@@ -244,7 +244,7 @@ export function floorMatch(floor: number, runSeed: number, me: ModeDeck, name: s
     isBot: true,
     ai: info.boss === 'final' ? 'search' : info.tier,
     ...(info.twists ? { startEvolution: rng.pick(forms).id } : {}),
-    ...(info.boss === 'final' ? { unrestricted: true } : {}),
+    ...(info.boss === 'final' ? { unrestricted: true, integrates: true } : {}),
   };
   const you: PlayerSetup = { name, faction: me.faction, worldFaction: me.worldFaction, chip: me.chip, loadout: me.loadout, deck: me.cards, ...(info.twists ? { ventMalus: 1 } : {}) };
   const config: DeepPartial<Config> | undefined = info.twists ? { match: { meltdownFromRound: 5 } } : undefined;
