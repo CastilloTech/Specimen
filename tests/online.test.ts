@@ -273,3 +273,41 @@ describe('Multiplayer stats', () => {
     expect(rec).toMatchObject({ games: ['win', 'loss'], result: 'loss', forfeit: 'me' });
   });
 });
+
+describe('The room alarm never spins', () => {
+  // Whenever the room says it must wake, waking must change something (or the next wake must be later):
+  // otherwise the alarm rings, does nothing, and rings again at once, forever (each ring a billed request).
+  const settles = (r: RoomData, label: string) => {
+    for (let i = 0; i < 20; i++) {
+      const w = nextWake(r);
+      if (w === null) return;
+      const changed = tick(r, w, () => 0.5);
+      const next = nextWake(r);
+      expect(changed || next === null || next > w, `${label}: wake at ${w} did nothing and stays due`).toBe(true);
+    }
+  };
+  it('in a room waiting for its second player, after someone left', () => {
+    const r = newRoom('SPINA', 0);
+    join(r, { t: 'join', player: player('Ana', 'predator', 'corrosion') }, 0, Math.random, tok);
+    disconnected(r, 0, 1000);
+    settles(r, 'waiting room');
+    expect(r.seats[0]).toBeNull(); // the seat frees up instead
+  });
+  it('in a queue room that gave up waiting, with someone gone', () => {
+    const r = newRoom('SPINB', 0, ['pa', 'pb']);
+    join(r, { t: 'join', player: player('Ana', 'predator', 'corrosion') }, 0, Math.random, tok, 'pa');
+    disconnected(r, 0, 10);
+    settles(r, 'queue room');
+  });
+  it('mid-game, between games, and after the series, with players gone', () => {
+    const r = fullRoom();
+    disconnected(r, 1, 5);
+    settles(r, 'mid-game');
+    const s = fullRoom();
+    s.state = { ...s.state!, phase: 'over', result: { winner: 0, reason: 'KO' } };
+    settle(s, 0);
+    disconnected(s, 0, 0);
+    settles(s, 'between games');
+    expect(nextWake(r)).toBeNull(); // the series is decided: nothing left to wake for
+  });
+});

@@ -10,7 +10,7 @@ export default defineConfig({
   plugins: [react(), tailwindcss(), serviceWorker()],
   // The match server (server/, run with wrangler) writes its own build output under .wrangler/: not ours to
   // watch or scan, and its files churn while it runs.
-  server: { watch: { ignored: ['**/.wrangler/**', '**/server/**'] } },
+  server: { watch: { ignored: ['**/.wrangler/**'] } },
   optimizeDeps: { entries: ['index.html'] },
   test: {
     include: ['tests/**/*.test.ts'],

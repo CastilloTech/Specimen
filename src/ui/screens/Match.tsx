@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { MutableRefObject, ReactNode } from 'react';
-import { play, useMatchSounds } from '../sfx';
+import { buzz, play, useMatchSounds } from '../sfx';
 import { SoundToggle } from '../components/AudioMenu';
 import { setMusicIntensity, setMusicMood } from '../music';
 import { Coach } from '../components/Coach';
@@ -45,6 +45,8 @@ import type { EmoteEvent, EmoteId, OnlineConn, OnlineStatus, SeriesView } from '
 import { DeadlineChip, EmoteBar, GameBanner, SeriesPips, stakesOf, useAttention, useNow } from '../components/OnlineBits';
 import { SeriesScreen } from './SeriesScreen';
 import { seriesRecord } from '../multiplayer';
+import { matchmaker } from '../matchmaker';
+import { claimOnlineDaily, ONLINE_DAILY_TEXT } from '../onlineDaily';
 import type { TimerView } from '../useMatch';
 import { Flavor } from '../components/Flavor';
 import { IconText } from '../components/EngineIcon';
@@ -101,6 +103,10 @@ interface OnlineInfo {
   emote: EmoteEvent | null;
   /** A stranger from the matchmaking queue. */
   queue: boolean;
+  /** The opponent dropped: when they forfeit (ms), or null. */
+  opponentForfeitAt: number | null;
+  /** When the connection last came back after dropping. */
+  reconnectedAt: number | null;
   onReady: () => void;
   onEmote: (id: EmoteId) => void;
   /** Open the series result now (instead of after the end-of-game moment). */
@@ -112,12 +118,19 @@ interface OnlineInfo {
  * seat may be player 2). Each game gets a fresh board; between games both tap Ready; at the end the series
  * result offers a rematch in the same room.
  */
-export function OnlineMatchScreen({ conn, settings, onExit, onNewRoom }: { conn: OnlineConn; settings: Settings; onExit: () => void; onNewRoom: () => void }) {
+export function OnlineMatchScreen({ conn, settings, onExit, onNewRoom, onFindAnother }: { conn: OnlineConn; settings: Settings; onExit: () => void; onNewRoom: () => void; onFindAnother: () => void }) {
   const pausedRef = useRef(false);
   const game = useOnlineMatch(conn);
   const sv = game.series;
   const [seriesOpen, setSeriesOpen] = useState(false);
   const [kept, setKept] = useState<boolean | null>(null);
+  // In a match: the lounge shows you as playing (no challenges), and requests wait while a game is on.
+  useEffect(() => {
+    matchmaker.setPresence('playing');
+    return () => matchmaker.setQuiet(false);
+  }, []);
+  const live = game.state.phase !== 'over' && !seriesOpen;
+  useEffect(() => matchmaker.setQuiet(live), [live]);
   // A finished series goes into the save once; its result opens after the last game's ending has played.
   useEffect(() => {
     if (!sv.done) return setSeriesOpen(false);
@@ -150,7 +163,13 @@ export function OnlineMatchScreen({ conn, settings, onExit, onNewRoom }: { conn:
           onNewRoom();
         }}
         onMenu={leave}
+        onFindAnother={() => {
+          conn.leave();
+          onFindAnother();
+        }}
         stranger={game.queue && game.opponentId ? { id: game.opponentId, code: conn.code } : null}
+        opponentId={game.opponentId}
+        oppProfile={conn.oppProfile}
       />
     );
   return (
@@ -173,6 +192,8 @@ export function OnlineMatchScreen({ conn, settings, onExit, onNewRoom }: { conn:
         nextAt: game.nextAt,
         emote: game.emote,
         queue: game.queue,
+        opponentForfeitAt: game.opponentForfeitAt,
+        reconnectedAt: game.reconnectedAt,
         onReady: () => conn.ready(),
         onEmote: (id) => conn.sendEmote(id),
         onSeries: () => setSeriesOpen(true),
@@ -249,6 +270,7 @@ function MatchView({ setup, settings, onExit, onFinish, label, tutorial, next, g
   // A side goal for this match (none in tutorials), and what the match unlocked, shown on the result.
   const [objective] = useState<Objective | null>(() => (tutorial ? null : pickObjective(state, me, setup.seed)));
   const [objectivePaid, setObjectivePaid] = useState<number | null>(null);
+  const [dailyPaid, setDailyPaid] = useState<number | null>(null);
   const [unlocks, setUnlocks] = useState<string[]>([]);
   const [goals, setGoals] = useState<string[]>([]);
   const [lesson, setLesson] = useState<string | null>(null);
@@ -257,6 +279,13 @@ function MatchView({ setup, settings, onExit, onFinish, label, tutorial, next, g
     recorded.current = true;
     const lore0 = unlockedFragments(loadMatches(), loadProgress());
     recordMatch(online ? { ...matchRecord(state, me), online: true } : matchRecord(state, me));
+    if (online && state.result?.winner === me) {
+      const paid = claimOnlineDaily();
+      if (paid !== null) {
+        setDailyPaid(paid);
+        setTimeout(() => play('objective'), 1900);
+      }
+    }
     if (objective && objectiveDone(objective, state, me)) {
       const p = loadProgress();
       if (p) saveProgress({ ...p, biomass: p.biomass + OBJECTIVE_REWARD, earned: p.earned + OBJECTIVE_REWARD });
@@ -295,6 +324,20 @@ function MatchView({ setup, settings, onExit, onFinish, label, tutorial, next, g
   const mine = state.players[me];
   const theirs = state.players[opp];
   const myDecision = actor === me;
+  // Online, after waiting on a person: a soft cue when the turn comes back to you (a bot answers too fast to need one).
+  const waitedOnThem = useRef(false);
+  useEffect(() => {
+    if (!online || over || !introSeen) return;
+    if (!myDecision) {
+      if (state.phase === 'actions') waitedOnThem.current = true;
+      return;
+    }
+    if (waitedOnThem.current) {
+      waitedOnThem.current = false;
+      play('ready', { gain: 0.6 });
+      buzz(15);
+    }
+  }, [online, over, introSeen, myDecision, state.phase]);
   // Online, with the tab in the background: when the opponent arrives or it's your move, the title blinks and a sound plays.
   useAttention(!!online && ((myDecision && !over) || !introSeen), introSeen ? 'Your move · Specimen' : 'Opponent found · Specimen');
   const myTurn = myDecision && state.phase === 'actions' && !state.window;
@@ -607,6 +650,11 @@ function MatchView({ setup, settings, onExit, onFinish, label, tutorial, next, g
             ◎ {objective.text}: {objectivePaid !== null ? `done${objectivePaid ? ` (+${objectivePaid} biomass)` : ''}` : 'missed'}
           </div>
         )}
+        {dailyPaid !== null && (
+          <div className="mt-1 text-[11px] font-semibold text-emerald-300">
+            ◎ Daily online goal: {ONLINE_DAILY_TEXT}: done{dailyPaid ? ` (+${dailyPaid} biomass)` : ''}
+          </div>
+        )}
         {!compact && unlocks.length > 0 && (
           <div className="mt-1 text-[11px] font-semibold text-amber-200">
             Unlocked: <IconText text={unlocks.join(' · ')} />
@@ -694,13 +742,7 @@ function MatchView({ setup, settings, onExit, onFinish, label, tutorial, next, g
       <ChainFx state={state} me={me} />
       {online && !phone && <EmoteBar me={me} latest={online.emote} onSend={online.onEmote} names={[state.players[0].name, state.players[1].name]} />}
       {online && <GameBanner series={online.series} me={me} oppName={theirs.name} />}
-      {online && (online.status === 'reconnecting' || ((!online.opponentConnected || online.opponentLeft) && !(over && online.series.done))) && (
-        <div className="pointer-events-none fixed inset-x-0 top-12 z-[55] flex justify-center" role="status">
-          <span className="rounded-full border border-amber-400/60 bg-black/85 px-3 py-1 text-xs font-semibold text-amber-200 shadow-lg">
-            {online.status === 'reconnecting' ? 'Connection lost: reconnecting…' : online.opponentLeft ? `${theirs.name} left the series.` : `${theirs.name} disconnected. They have 3 minutes to come back, or they forfeit the series.`}
-          </span>
-        </div>
-      )}
+      {online && <ConnectionNote online={online} theirName={theirs.name} over={over} />}
       {handDrag.ghost}
       {evoPick && evoOffer && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-2 sm:items-center" onClick={() => setEvoPick(false)}>
@@ -1429,6 +1471,34 @@ function DetailSheet({ detail, state, me, myTurn, onClose, onReveal }: { detail:
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Online connection notes: your connection dropping (and a short "reconnected" when it's back), or the
+ * opponent's, with the time they have left before they forfeit the series.
+ */
+function ConnectionNote({ online, theirName, over }: { online: OnlineInfo; theirName: string; over: boolean }) {
+  const now = useNow(1000, online.opponentForfeitAt !== null || online.reconnectedAt !== null);
+  const justBack = online.status === 'playing' && online.reconnectedAt !== null && now - online.reconnectedAt < 2500;
+  const forfeitIn = online.opponentForfeitAt === null ? null : Math.max(0, Math.ceil((online.opponentForfeitAt - now) / 1000));
+  const theirsDown = (!online.opponentConnected || online.opponentLeft) && !(over && online.series.done);
+  if (online.status !== 'reconnecting' && !theirsDown && !justBack) return null;
+  const text =
+    online.status === 'reconnecting'
+      ? 'Connection lost: reconnecting…'
+      : justBack && !theirsDown
+        ? 'Reconnected ✓'
+        : online.opponentLeft
+          ? `${theirName} left the series.`
+          : forfeitIn !== null
+            ? `${theirName} disconnected: they forfeit the series in ${Math.floor(forfeitIn / 60)}:${String(forfeitIn % 60).padStart(2, '0')} unless they come back.`
+            : `${theirName} disconnected.`;
+  const good = justBack && !theirsDown && online.status !== 'reconnecting';
+  return (
+    <div className="pointer-events-none fixed inset-x-0 top-12 z-[55] flex justify-center" role="status">
+      <span className={`pop rounded-full border bg-black/85 px-3 py-1 text-xs font-semibold shadow-lg tabular-nums ${good ? 'border-accent/60 text-accent' : 'border-amber-400/60 text-amber-200'}`}>{text}</span>
     </div>
   );
 }

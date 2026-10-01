@@ -7,12 +7,17 @@ import { rivalLine } from '../multiplayer';
 import type { EmoteEvent, EmoteId, OnlineStatus, SeriesView } from '../online';
 import { buzz, play } from '../sfx';
 import { loadSeries } from '../storage';
-import { block, deviceId, isBlocked } from '../device';
+import { block, deviceId, isBlocked, isFriend, keepSearching } from '../device';
+import { matchmaker } from '../matchmaker';
+import { useNow } from '../components/OnlineBits';
+import { ProfileCard } from '../components/ProfileCard';
+import type { Profile } from '../matchmaker';
 import { SERVER_URL } from '../online';
 
 /**
- * The end of a best-of-3: who took it, game by game, where you stand against this person overall, and a
- * one-tap rematch in the same room (both tap it and game 1 starts, no new code to share).
+ * The end of a best-of-3: who took it, game by game, where you stand against this person overall, then the
+ * goodbye: GG and Rematch side by side (both tap Rematch and game 1 starts in the same room), Add friend, or
+ * Find another (straight back into the queue; on its own after a few seconds with "keep searching" on).
  */
 export function SeriesScreen({
   series,
@@ -27,7 +32,10 @@ export function SeriesScreen({
   onEmote,
   onNewRoom,
   onMenu,
+  onFindAnother,
   stranger,
+  opponentId,
+  oppProfile,
 }: {
   series: SeriesView;
   state: GameState;
@@ -42,8 +50,13 @@ export function SeriesScreen({
   onEmote: (id: EmoteId) => void;
   onNewRoom: () => void;
   onMenu: () => void;
-  /** A stranger from the queue: Block and Report are offered. */
+  /** Back into the lounge's queue at once. */
+  onFindAnother: () => void;
+  /** A stranger from the lounge: Block and Report are offered. */
   stranger?: { id: string; code: string } | null;
+  /** The opponent's public id (for Add friend). */
+  opponentId?: string | null;
+  oppProfile?: Profile | null;
 }) {
   const opp = (1 - me) as PlayerId;
   const names: [string, string] = [state.players[0].name, state.players[1].name];
@@ -119,39 +132,23 @@ export function SeriesScreen({
         </div>
       </section>
 
+      <Goodbye me={me} oppName={oppName} emote={emote} onEmote={onEmote} canRematch={canRematch} iWant={iWant} theyWant={theyWant} opponentConnected={opponentConnected} onRematch={onRematch} opponentId={opponentId ?? null} oppProfile={oppProfile ?? null} />
+
       <section className="flex flex-col gap-2" aria-live="polite">
+        <NextUp paused={iWant || theyWant} onFindAnother={onFindAnother} />
         {!canRematch ? (
           <p className="rounded-lg border border-line bg-black/30 p-2 text-center text-sm text-ink2">{names[opp]} left the room.</p>
-        ) : theyWant && !iWant ? (
-          <p className="turn-glow rounded-lg border border-accent bg-accent/10 p-2 text-center font-display text-sm font-bold text-accent">{names[opp]} wants a rematch!</p>
-        ) : iWant ? (
-          <p className="rounded-lg border border-line bg-black/30 p-2 text-center text-sm text-ink2">
-            Rematch asked. Waiting for {names[opp]}
-            <span className="animate-pulse">…</span>
-            {!opponentConnected && <span className="block text-[11px] text-amber-200">{names[opp]} is offline right now.</span>}
-          </p>
         ) : null}
         <div className="flex gap-2">
           <button onClick={onMenu} className="rounded-xl bg-panel2 px-4 py-3 text-sm font-semibold">
             Menu
           </button>
           <button onClick={onNewRoom} className="rounded-xl border border-line px-3 py-3 text-sm text-ink2">
-            {stranger ? 'New opponent' : 'New room'}
+            Lounge
           </button>
-          {canRematch && (
-            <button
-              onClick={() => {
-                play('ready');
-                onRematch();
-              }}
-              disabled={iWant}
-              autoFocus
-              data-primary
-              className={`flex-1 rounded-xl px-4 py-3 font-display text-base font-bold text-black disabled:opacity-60 ${theyWant && !iWant ? 'turn-glow bg-accent' : 'bg-accent'}`}
-            >
-              {iWant ? 'Rematch asked' : theyWant ? 'Accept rematch ▶' : 'Rematch ▶'}
-            </button>
-          )}
+          <button onClick={onFindAnother} className="flex-1 rounded-xl border-2 border-accent px-4 py-3 font-display text-base font-bold text-accent">
+            Find another ▶
+          </button>
         </div>
       </section>
       {stranger && <StrangerTools id={stranger.id} code={stranger.code} name={oppName} onBlocked={onNewRoom} />}
@@ -182,6 +179,7 @@ function StrangerTools({ id, code, name, onBlocked }: { id: string; code: string
             onClick={() => {
               if (!window.confirm(`Block ${name}? You'll never be matched with them again, and this series ends here.`)) return;
               block(id, name);
+              matchmaker.refreshBlocked();
               setBlocked(true);
               onBlocked();
             }}
@@ -206,5 +204,99 @@ function StrangerTools({ id, code, name, onBlocked }: { id: string; code: string
         </div>
       )}
     </section>
+  );
+}
+
+/** The goodbye: GG and Rematch side by side, each showing what the other player did; and Add friend. */
+function Goodbye({ me, oppName, emote, onEmote, canRematch, iWant, theyWant, opponentConnected, onRematch, opponentId, oppProfile }: { me: PlayerId; oppName: string; emote: EmoteEvent | null; onEmote: (id: EmoteId) => void; canRematch: boolean; iWant: boolean; theyWant: boolean; opponentConnected: boolean; onRematch: () => void; opponentId: string | null; oppProfile: Profile | null }) {
+  const [mountedAt] = useState(() => Date.now());
+  const [saidGG, setSaidGG] = useState(false);
+  const [asked, setAsked] = useState(false);
+  const theyGG = !!emote && emote.seat !== me && emote.id === 'gg' && emote.at >= mountedAt;
+  const [theySaidGG, setTheySaidGG] = useState(false);
+  useEffect(() => {
+    if (theyGG) setTheySaidGG(true);
+  }, [theyGG]);
+  const friend = isFriend(opponentId);
+  return (
+    <section className="flex flex-col gap-2">
+      {oppProfile && <ProfileCard p={oppProfile} className="rounded-xl bg-black/25 px-3 py-2" />}
+      <div className="grid grid-cols-2 gap-2">
+        <div className="flex flex-col gap-1">
+          <button
+            onClick={() => {
+              onEmote('gg');
+              setSaidGG(true);
+            }}
+            disabled={saidGG || !canRematch}
+            className="rounded-xl border border-line bg-panel2 px-3 py-3 font-display text-base font-bold disabled:opacity-60"
+          >
+            🤝 {saidGG ? 'GG sent' : 'GG'}
+          </button>
+          <span className={`min-h-4 text-center text-[11px] ${theySaidGG ? 'font-semibold text-accent' : 'text-mute'}`}>{theySaidGG ? `${oppName}: GG` : ''}</span>
+        </div>
+        <div className="flex flex-col gap-1">
+          {canRematch ? (
+            <button
+              onClick={() => {
+                play('ready');
+                onRematch();
+              }}
+              disabled={iWant}
+              autoFocus
+              data-primary
+              className={`rounded-xl px-3 py-3 font-display text-base font-bold text-black disabled:opacity-60 ${theyWant && !iWant ? 'turn-glow bg-accent' : 'bg-accent'}`}
+            >
+              {iWant ? 'Rematch asked' : theyWant ? 'Accept rematch ▶' : 'Rematch?'}
+            </button>
+          ) : (
+            <span className="rounded-xl border border-line px-3 py-3 text-center text-sm text-mute">No rematch</span>
+          )}
+          <span className={`min-h-4 text-center text-[11px] ${theyWant ? 'font-semibold text-accent' : 'text-mute'}`}>
+            {theyWant ? `${oppName} wants a rematch` : iWant ? `waiting for ${oppName}…` : ''}
+            {iWant && !opponentConnected && <span className="block text-amber-200">{oppName} is offline right now.</span>}
+          </span>
+        </div>
+      </div>
+      {opponentId && !friend && (
+        <button
+          onClick={() => {
+            matchmaker.befriend(opponentId);
+            setAsked(true);
+          }}
+          disabled={asked}
+          className="self-center rounded-lg border border-sky-400/60 px-3 py-1.5 text-xs font-semibold text-sky-200 disabled:opacity-60"
+        >
+          {asked ? `Friend request sent to ${oppName}` : `★ Add ${oppName} as a friend`}
+        </button>
+      )}
+      {friend && <span className="self-center text-[11px] text-sky-300">★ {oppName} is your friend</span>}
+    </section>
+  );
+}
+
+/** With "keep searching after each series" on: back into the queue after a few seconds, unless a rematch is in the air. */
+function NextUp({ paused, onFindAnother }: { paused: boolean; onFindAnother: () => void }) {
+  const [on, setOn] = useState(keepSearching);
+  const [from] = useState(() => Date.now());
+  const now = useNow(500, on && !paused);
+  const left = Math.max(0, 12 - Math.floor((now - from) / 1000));
+  useEffect(() => {
+    if (on && !paused && left === 0) onFindAnother();
+  }, [on, paused, left, onFindAnother]);
+  if (!on) return null;
+  return (
+    <p className="flex items-center justify-center gap-2 rounded-lg border border-accent/40 bg-accent/5 p-2 text-center text-xs text-ink2" role="timer">
+      {paused ? (
+        'The next search waits while a rematch is asked.'
+      ) : (
+        <span>
+          Finding your next opponent in <b className="tabular-nums text-accent">{left}s</b>
+        </span>
+      )}
+      <button onClick={() => setOn(false)} className="rounded border border-line px-2 py-0.5 text-[11px]">
+        Stay here
+      </button>
+    </p>
   );
 }

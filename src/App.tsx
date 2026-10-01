@@ -1,7 +1,8 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { play } from './ui/sfx';
 import { UpdateToast } from './ui/components/AppPrompts';
 import { QueueBeacon } from './ui/components/QueueBeacon';
+import { matchmaker } from './ui/matchmaker';
 import type { GameState, MatchSetup, PlayerId } from './engine';
 import type { OnlineConn } from './ui/online';
 import type { TowerOutcome } from './ui/screens/TowerScreen';
@@ -148,6 +149,10 @@ function Screens() {
     return () => document.removeEventListener('pointerdown', onDown);
   }, []);
   const menu = () => setScreen({ name: 'menu' });
+  const toLounge = useCallback(() => setScreen({ name: 'online' }), []);
+  // In online play (the lounge or a match), stay connected to the lounge: friends see you, challenges reach you.
+  const inOnline = screen.name === 'online' || screen.name === 'onlineMatch';
+  useEffect(() => (inOnline ? matchmaker.watch() : undefined), [inOnline]);
   const quick = () => setScreen({ name: 'match', setup: quickBotSetup(), run: Date.now(), label: 'Quick match' });
   /** Start a Game Mode's next match directly, or open its screen when something needs doing there first. */
   const playMode = (kind: ModeKind) => {
@@ -255,7 +260,7 @@ function Screens() {
       <div key={key} className={transition.current.cls}>
         {renderScreen()}
       </div>
-      <QueueBeacon show={screen.name !== 'online' && screen.name !== 'onlineMatch'} onJoin={() => setScreen({ name: 'online' })} />
+      <QueueBeacon where={screen.name === 'online' ? 'lounge' : screen.name === 'onlineMatch' ? 'match' : 'away'} onJoin={toLounge} />
     </>
   );
 
@@ -337,9 +342,20 @@ function Screens() {
       case 'replay':
         return <ReplayScreen replay={screen.replay} shared={screen.shared} startAt={screen.startAt} onBack={() => setScreen(screen.back)} />;
       case 'online':
-        return <OnlineScreen initialCode={screen.code} onBack={menu} onStart={(conn) => setScreen({ name: 'onlineMatch', conn })} onBotWait={quick} />;
+        return <OnlineScreen initialCode={screen.code} onBack={menu} onStart={(conn) => setScreen({ name: 'onlineMatch', conn })} onDecks={() => setScreen({ name: 'decks' })} />;
       case 'onlineMatch':
-        return <OnlineMatchScreen conn={screen.conn} settings={settings} onExit={menu} onNewRoom={() => setScreen({ name: 'online' })} />;
+        return (
+          <OnlineMatchScreen
+            conn={screen.conn}
+            settings={settings}
+            onExit={menu}
+            onNewRoom={toLounge}
+            onFindAnother={() => {
+              matchmaker.find();
+              toLounge();
+            }}
+          />
+        );
       case 'archive':
         return <ArchiveScreen onBack={menu} />;
       case 'guide':

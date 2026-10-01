@@ -1,6 +1,7 @@
 import type { Action, GameState, MatchSetup, PlayerId, PlayerSetup } from '../engine';
 import type { EmoteId, SeriesView } from '../../server/room';
 import { deviceId } from './device';
+import type { Profile } from '../../server/lobby';
 
 export type { EmoteId, GameResult, SeriesView } from '../../server/room';
 export { BEST_OF, EMOTES, WINS_NEEDED } from '../../server/room';
@@ -41,6 +42,8 @@ export interface OnlineView {
   /** The opponent's public id (for Block / Report), and whether they're a stranger from the queue. */
   opponentId: string | null;
   queue: boolean;
+  /** The opponent dropped: when they forfeit (this device's clock, ms), or null. */
+  opponentForfeitAt: number | null;
   series: SeriesView;
   /** When the current decision times out, on this device's clock (ms), or null. */
   deadlineAt: number | null;
@@ -58,7 +61,7 @@ export interface EmoteEvent {
 type ServerMsg =
   | { t: 'joined'; seat: PlayerId; token: string; code: string }
   | { t: 'waiting'; code: string }
-  | { t: 'state'; state: GameState; seat: PlayerId; setup?: MatchSetup; opponentConnected: boolean; opponentLeft: boolean; series: SeriesView; deadlineIn: number | null; opponentId?: string | null; queue?: boolean }
+  | { t: 'state'; state: GameState; seat: PlayerId; setup?: MatchSetup; opponentConnected: boolean; opponentLeft: boolean; series: SeriesView; deadlineIn: number | null; opponentId?: string | null; queue?: boolean; opponentGoneIn?: number | null; logFrom?: number; logTail?: GameState['log'] }
   | { t: 'noshow' }
   | { t: 'emote'; seat: PlayerId; id: EmoteId }
   | { t: 'error'; message: string }
@@ -91,6 +94,11 @@ export class OnlineConn {
   status: OnlineStatus = 'connecting';
   view: OnlineView | null = null;
   error: string | null = null;
+  /** Profile cards, when the lounge made this match (for the VS moment and the series result). */
+  oppProfile: Profile | null = null;
+  myProfile: Profile | null = null;
+  /** The queue made this match (a no-show sends you back into the queue). */
+  wasQueue = false;
   /** The latest reaction (either player's). */
   emote: EmoteEvent | null = null;
   private ws: WebSocket | null = null;
@@ -99,12 +107,29 @@ export class OnlineConn {
   private closedByUs = false;
   private ping: ReturnType<typeof setInterval> | null = null;
 
+  /** Which game the current view belongs to (compact updates only apply within one game). */
+  private viewKey = '';
+  /** When the connection last came back after dropping (for a short "reconnected" note). */
+  reconnectedAt: number | null = null;
+  private wasDown = false;
+  private wake = () => {
+    // The phone woke up, or the network came back: reconnect now rather than at the next retry.
+    if (document.visibilityState === 'visible' && this.status === 'reconnecting' && this.ws?.readyState !== WebSocket.CONNECTING) {
+      this.retries = 0;
+      this.open();
+    }
+  };
+
   constructor(
     code: string,
     private player: Omit<PlayerSetup, 'isBot' | 'ai'>,
   ) {
     this.code = code;
     this.open();
+    if (typeof window !== 'undefined') {
+      window.addEventListener('online', this.wake);
+      document.addEventListener('visibilitychange', this.wake);
+    }
   }
 
   /** Be told about any change (status, a new view, an error). Returns the unsubscribe. */
@@ -117,6 +142,8 @@ export class OnlineConn {
   }
 
   private open() {
+    // Already connecting or connected (a scheduled retry and a wake-up can race).
+    if (this.ws && this.ws.readyState <= WebSocket.OPEN) return;
     const url = `${SERVER_URL.replace(/^http/, 'ws')}/rooms/${this.code}`;
     const ws = new WebSocket(url);
     this.ws = ws;
@@ -128,7 +155,7 @@ export class OnlineConn {
       } catch {
         /* no session storage */
       }
-      ws.send(JSON.stringify(token ? { t: 'join', token, player: this.player } : { t: 'join', player: this.player, device: deviceId() }));
+      ws.send(JSON.stringify(token ? { t: 'join', token, player: this.player, slim: true } : { t: 'join', player: this.player, device: deviceId(), slim: true }));
       // Keep the connection alive through proxies that drop idle sockets.
       if (this.ping) clearInterval(this.ping);
       this.ping = setInterval(() => ws.readyState === WebSocket.OPEN && ws.send(JSON.stringify({ t: 'ping' })), 25_000);
@@ -151,6 +178,21 @@ export class OnlineConn {
       }
       else if (m.t === 'state') {
         const now = Date.now();
+        // A compact update: the rules and the log so far are the ones already here.
+        const key = `${m.series?.n}-${m.series?.game}`;
+        if (m.logFrom !== undefined) {
+          const prev = this.view?.state;
+          if (!prev || this.viewKey !== key || prev.log.length < m.logFrom) {
+            ws.send(JSON.stringify({ t: 'resync' }));
+            return;
+          }
+          m.state = { ...m.state, config: prev.config, log: [...prev.log.slice(0, m.logFrom), ...(m.logTail ?? [])] };
+        }
+        this.viewKey = key;
+        if (this.wasDown) {
+          this.wasDown = false;
+          this.reconnectedAt = now;
+        }
         // A server from before series existed: treat the room as a single game.
         m.series ??= { n: 1, bestOf: 1, game: 1, games: [], wins: [0, 0], done: m.state.phase === 'over', winner: m.state.result?.winner ?? null, forfeit: null, ready: [false, false], nextIn: null };
         m.deadlineIn ??= null;
@@ -163,6 +205,7 @@ export class OnlineConn {
           opponentLeft: m.opponentLeft,
           opponentId: m.opponentId ?? null,
           queue: !!m.queue,
+          opponentForfeitAt: m.opponentGoneIn == null ? null : now + m.opponentGoneIn,
           series: m.series,
           deadlineAt: m.deadlineIn === null ? null : now + m.deadlineIn,
           nextAt: m.series.nextIn === null ? null : now + m.series.nextIn,
@@ -182,6 +225,7 @@ export class OnlineConn {
       }
       // Try again, waiting a little longer each time (up to ~10 s).
       this.status = 'reconnecting';
+      this.wasDown = true;
       this.emit();
       const wait = Math.min(10_000, 500 * 2 ** this.retries++);
       setTimeout(() => !this.closedByUs && this.open(), wait);
@@ -225,6 +269,8 @@ export class OnlineConn {
 
   close() {
     this.closedByUs = true;
+    window.removeEventListener('online', this.wake);
+    document.removeEventListener('visibilitychange', this.wake);
     if (this.ping) clearInterval(this.ping);
     this.ws?.close();
   }

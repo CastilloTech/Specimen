@@ -915,17 +915,22 @@ Play a friend online with a 5-letter room code or an invite link (`#room=ABCDE`)
     - "Ana wants a rematch!" when they ask first;
     - one-tap Rematch, New room or Menu.
   - **Rejoin:** after a reload, the menu's online button becomes "Rejoin ABCDE".
-- **Strangers: the casual queue** (no ranks yet). Online screen → **Against a stranger** → **Find an opponent**.
-  - **Lobby** (`server/lobby.ts`, the `Lobby` Durable Object in `server/worker.ts`): one lobby for everyone. Whoever has waited longest is matched first, never with someone either player blocked. It makes a room only those two can join and sends each of them its code; the series then plays exactly like a friend room. The queue lives on the sockets themselves, so it survives the lobby sleeping.
-  - **No accounts.** Each device makes a random private id once (`src/ui/device.ts`). The server only ever shows others a hash of it (`pubOf`), which is what Block and Report point at.
-  - **Names** (`server/names.ts`, shared by the game for instant feedback). Friend rooms keep the save's name as it is. Strangers see a separate online name, picked once (suggested from the save's name, changeable). The server checks it:
-    - 3–16 characters: letters (accents allowed), numbers, spaces and `_ . ' -`;
-    - no links or social handles;
-    - reserved names (Z, the Handler, Admin, Moderator, Specimen…);
-    - a word filter that reads through spacing, repeats, accents and look-alikes ("f u c k", "sh1t"), with short words matched only whole so names like Classy, Peacock, Torpedo or Shinigami pass. Scunthorpe does not.
-  - **Waiting:** a radar with the time, how many others are searching, and matches made in the last hour. After 30 s: **Play a bot while you wait**. You stay queued; a pill shows the search goes on, and when someone is found a call-up offers **Join** (25 s) or **Not now**. Turning a match down calls the room off at once, and the other player goes back to the queue, keeping their place.
-  - **Block / Report** on a stranger series' result. Blocks are kept on the device and sent with each search. Reports go to the server's logs (Workers observability) for review.
-  - **Walking out of strangers' series:** 2 a day are free, then each adds 5 minutes before you can search again (up to 30). Friend rooms are never affected.
+- **Lounges of 10** (`OnlineScreen.tsx`; the `Lobby` Durable Object in `server/worker.ts`, rules in `server/lobby.ts`). **Play online** shows the lounges and how full they are: tap **Random lounge** (one that already has people and room, else a new one) or pick any lounge that isn't full (or start a new one). **Always go straight to a random lounge** skips the list. **Change lounge** moves you any time. Chat and the players list belong to your lounge; challenges, friends and the random search work across all lounges. A full lounge turns newcomers away; after a dropped connection you go back to your lounge (or a random one if it filled up). An empty lounge forgets its chat.
+  - **First visit:** pick an online name and an emblem; the preview shows your profile card. Friend rooms by code keep the save's name.
+  - **Profile cards** (`ProfileCard.tsx`): emblem, name, current Specimen and series record. They appear in the lounge, on challenges and call-ups, on the VS screen and on the series result.
+  - **Here in Lounge N:** everyone in your lounge, friends first, with their status (searching, in a match). **Challenge** sends a best-of-3 invitation the other player answers **Yes** or **No** within 20 s. Someone who says no can't be challenged by you again for a minute. Nobody in a match can be challenged.
+  - **Random search:** still there (**Find a random opponent**). Whoever has waited longest is matched first, never with someone either player blocked. While searching you can chat, challenge, or go **tune your deck**: you stay queued, a pill says so on every screen, and a call-up offers **Join** or **Not now** when someone is found. Turning it down sends the other player straight back to the queue, keeping their place. (The old "play a bot while you wait" is gone.)
+  - **Chat** (free text, last 60 messages kept on the server):
+    - the filter (`cleanChat` in `server/names.ts`) blanks bad words (spelled out or stretched too), and removes links, social handles, emails and phone numbers;
+    - at most 4 messages in 8 s;
+    - tap a name to challenge, add as a friend, block or report (a report carries the actual message);
+    - reported by 3 different players within an hour: muted in chat for an hour;
+    - chat can be hidden; challenges and search still work.
+  - **Friends** (kept on each device, `src/ui/device.ts`): **Add friend** from the lounge or after a series; the other player accepts or declines. Friends in your lounge are listed first; friends in other lounges are listed with theirs (**Go there**, or **Challenge** from where you are); offline ones are greyed. The menu's **Play online** shows "N friends on" (`GET /presence`, which also says which lounge).
+  - **Blocks** hide a player's messages, stop them challenging you and keep you apart in the queue (kept on the device, sent to the lounge).
+  - Strangers' rooms: only the two matched players may join, under checked names. Walking out of strangers' series: 2 a day are free, then each adds 5 minutes before you can search again (up to 30). No accounts: each device has a random private id, shown to others only as a hash (`pubOf`).
+- **After a series** (`SeriesScreen.tsx`): **GG** and **Rematch?** side by side, each showing what the other player did; **Add friend**; **Find another** (straight back into the search). With **Keep searching after each series** on, the next search starts by itself after 12 s unless a rematch is asked (or you tap **Stay here**).
+- **Daily online goal** (`src/ui/onlineDaily.ts`): win one online game a day for 30 biomass (with Game Modes started). Shown on your card in the lounge and on the game's result.
 - **Multiplayer stats** (Saves → Multiplayer, `MultiplayerStats.tsx`, `src/ui/multiplayer.ts`):
   - **Records:** each finished series is recorded in the loaded save (`SeriesRecord`, once per room and series). Online games are also tagged in the match records (`online: true`).
   - **Totals:** series and game records, the current and best streak, and deciding games won, plus sweeps and comebacks.
@@ -953,6 +958,23 @@ Play a friend online with a 5-letter room code or an invite link (`#room=ABCDE`)
   - `npm run server:check`: typechecks the server.
   - `npm run server:deploy`: publishes it (needs `wrangler login`).
   - The deployed address is in `SERVER_URL` (`src/ui/online.ts`), or set by `VITE_MATCH_SERVER`.
+- **Staying inside the free plan.**
+  - Keep-alive pings are answered by Cloudflare itself (`setWebSocketAutoResponse`), so lounges and match rooms sleep between real messages (moves, chat) instead of being woken every 25 s. Without this, one occupied lounge alone would have used most of a day's compute.
+  - A lounge sends changes (`here`, `gone`), not the whole list; the list of lounges and the queue's numbers go out only when they change.
+  - A brief remount of the app (a screen loading) doesn't close the lounge connection: it waits 1.5 s before closing.
+  - **Compact match updates** (`slim` in `server/room.ts`): after the first view of a game, each update leaves out the rules config (it never changes in a game) and the log entries the player already has (the log only grows). A move's update went from about 19 KB to about 6 KB. A client that loses track asks for the whole view again (`resync`); older clients that don't ask for compact updates get whole views.
+  - A match room's alarm is moved only when it must ring sooner (ringing early is harmless), which saves a storage write on almost every move.
+  - Friends' status in the lounge is asked over the lounge connection every 20 s, not by web request (a lounge message costs 1/20 of a request).
+- **Flow in online matches:**
+  - After waiting on a person, a soft cue (sound and a tap of vibration) when the turn comes back to you.
+  - A move is sent once: further taps wait for the server's answer (no doubled moves, no "not your move").
+  - When the phone wakes or the network comes back, the game reconnects at once (not at the next retry), and says "Reconnected ✓".
+  - An opponent who dropped shows a countdown to their forfeit.
+- **Flow in the lounge:**
+  - Someone writing your name gets you a small ping, and the message is highlighted.
+  - On a phone, the Chat tab counts messages that came in while you looked at the players (amber if one names you).
+  - A friend joining your lounge is announced.
+  - **Inactivity:** 10 minutes without a tap or keypress (searching or a challenge out counts as busy) and you leave the lounge, so its seat goes to someone who's there. A minute before, "Still there?" counts down with **I'm here**. The server does the same a minute later for a tab left open and forgotten (a once-a-minute check while anyone is in a lounge).
 - **Free-plan budget** (per day): 100,000 requests, 13,000 GB-s of compute, 5 GB stored. A match is about 150 messages, and the largest view is about 35 KB. Hitting a limit makes requests fail for the rest of the day; it never bills.
 
 ### UI pass: containment-lab look and quality of life

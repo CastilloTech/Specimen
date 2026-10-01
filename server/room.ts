@@ -89,7 +89,10 @@ export type EmoteId = (typeof EMOTES)[number];
 
 // Client → server.
 export type ClientMsg =
-  | { t: 'join'; token?: string; player?: Omit<PlayerSetup, 'isBot' | 'ai'>; device?: string }
+  /** `slim`: this client takes compact updates (see `slim`). */
+  | { t: 'join'; token?: string; player?: Omit<PlayerSetup, 'isBot' | 'ai'>; device?: string; slim?: boolean }
+  /** The client lost track of a compact update: send the whole view again. */
+  | { t: 'resync' }
   | { t: 'act'; action: Action }
   | { t: 'ready' }
   | { t: 'leave' }
@@ -112,6 +115,11 @@ export type ServerMsg =
       /** The opponent's public id (for Block / Report), and whether this is a stranger from the queue. */
       opponentId: string | null;
       queue: boolean;
+      /** The opponent dropped: ms until they forfeit the series, or null. */
+      opponentGoneIn?: number | null;
+      /** Compact update: `state` comes without `config` and `log`; the log continues from entry `logFrom` with `logTail`. */
+      logFrom?: number;
+      logTail?: GameState['log'];
     }
   | { t: 'noshow' }
   | { t: 'emote'; seat: PlayerId; id: EmoteId }
@@ -183,8 +191,31 @@ export function viewFor(r: RoomData, seat: PlayerId, now = 0): ServerMsg | null 
     deadlineIn: r.deadline === null ? null : Math.max(0, r.deadline - now),
     opponentId: opp?.pub ?? null,
     queue: !!r.queue,
+    opponentGoneIn: opp && opp.goneAt !== null && !opp.left && !r.series.done ? Math.max(0, opp.goneAt + ABANDON_MS - now) : null,
   };
 }
+
+/** What a client already has of the current game: which game, and how many log entries. */
+export interface Sent {
+  key: string;
+  log: number;
+}
+
+/**
+ * A view made compact for a client that already has this game's start: the rules config (never changes in a
+ * game) and the log entries it has (the log only grows) are left out, so each update carries a few KB instead
+ * of the whole match so far. The first view of a game, and the end of each game, go out whole.
+ */
+export function slim(v: ServerMsg, sent: Sent | null, key: string): { msg: ServerMsg; sent: Sent | null } {
+  if (v.t !== 'state') return { msg: v, sent };
+  const n = v.state.log.length;
+  if (v.state.phase === 'over' || !sent || sent.key !== key || sent.log > n) return { msg: v, sent: { key, log: n } };
+  const { log, config: _config, ...rest } = v.state;
+  return { msg: { ...v, state: rest as GameState, logFrom: sent.log, logTail: log.slice(sent.log) }, sent: { key, log: n } };
+}
+
+/** Which game of which series a room is on (a compact update is only good within one game). */
+export const gameKey = (r: RoomData) => `${r.series.n}-${r.series.game}`;
 
 export interface Outcome {
   /** A reply to the sender only. */
@@ -346,7 +377,18 @@ export function tick(r: RoomData, now: number, rand: () => number = Math.random)
     r.expired = true;
     return true;
   }
-  if (!r.state || r.series.done) return false;
+  // Before the first game, a player gone too long just frees their seat (there's nothing to forfeit yet).
+  if (!r.state) {
+    let freed = false;
+    r.seats.forEach((s, i) => {
+      if (s && s.goneAt !== null && now - s.goneAt >= ABANDON_MS) {
+        r.seats[i] = null;
+        freed = true;
+      }
+    });
+    return freed;
+  }
+  if (r.series.done) return false;
   const gone = r.seats.findIndex((s) => s && s.goneAt !== null && now - s.goneAt >= ABANDON_MS);
   if (gone >= 0) {
     forfeit(r, gone as PlayerId, now);
@@ -373,9 +415,13 @@ export function tick(r: RoomData, now: number, rand: () => number = Math.random)
   return false;
 }
 
-/** When the room next needs to wake: the decision deadline, the next game's start, or a dropped player's forfeit time. */
+/**
+ * When the room next needs to wake: the decision deadline, the next game's start, a dropped player's forfeit time
+ * (or, before the first game, the time their seat frees up). Every time returned here must be one `tick` acts on,
+ * or the alarm would ring, find nothing to do, and ring again at once, forever.
+ */
 export function nextWake(r: RoomData): number | null {
-  const forfeits = r.series.done ? [] : r.seats.map((s) => (s && s.goneAt !== null ? s.goneAt + ABANDON_MS : null));
+  const forfeits = r.series.done || r.expired ? [] : r.seats.map((s) => (s && s.goneAt !== null ? s.goneAt + ABANDON_MS : null));
   const times = [r.deadline, r.nextAt, r.state || r.expired ? null : (r.joinBy ?? null), ...forfeits].filter((t): t is number => t !== null);
   return times.length ? Math.min(...times) : null;
 }

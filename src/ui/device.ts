@@ -79,3 +79,72 @@ export function unblock(id: string): void {
   saveBlocked(loadBlocked().filter((b) => b.id !== id));
 }
 export const isBlocked = (id: string | null | undefined) => !!id && loadBlocked().some((b) => b.id === id);
+
+// ---------- Friends (kept on this device; each side keeps its own list) ----------
+
+export interface Friend {
+  /** Their public id. */
+  id: string;
+  name: string;
+  emblem: string;
+  since: number;
+}
+const FRIEND_KEY = 'specimen.friends';
+export function loadFriends(): Friend[] {
+  try {
+    const v = JSON.parse(localStorage.getItem(FRIEND_KEY) ?? '[]') as Friend[];
+    return Array.isArray(v) ? v.filter((f) => f && typeof f.id === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+function saveFriends(list: Friend[]) {
+  try {
+    localStorage.setItem(FRIEND_KEY, JSON.stringify(list.slice(-100)));
+  } catch {
+    /* not kept */
+  }
+}
+export function addFriend(f: { id: string; name: string; emblem: string }): void {
+  const old = loadFriends().find((x) => x.id === f.id);
+  saveFriends([...loadFriends().filter((x) => x.id !== f.id), { id: f.id, name: f.name, emblem: f.emblem, since: old?.since ?? Date.now() }]);
+}
+export function removeFriend(id: string): void {
+  saveFriends(loadFriends().filter((f) => f.id !== id));
+}
+export const isFriend = (id: string | null | undefined) => !!id && loadFriends().some((f) => f.id === id);
+/** Friends change their names: keep the list up to date with what the lounge shows. */
+export function refreshFriend(id: string, name: string, emblem: string): void {
+  const list = loadFriends();
+  const f = list.find((x) => x.id === id);
+  if (f && (f.name !== name || f.emblem !== emblem)) saveFriends(list.map((x) => (x.id === id ? { ...x, name, emblem } : x)));
+}
+
+// ---------- Small online preferences ----------
+
+const pref = (key: string, fallback: string) => {
+  try {
+    return localStorage.getItem(key) ?? fallback;
+  } catch {
+    return fallback;
+  }
+};
+const setPref = (key: string, v: string) => {
+  try {
+    localStorage.setItem(key, v);
+  } catch {
+    /* not kept */
+  }
+};
+/** The emblem on your profile card (a Build or World Faction id), or null for your Specimen's Build. */
+export const loadEmblem = () => pref('specimen.emblem', '') || null;
+export const saveEmblem = (id: string) => setPref('specimen.emblem', id);
+/** After a series, go straight back to searching. */
+export const keepSearching = () => pref('specimen.keepSearching', '0') === '1';
+export const setKeepSearching = (on: boolean) => setPref('specimen.keepSearching', on ? '1' : '0');
+/** Hide the lounge chat (presence, challenges and the queue still work). */
+export const chatHidden = () => pref('specimen.chatHidden', '0') === '1';
+export const setChatHidden = (on: boolean) => setPref('specimen.chatHidden', on ? '1' : '0');
+/** Skip the lounge list and go straight to a random lounge. */
+export const alwaysRandomLounge = () => pref('specimen.randomLounge', '0') === '1';
+export const setAlwaysRandomLounge = (on: boolean) => setPref('specimen.randomLounge', on ? '1' : '0');

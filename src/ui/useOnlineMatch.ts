@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useReducer } from 'react';
+import { useCallback, useEffect, useReducer, useRef } from 'react';
 import { pendingPlayers } from '../engine';
-import type { Action, MatchSetup, PlayerId } from '../engine';
+import type { Action, GameState, MatchSetup, PlayerId } from '../engine';
 import type { OnlineConn } from './online';
 import type { TimerView } from './useMatch';
 
@@ -15,7 +15,16 @@ export function useOnlineMatch(conn: OnlineConn) {
   const view = conn.view!;
   const me: PlayerId = view.seat;
   const state = view.state;
-  const dispatch = useCallback((a: Action) => conn.send(a), [conn]);
+  // A move is on its way: further taps wait for the server's answer (no doubled moves, no "not your move").
+  const sentFor = useRef<GameState | null>(null);
+  const dispatch = useCallback(
+    (a: Action) => {
+      if (sentFor.current === conn.view?.state && !conn.error) return;
+      sentFor.current = conn.view?.state ?? null;
+      conn.send(a);
+    },
+    [conn],
+  );
   const actor = state.phase !== 'over' && pendingPlayers(state).includes(me) ? me : undefined;
   // Until the end the real setup (with the seed) stays on the server; the match screen only needs its shape.
   const setup: MatchSetup = view.setup ?? { seed: [...`${conn.code}${view.series.n}${view.series.game}`].reduce((h, ch) => h * 31 + ch.charCodeAt(0), 7) >>> 0, players: [] as unknown as MatchSetup['players'] };
@@ -38,5 +47,7 @@ export function useOnlineMatch(conn: OnlineConn) {
     deadlineAt: view.deadlineAt,
     nextAt: view.nextAt,
     emote: conn.emote,
+    opponentForfeitAt: view.opponentForfeitAt,
+    reconnectedAt: conn.reconnectedAt,
   };
 }

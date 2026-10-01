@@ -13,7 +13,7 @@ export type NameCheck = { ok: true; name: string } | { ok: false; reason: string
 const LEET: Record<string, string> = { '0': 'o', '1': 'i', '3': 'e', '4': 'a', '5': 's', '6': 'g', '7': 't', '8': 'b', '9': 'g', '@': 'a', $: 's', '!': 'i', '|': 'i', '+': 't' };
 
 /** Lower case, accents dropped ("é" → "e"). */
-const fold = (s: string) => s.normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const fold = (s: string) => s.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 /** Letters only, with look-alikes read as letters: "A$$ 1" → "assi". */
 const letters = (s: string) => [...fold(s)].map((c) => LEET[c] ?? c).filter((c) => c >= 'a' && c <= 'z').join('');
 /** Runs of one letter cut to one: "shiiit" → "shit", "ass" → "as". */
@@ -42,6 +42,19 @@ const LINK = /(https?|www\.|:\/\/|\.\s*(com|net|org|gg|io|tv|ly|me|co|xyz|app|li
 const HANDLES = ['discord', 'twitch', 'youtube', 'tiktok', 'instagram', 'insta', 'onlyfans', 'snapchat', 'telegram', 'whatsapp', 'twitter'];
 const ALLOWED = /^[A-Za-z0-9À-ÖØ-öø-ÿ _.'-]+$/;
 
+/**
+ * Whether `w` (a word that's bad even inside a longer one) is in `plain` (a name or word read as letters). A word
+ * without double letters is looked for with the repeats collapsed ("fuuuck"); one with doubles is too, if
+ * collapsing leaves it long enough to be unmistakable ("niiigger" → "niger"), and otherwise as written
+ * (collapsing "nigga" to "niga" would catch "Shinigami").
+ */
+const inside = (plain: string, w: string) => (collapse(w) === w || collapse(w).length >= 5 ? collapse(plain).includes(collapse(w)) : trim3(plain).includes(w));
+/** One word (as typed, punctuation and all) is not fit to show. */
+const badWord = (word: string) => {
+  const p = letters(word);
+  return !!p && (ANYWHERE.some((w) => inside(p, w)) || WHOLE.has(p) || WHOLE.has(trim3(p)));
+};
+
 /** Tidy a typed name: no surrounding spaces, single spaces inside. */
 export const tidyName = (raw: string) => raw.normalize('NFC').replace(/\s+/g, ' ').trim();
 
@@ -65,10 +78,44 @@ export function checkName(raw: unknown): NameCheck {
     .map(letters)
     .filter(Boolean);
   const whole = [...words, plain].flatMap((w) => [w, trim3(w)]);
-  // A word without double letters is looked for with the name's repeats collapsed ("fuuuck"); one with doubles is
-  // too, if collapsing leaves it long enough to be unmistakable ("niiigger" → "niger"), and otherwise as written
-  // (collapsing "nigga" to "niga" would catch "Shinigami").
-  const inside = (w: string) => (collapse(w) === w || collapse(w).length >= 5 ? flat.includes(collapse(w)) : trim3(plain).includes(w));
-  if (ANYWHERE.some(inside) || whole.some((w) => WHOLE.has(w))) return { ok: false, reason: 'That name is not allowed. Pick another.' };
+  if (ANYWHERE.some((w) => inside(plain, w)) || whole.some((w) => WHOLE.has(w))) return { ok: false, reason: 'That name is not allowed. Pick another.' };
   return { ok: true, name };
+}
+
+// ---------- Lounge chat ----------
+
+export const CHAT_MAX = 200;
+export type ChatCheck = { ok: true; text: string } | { ok: false; reason: string };
+
+const URLISH = /^(https?:|www\.|.*\w\.(com|net|org|gg|io|tv|ly|me|co|xyz|app|link|ru|es|mx)(\/|$|[?#:]))/i;
+const EMAIL = /\S+@\S+\.\S+/g;
+// Seven digits or more (phone numbers), allowing spaces, dots, dashes and brackets between them.
+const PHONE = /\+?\d(?:[\s().-]*\d){6,}/g;
+
+/**
+ * A chat message made fit for strangers: links, handles, emails and phone numbers removed (nobody should be
+ * pulled off the game or share how to reach them), bad words blanked out (spelled out letter by letter too), and
+ * the length capped. Messages that are only noise are refused.
+ */
+export function cleanChat(raw: unknown): ChatCheck {
+  if (typeof raw !== 'string') return { ok: false, reason: 'Type a message.' };
+  let text = raw
+    .normalize('NFC')
+    .replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2060-\u206f]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!text) return { ok: false, reason: 'Type a message.' };
+  if (text.length > CHAT_MAX) return { ok: false, reason: `Keep it under ${CHAT_MAX} characters.` };
+  text = text.replace(EMAIL, '[email removed]').replace(PHONE, '[number removed]');
+  let tokens = text.split(' ').map((t) => (URLISH.test(t) || HANDLES.some((h) => letters(t).includes(h)) ? '[link removed]' : badWord(t) ? '•'.repeat(Math.min(6, t.length)) : t));
+  // Spelled out with spaces ("f u c k"): runs of single letters are read as one word.
+  for (let i = 0; i < tokens.length; ) {
+    let j = i;
+    while (j < tokens.length && letters(tokens[j]).length === 1 && tokens[j].length <= 2) j++;
+    if (j - i >= 3 && badWord(tokens.slice(i, j).join(''))) tokens = [...tokens.slice(0, i), '••••', ...tokens.slice(j)];
+    i = Math.max(j, i + 1);
+  }
+  text = tokens.join(' ');
+  if (!/[\p{L}\p{N}\p{Extended_Pictographic}]/u.test(text)) return { ok: false, reason: /•|removed\]/.test(text) ? 'Not sent: nothing would be left after the filter.' : 'Type a message.' };
+  return { ok: true, text };
 }

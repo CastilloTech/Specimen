@@ -1,5 +1,5 @@
 import { InstallCard } from '../components/AppPrompts';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { setTutorialDone, tutorialDone } from '../tutorial';
 import { DIFFICULTY, lastDifficulty, quickTier } from '../picks';
 import { SoundToggle } from '../components/AudioMenu';
@@ -13,6 +13,8 @@ import { DailyCard } from '../components/DailyCard';
 import { loadProgress } from '../modes';
 import { buzz, play } from '../sfx';
 import { lastRoom } from '../online';
+import { loadFriends } from '../device';
+import { friendsOnline } from '../matchmaker';
 
 interface Props {
   onQuick: () => void;
@@ -33,6 +35,15 @@ interface Props {
 export function Menu({ onQuick, onModes, onBot, onSaves, onGuide, onDecks, onTutorial, onArchive, onDaily, onContinue, onOnline }: Props) {
   // A room this tab was seated in (the page was reloaded mid-series): one tap back in.
   const [rejoinCode] = useState(lastRoom);
+  // Friends in online play right now (one quick look when the menu opens).
+  const [friendsOn, setFriendsOn] = useState(0);
+  useEffect(() => {
+    let alive = true;
+    void friendsOnline(loadFriends().map((f) => f.id)).then((on) => alive && setFriendsOn(Object.keys(on).length));
+    return () => {
+      alive = false;
+    };
+  }, []);
   const [progress] = useState(loadProgress);
   // Straight back to what you were doing: a Lineage run, a Breach run, or the next Tower floor.
   const [resume] = useState(() => continueTarget(progress, activeSave()?.meta.name ?? 'You'));
@@ -132,8 +143,9 @@ export function Menu({ onQuick, onModes, onBot, onSaves, onGuide, onDecks, onTut
               <b className="font-display text-ink">Custom match</b>
               <span aria-hidden>›</span>
             </button>
-            <button onClick={onOnline} className={`flex items-center justify-between rounded-lg px-3 py-2 text-left text-sm text-ink2 transition hover:bg-white/5 hover:text-ink phone:py-1 ${rejoinCode ? 'turn-glow border border-accent/60' : ''}`} title="Play a friend online: a best of 3 with a room code">
+            <button onClick={onOnline} className={`flex items-center justify-between rounded-lg px-3 py-2 text-left text-sm text-ink2 transition hover:bg-white/5 hover:text-ink phone:py-1 ${rejoinCode ? 'turn-glow border border-accent/60' : ''}`} title="The lounge: chat, challenge players or search for a best of 3">
               <b className="font-display text-ink">{rejoinCode ? `Rejoin ${rejoinCode}` : 'Play online'}</b>
+              {friendsOn > 0 && !rejoinCode && <span className="ml-1 rounded-full bg-sky-400/20 px-1.5 text-[10px] font-semibold text-sky-200">{friendsOn} friend{friendsOn === 1 ? '' : 's'} on</span>}
               <span aria-hidden>›</span>
             </button>
           </div>
