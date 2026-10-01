@@ -7,7 +7,7 @@ import { duckMusic } from './music';
 // filtered-noise envelopes. The preferences (effects, music, vibration) are per device, in localStorage.
 // The ambient music lives in music.ts and shares this audio context.
 
-export type Sfx = 'click' | 'card' | 'graft' | 'toxin' | 'react' | 'hit' | 'bigHit' | 'strain' | 'reject' | 'evolve' | 'heal' | 'stance' | 'round' | 'win' | 'lose' | 'draw' | 'craft' | 'wake' | 'engine' | 'chain' | 'objective' | 'record' | 'biomass' | 'unlock' | 'land';
+export type Sfx = 'click' | 'card' | 'graft' | 'toxin' | 'react' | 'hit' | 'bigHit' | 'strain' | 'reject' | 'evolve' | 'heal' | 'stance' | 'round' | 'win' | 'lose' | 'draw' | 'craft' | 'wake' | 'engine' | 'chain' | 'objective' | 'record' | 'biomass' | 'unlock' | 'land' | 'found' | 'emote' | 'ready';
 
 /** How one play of a sound differs: pitch and loudness multipliers, and a voice (a faction's) where it has one. */
 export interface SfxOpts {
@@ -259,6 +259,19 @@ export function play(s: Sfx, opts: SfxOpts = {}) {
     case 'craft':
       tone(c, t, 660, 1320, 0.15, 'triangle', 0.15);
       noise(c, t, 0.1, 5000, 1, 0.1, 'highpass');
+      break;
+    case 'found': // an opponent joined: a rising signal lock
+      [0, 0.08, 0.16].forEach((d, i) => tone(c, t + d, [440, 587, 880][i], [466, 622, 932][i], 0.18, 'square', 0.07));
+      tone(c, t + 0.26, 1175, 1175, 0.45, 'triangle', 0.14);
+      noise(c, t + 0.24, 0.25, 6000, 0.8, 0.08, 'highpass');
+      break;
+    case 'emote': // a reaction bubble
+      tone(c, t, 880, 1320, 0.07, 'sine', 0.12);
+      tone(c, t + 0.05, 1320, 1180, 0.08, 'sine', 0.08);
+      break;
+    case 'ready': // you (or they) are ready for the next game
+      tone(c, t, 587, 587, 0.1, 'triangle', 0.13);
+      tone(c, t + 0.08, 880, 880, 0.18, 'triangle', 0.12);
       break;
     case 'wake':
       noise(c, t, 0.2, 1400, 1.5, 0.35);

@@ -10,8 +10,10 @@ import { BackupPanel } from '../components/BackupPanel';
 import { ComboGuide } from '../components/ComboGuide';
 import { FactionMastery } from '../components/FactionMastery';
 import type { MatchRecord, SavedReplay } from '../storage';
-import { createSave, deleteSave, loadDecks, loadLastSetup, loadMatches, loadSaveIndex, renameSave, SAVE_SLOTS, setActiveSave, deleteReplay, loadReplays, MAX_REPLAYS } from '../storage';
+import { createSave, deleteSave, loadDecks, loadLastSetup, loadMatches, loadSeries, loadSaveIndex, renameSave, SAVE_SLOTS, setActiveSave, deleteReplay, loadReplays, MAX_REPLAYS } from '../storage';
 import { IconText } from '../components/EngineIcon';
+import { MultiplayerStats } from '../components/MultiplayerStats';
+import { onlineSummary } from '../multiplayer';
 
 export function SavesScreen({ onBack, onWatch }: { onBack: () => void; onWatch: (r: SavedReplay) => void }) {
   // Storage is the source of truth; bump this to re-read it after a change.
@@ -95,6 +97,14 @@ export function SavesScreen({ onBack, onWatch }: { onBack: () => void; onWatch: 
                 <div className="text-amber-300">
                   ★ {achievementStates(recs).filter((s) => s.unlocked).length}/{ACHIEVEMENTS.length} achievements
                 </div>
+                {(() => {
+                  const o = onlineSummary(loadSeries(slot));
+                  return o.series > 0 ? (
+                    <div className="text-sky-200">
+                      Online: {o.won}–{o.lost} in series{o.tied ? `, ${o.tied} tied` : ''}
+                    </div>
+                  ) : null;
+                })()}
               </div>
               <div className="mt-auto flex gap-1.5 pt-1">
                 {isActive ? (
@@ -125,6 +135,7 @@ export function SavesScreen({ onBack, onWatch }: { onBack: () => void; onWatch: 
 
       {active !== null && <AchievementGallery records={matches} />}
       {active !== null && <FactionMastery records={matches} />}
+      {active !== null && <MultiplayerStats series={loadSeries(active)} matches={matches.filter((m) => m.online)} />}
 
       {active === null ? (
         <div className="lab-panel rounded-xl border border-line p-4 text-sm text-ink2">No save is loaded. You can still play, but decks and picks are kept only as unsaved defaults on this device, and match stats and achievements are not recorded. Create or load a save to track your progress.</div>

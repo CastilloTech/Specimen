@@ -37,7 +37,7 @@ type Screen =
   | { name: 'modes' }
   | { name: 'collection' }
   | { name: 'tower'; last?: TowerOutcome | null }
-  | { name: 'post'; setup: MatchSetup; state: GameState; label?: string; me?: PlayerId; online?: boolean }
+  | { name: 'post'; setup: MatchSetup; state: GameState; label?: string; me?: PlayerId }
   | { name: 'online'; code?: string }
   | { name: 'onlineMatch'; conn: OnlineConn }
   | { name: 'saves' }
@@ -319,12 +319,12 @@ function Screens() {
             setup={screen.setup}
             me={screen.me}
             onMenu={menu}
-            onNext={screen.online ? () => setScreen({ name: 'online' }) : quick}
+            onNext={quick}
             onBuildWith={(cardId) => {
               startDraftWith(cardId);
               setScreen({ name: 'decks' });
             }}
-            onRematch={screen.online ? () => setScreen({ name: 'online' }) : () => setScreen({ name: 'match', setup: { ...screen.setup, seed: Math.floor(Math.random() * 2 ** 31) }, run: Date.now(), label: screen.label })}
+            onRematch={() => setScreen({ name: 'match', setup: { ...screen.setup, seed: Math.floor(Math.random() * 2 ** 31) }, run: Date.now(), label: screen.label })}
             onReplay={(startAt) => setScreen({ name: 'replay', back: screen, replay: replayOf(screen.setup, screen.state, screen.label, screen.me), startAt })}
           />
         );
@@ -334,23 +334,8 @@ function Screens() {
         return <ReplayScreen replay={screen.replay} shared={screen.shared} startAt={screen.startAt} onBack={() => setScreen(screen.back)} />;
       case 'online':
         return <OnlineScreen initialCode={screen.code} onBack={menu} onStart={(conn) => setScreen({ name: 'onlineMatch', conn })} />;
-      case 'onlineMatch': {
-        const conn = screen.conn;
-        return (
-          <OnlineMatchScreen
-            conn={conn}
-            settings={settings}
-            onExit={() => {
-              conn.close();
-              menu();
-            }}
-            onFinish={(state, setup) => {
-              conn.close();
-              setScreen({ name: 'post', setup, state, label: 'Online match', me: conn.seat ?? 0, online: true });
-            }}
-          />
-        );
-      }
+      case 'onlineMatch':
+        return <OnlineMatchScreen conn={screen.conn} settings={settings} onExit={menu} onNewRoom={() => setScreen({ name: 'online' })} />;
       case 'archive':
         return <ArchiveScreen onBack={menu} />;
       case 'guide':

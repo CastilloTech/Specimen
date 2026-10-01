@@ -4,7 +4,7 @@
 import { DurableObject } from 'cloudflare:workers';
 import type { PlayerId } from '../src/engine';
 import type { ClientMsg, Outcome, RoomData, ServerMsg } from './room';
-import { act, disconnected, join, newRoom, nextWake, tick, viewFor } from './room';
+import { act, disconnected, emote, join, leave, newRoom, nextWake, ready, tick, upgrade, viewFor } from './room';
 
 interface Env {
   ROOMS: DurableObjectNamespace<MatchRoom>;
@@ -59,7 +59,10 @@ export class MatchRoom extends DurableObject<Env> {
   private room: RoomData | null = null;
 
   private async load(): Promise<RoomData | null> {
-    if (!this.room) this.room = (await this.ctx.storage.get<RoomData>('room')) ?? null;
+    if (!this.room) {
+      const stored = await this.ctx.storage.get<RoomData>('room');
+      this.room = stored ? upgrade(stored) : null;
+    }
     return this.room;
   }
 
@@ -75,7 +78,7 @@ export class MatchRoom extends DurableObject<Env> {
     for (const ws of this.ctx.getWebSockets()) {
       const seat = seatOf(ws);
       if (seat === undefined) continue;
-      const view = viewFor(this.room, seat);
+      const view = viewFor(this.room, seat, Date.now());
       if (view) send(ws, view);
     }
   }
@@ -83,6 +86,7 @@ export class MatchRoom extends DurableObject<Env> {
   private async apply(ws: WebSocket, out: Outcome): Promise<void> {
     if (out.seat !== undefined) ws.serializeAttachment({ seat: out.seat });
     if (out.reply) send(ws, out.reply);
+    if (out.relay) for (const o of this.ctx.getWebSockets()) if (seatOf(o) !== undefined) send(o, out.relay);
     if (out.broadcast) {
       await this.save();
       this.broadcast();
@@ -117,11 +121,12 @@ export class MatchRoom extends DurableObject<Env> {
     }
     if (msg.t === 'ping') return send(ws, { t: 'pong' });
     if (msg.t === 'join') return this.apply(ws, join(r, msg, Date.now(), Math.random, () => crypto.randomUUID()));
-    if (msg.t === 'act') {
-      const seat = seatOf(ws);
-      if (seat === undefined) return send(ws, { t: 'error', message: 'Join the room first.' });
-      return this.apply(ws, act(r, seat, msg.action, Date.now()));
-    }
+    const seat = seatOf(ws);
+    if (seat === undefined) return send(ws, { t: 'error', message: 'Join the room first.' });
+    if (msg.t === 'act') return this.apply(ws, act(r, seat, msg.action, Date.now()));
+    if (msg.t === 'ready') return this.apply(ws, ready(r, seat, Date.now(), Math.random));
+    if (msg.t === 'leave') return this.apply(ws, leave(r, seat, Date.now()));
+    if (msg.t === 'emote') return this.apply(ws, emote(r, seat, msg.id, Date.now()));
   }
 
   private async gone(ws: WebSocket): Promise<void> {

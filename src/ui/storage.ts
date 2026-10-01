@@ -271,6 +271,8 @@ export interface MatchRecord {
   opp: MatchSide & { hpLeft: number; name?: string };
   ko?: boolean;
   comeback?: boolean;
+  /** Played online against another player (added later). */
+  online?: boolean;
 }
 const MAX_RECORDS = 300;
 export function loadMatches(slot: number | null = loadSaveIndex().active): MatchRecord[] {
@@ -280,6 +282,37 @@ export function recordMatch(rec: MatchRecord): void {
   const slot = loadSaveIndex().active;
   if (slot === null) return;
   write(scoped('matches', slot), [...loadMatches(slot), rec].slice(-MAX_RECORDS));
+}
+
+// ---------- Online series (per save) ----------
+/** One best-of-3 series against another player online. */
+export interface SeriesRecord {
+  /** Room code and series number: the same series is only recorded once. */
+  id: string;
+  at: number;
+  opp: string;
+  oppFaction: Faction;
+  oppWorldFaction: WorldFactionId;
+  faction: Faction;
+  worldFaction: WorldFactionId;
+  /** Each game in order, from your side. */
+  games: ('win' | 'loss' | 'draw')[];
+  result: 'win' | 'loss' | 'draw';
+  /** Someone left before the series was decided. */
+  forfeit?: 'me' | 'opp';
+}
+const MAX_SERIES = 200;
+export function loadSeries(slot: number | null = loadSaveIndex().active): SeriesRecord[] {
+  return slot === null ? [] : read<SeriesRecord[]>(scoped('series', slot), []);
+}
+/** Record a finished series (once per id). Returns whether it was kept (a save is loaded and it's new). */
+export function recordSeries(rec: SeriesRecord): boolean {
+  const slot = loadSaveIndex().active;
+  if (slot === null) return false;
+  const all = loadSeries(slot);
+  if (all.some((r) => r.id === rec.id)) return false;
+  write(scoped('series', slot), [...all, rec].slice(-MAX_SERIES));
+  return true;
 }
 
 // ---------- Game Modes progression (per save; nothing without a loaded save) ----------

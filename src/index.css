@@ -2355,7 +2355,70 @@ body[data-coach='mulligan'] [data-coach-id='mulligan'] {
   animation: screen-in 0.18s ease-out both;
 }
 
+/* ---------- Online play ---------- */
+/* A reaction bubble: pops up, hangs, drifts away. */
+@keyframes emote-bubble {
+  0% { opacity: 0; transform: translateY(8px) scale(0.6); }
+  12% { opacity: 1; transform: translateY(0) scale(1.08); }
+  20% { transform: scale(1); }
+  80% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-10px); }
+}
+.emote-bubble {
+  animation: emote-bubble 2.6s ease-out both;
+}
+/* Waiting for an opponent: a radar sweep with pings. */
+@keyframes radar-ping {
+  0% { transform: scale(0.3); opacity: 0.9; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+.radar-ping {
+  animation: radar-ping 2.2s ease-out infinite;
+}
+.radar-ping-2 {
+  animation-delay: 1.1s;
+}
+/* Opponent found: the two names slam in from the sides. */
+@keyframes vs-left {
+  from { opacity: 0; transform: translateX(-40px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes vs-right {
+  from { opacity: 0; transform: translateX(40px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes vs-mid {
+  0% { opacity: 0; transform: scale(2.2); }
+  60% { opacity: 1; transform: scale(0.9); }
+  100% { transform: scale(1); }
+}
+.vs-left { animation: vs-left 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
+.vs-right { animation: vs-right 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.2) 0.08s both; }
+.vs-mid { animation: vs-mid 0.4s ease-out 0.25s both; }
+/* A series pip filling in. */
+@keyframes pip-fill {
+  0% { transform: scale(0.2); }
+  60% { transform: scale(1.35); }
+  100% { transform: scale(1); }
+}
+.pip-fill { animation: pip-fill 0.45s ease-out both; }
+/* "GAME 2": a banner across the board at the start of each game after the first. */
+@keyframes game-banner {
+  0% { opacity: 0; transform: scaleX(0.4); letter-spacing: 0.6em; }
+  15% { opacity: 1; transform: scaleX(1); letter-spacing: 0.25em; }
+  80% { opacity: 1; }
+  100% { opacity: 0; }
+}
+.game-banner { animation: game-banner 2s ease-out both; }
+
 @media (prefers-reduced-motion: reduce) {
+  .emote-bubble,
+  .radar-ping,
+  .vs-left,
+  .vs-right,
+  .vs-mid,
+  .pip-fill,
+  .game-banner,
   .count-pop,
   .deck-complete,
   .shake-soft,

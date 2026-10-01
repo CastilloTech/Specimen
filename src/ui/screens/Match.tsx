@@ -25,7 +25,7 @@ import { PHONE_LANDSCAPE, PHONE_PORTRAIT, tryLandscapeFullscreen, useMediaQuery 
 import { comboEngine, ENGINE_META, engineColor, FACTION_META, PLAYER_COLORS, STANCE_META, WORLD_FACTION_META } from '../meta';
 import { matchRecord } from '../stats';
 import type { KeyAction, Settings } from '../storage';
-import { keyLabel, loadMatches, recordMatch, saveReplay } from '../storage';
+import { keyLabel, loadMatches, recordMatch, recordSeries, saveReplay } from '../storage';
 import { encounterLines, EVOLUTION_FLAVOR, metBefore, unlockedFragments } from '../lore';
 import type { EncounterLines } from '../lore';
 import { loadProgress, saveProgress } from '../modes';
@@ -41,7 +41,10 @@ import { clashPreview, playPreview } from '../preview';
 import type { ClashPreview, PlayPreview } from '../preview';
 import { useMatch } from '../useMatch';
 import { useOnlineMatch } from '../useOnlineMatch';
-import type { OnlineConn, OnlineStatus } from '../online';
+import type { EmoteEvent, EmoteId, OnlineConn, OnlineStatus, SeriesView } from '../online';
+import { DeadlineChip, EmoteBar, GameBanner, SeriesPips, stakesOf, useAttention, useNow } from '../components/OnlineBits';
+import { SeriesScreen } from './SeriesScreen';
+import { seriesRecord } from '../multiplayer';
 import type { TimerView } from '../useMatch';
 import { Flavor } from '../components/Flavor';
 import { IconText } from '../components/EngineIcon';
@@ -87,17 +90,98 @@ export function MatchScreen(props: Props) {
   return <MatchView {...props} game={game} me={0} pausedRef={pausedRef} />;
 }
 
-/** An online match: the server runs it and sends this player's view; your seat may be player 2. */
-export function OnlineMatchScreen({ conn, settings, onExit, onFinish }: { conn: OnlineConn; settings: Settings; onExit: () => void; onFinish: (s: GameState, setup: MatchSetup) => void }) {
-  const pausedRef = useRef(false);
-  const game = useOnlineMatch(conn);
-  return <MatchView setup={game.setup} settings={settings} onExit={onExit} onFinish={onFinish} label="Online match" game={game} me={game.me} pausedRef={pausedRef} online={{ status: game.status, opponentConnected: game.opponentConnected }} />;
+/** What the board needs to know about an online series (absent offline). */
+interface OnlineInfo {
+  status: OnlineStatus;
+  opponentConnected: boolean;
+  opponentLeft: boolean;
+  series: SeriesView;
+  deadlineAt: number | null;
+  nextAt: number | null;
+  emote: EmoteEvent | null;
+  onReady: () => void;
+  onEmote: (id: EmoteId) => void;
+  /** Open the series result now (instead of after the end-of-game moment). */
+  onSeries: () => void;
 }
 
-function MatchView({ setup, settings, onExit, onFinish, label, tutorial, next, game, me, pausedRef, online }: Props & { game: Game; me: PlayerId; pausedRef: MutableRefObject<boolean>; online?: { status: OnlineStatus; opponentConnected: boolean } }) {
+/**
+ * An online best-of-3 against another player: the server runs each game and sends this player's view (your
+ * seat may be player 2). Each game gets a fresh board; between games both tap Ready; at the end the series
+ * result offers a rematch in the same room.
+ */
+export function OnlineMatchScreen({ conn, settings, onExit, onNewRoom }: { conn: OnlineConn; settings: Settings; onExit: () => void; onNewRoom: () => void }) {
+  const pausedRef = useRef(false);
+  const game = useOnlineMatch(conn);
+  const sv = game.series;
+  const [seriesOpen, setSeriesOpen] = useState(false);
+  const [kept, setKept] = useState<boolean | null>(null);
+  // A finished series goes into the save once; its result opens after the last game's ending has played.
+  useEffect(() => {
+    if (!sv.done) return setSeriesOpen(false);
+    setKept(recordSeries(seriesRecord(conn.code, sv, game.state, game.me)));
+    const t = setTimeout(() => setSeriesOpen(true), sv.forfeit !== null ? 1500 : 4000);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sv.done, sv.n]);
+  // Walking out: a series still on is forfeited (and recorded as a loss), and the opponent is told at once.
+  const leave = () => {
+    if (!sv.done) recordSeries(seriesRecord(conn.code, sv, game.state, game.me, true));
+    conn.leave();
+    onExit();
+  };
+  if (seriesOpen && sv.done)
+    return (
+      <SeriesScreen
+        series={sv}
+        state={game.state}
+        me={game.me}
+        status={game.status}
+        opponentConnected={game.opponentConnected}
+        opponentLeft={game.opponentLeft}
+        emote={game.emote}
+        kept={kept}
+        onRematch={() => conn.ready()}
+        onEmote={(id) => conn.sendEmote(id)}
+        onNewRoom={() => {
+          conn.leave();
+          onNewRoom();
+        }}
+        onMenu={leave}
+      />
+    );
+  return (
+    <MatchView
+      key={`${sv.n}-${sv.game}`}
+      setup={game.setup}
+      settings={settings}
+      onExit={leave}
+      onFinish={() => setSeriesOpen(true)}
+      label="Online match"
+      game={game}
+      me={game.me}
+      pausedRef={pausedRef}
+      online={{
+        status: game.status,
+        opponentConnected: game.opponentConnected,
+        opponentLeft: game.opponentLeft,
+        series: sv,
+        deadlineAt: game.deadlineAt,
+        nextAt: game.nextAt,
+        emote: game.emote,
+        onReady: () => conn.ready(),
+        onEmote: (id) => conn.sendEmote(id),
+        onSeries: () => setSeriesOpen(true),
+      }}
+    />
+  );
+}
+
+function MatchView({ setup, settings, onExit, onFinish, label, tutorial, next, game, me, pausedRef, online }: Props & { game: Game; me: PlayerId; pausedRef: MutableRefObject<boolean>; online?: OnlineInfo }) {
   const { state, dispatch, error, actor, timer, hurry, botActing } = game;
   const [coaching, setCoaching] = useState(!!tutorial);
-  const [introSeen, setIntroSeen] = useState(() => !!tutorial); // tutorials skip the pre-match briefing
+  // Tutorials skip the pre-match briefing, and so do online games after the first (you've met: the banner says which game).
+  const [introSeen, setIntroSeen] = useState(() => !!tutorial || (!!online && (online.series.game > 1 || online.series.n > 1)));
   const [selected, setSelected] = useState<string | null>(null);
   const [faceDown, setFaceDown] = useState(false);
   const [cycleMode, setCycleMode] = useState(false);
@@ -144,6 +228,9 @@ function MatchView({ setup, settings, onExit, onFinish, label, tutorial, next, g
   };
 
   const over = state.phase === 'over';
+  // Leaving a finished game is free, unless it's online and the series is still on (leaving forfeits it).
+  const exitNeedsConfirm = !over || (!!online && !online.series.done);
+  const leaveText = online && !online.series.done ? 'You forfeit the series, and your opponent wins it.' : "The match is abandoned and can't be resumed.";
   const decisionRef = useRef<HTMLDivElement | null>(null);
   pausedRef.current = !introSeen || !!detail || !!playSheet || showHistory || showHelp || confirmExit || evoSheet || evoPick || !!viewCard;
 
@@ -165,7 +252,7 @@ function MatchView({ setup, settings, onExit, onFinish, label, tutorial, next, g
     if (!over || recorded.current) return;
     recorded.current = true;
     const lore0 = unlockedFragments(loadMatches(), loadProgress());
-    recordMatch(matchRecord(state, me));
+    recordMatch(online ? { ...matchRecord(state, me), online: true } : matchRecord(state, me));
     if (objective && objectiveDone(objective, state, me)) {
       const p = loadProgress();
       if (p) saveProgress({ ...p, biomass: p.biomass + OBJECTIVE_REWARD, earned: p.earned + OBJECTIVE_REWARD });
@@ -204,6 +291,8 @@ function MatchView({ setup, settings, onExit, onFinish, label, tutorial, next, g
   const mine = state.players[me];
   const theirs = state.players[opp];
   const myDecision = actor === me;
+  // Online, with the tab in the background: when the opponent arrives or it's your move, the title blinks and a sound plays.
+  useAttention(!!online && ((myDecision && !over) || !introSeen), introSeen ? 'Your move · Specimen' : 'Opponent found · Specimen');
   const myTurn = myDecision && state.phase === 'actions' && !state.window;
   const reacting = myDecision && state.phase === 'actions' && !!state.window;
 
@@ -531,6 +620,9 @@ function MatchView({ setup, settings, onExit, onFinish, label, tutorial, next, g
         )}
         {newLore > 0 && <div className="mt-1 text-[11px] font-semibold text-amber-200">◆ {newLore === 1 ? 'A record was' : `${newLore} records were`} recovered. Read {newLore === 1 ? 'it' : 'them'} in the Archive.</div>}
       </div>
+      {online ? (
+        <OnlineOverActions online={online} me={me} names={[state.players[0].name, state.players[1].name]} compact={compact} />
+      ) : (
       <div className={`flex items-center justify-center gap-2 ${compact ? '' : 'mt-2'}`}>
         {nextLabel ? (
           <>
@@ -547,9 +639,26 @@ function MatchView({ setup, settings, onExit, onFinish, label, tutorial, next, g
           </button>
         )}
       </div>
+      )}
     </div>
   );
-  const waitingText =
+  const waitingText = online ? (
+    <span className="flex items-center justify-center gap-2">
+      {online.opponentConnected ? (
+        <>
+          <span className="inline-flex gap-0.5" aria-hidden>
+            {[0, 1, 2].map((i) => (
+              <span key={i} className="h-1.5 w-1.5 animate-pulse rounded-full bg-ink2" style={{ animationDelay: `${i * 0.2}s` }} />
+            ))}
+          </span>
+          {theirs.name} is deciding
+        </>
+      ) : (
+        <span className="text-amber-200">{theirs.name} is reconnecting…</span>
+      )}
+      <DeadlineChip deadlineAt={online.deadlineAt} mine={false} name={theirs.name} />
+    </span>
+  ) :
     actor === undefined ? (
       <span className="flex items-center justify-center gap-2">
         {(botOf(state) ?? theirs).name} is thinking…
@@ -579,10 +688,12 @@ function MatchView({ setup, settings, onExit, onFinish, label, tutorial, next, g
       <RoundBanner state={state} />
       <MatchEndOverlay state={state} me={me} />
       <ChainFx state={state} me={me} />
-      {online && !over && (online.status === 'reconnecting' || !online.opponentConnected) && (
+      {online && !phone && <EmoteBar me={me} latest={online.emote} onSend={online.onEmote} names={[state.players[0].name, state.players[1].name]} />}
+      {online && <GameBanner series={online.series} me={me} oppName={theirs.name} />}
+      {online && (online.status === 'reconnecting' || ((!online.opponentConnected || online.opponentLeft) && !(over && online.series.done))) && (
         <div className="pointer-events-none fixed inset-x-0 top-12 z-[55] flex justify-center" role="status">
           <span className="rounded-full border border-amber-400/60 bg-black/85 px-3 py-1 text-xs font-semibold text-amber-200 shadow-lg">
-            {online.status === 'reconnecting' ? 'Connection lost: reconnecting…' : 'Your opponent disconnected. They have 3 minutes to come back, or they forfeit.'}
+            {online.status === 'reconnecting' ? 'Connection lost: reconnecting…' : online.opponentLeft ? `${theirs.name} left the series.` : `${theirs.name} disconnected. They have 3 minutes to come back, or they forfeit the series.`}
           </span>
         </div>
       )}
@@ -713,7 +824,7 @@ function MatchView({ setup, settings, onExit, onFinish, label, tutorial, next, g
         style={{ paddingLeft: 'max(4px, env(safe-area-inset-left))', paddingRight: 'max(4px, env(safe-area-inset-right))', paddingBottom: 'max(4px, env(safe-area-inset-bottom))' }}
       >
         <header className="lab-panel relative flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-line px-1.5">
-          <button onClick={() => (over ? onExit() : setConfirmExit(true))} className="rounded border border-line px-1.5 text-xs text-ink2" aria-label="Leave match">
+          <button onClick={() => (exitNeedsConfirm ? setConfirmExit(true) : onExit())} className="rounded border border-line px-1.5 text-xs text-ink2" aria-label="Leave match">
             ✕
           </button>
           <span className="whitespace-nowrap font-display text-xs font-bold">
@@ -722,7 +833,7 @@ function MatchView({ setup, settings, onExit, onFinish, label, tutorial, next, g
           </span>
           {state.round >= state.config.match.meltdownFromRound && <span className="hazard hazard-scroll rounded px-1 font-display text-[8px] font-bold"><span className="bg-black/80 px-0.5 text-amber-300">MELTDOWN</span></span>}
           {!over && myTurn ? (
-            <span className="turn-glow rounded bg-accent px-1.5 font-display text-[11px] font-bold text-black">YOUR TURN</span>
+            <span className="turn-glow whitespace-nowrap rounded bg-accent px-1.5 font-display text-[11px] font-bold text-black">YOUR TURN</span>
           ) : !over && reacting ? (
             <span className="turn-glow rounded bg-amber-400 px-1.5 font-display text-[11px] font-bold text-black">RESPOND?</span>
           ) : (
@@ -737,6 +848,9 @@ function MatchView({ setup, settings, onExit, onFinish, label, tutorial, next, g
             </button>
           )}
           <div className="ml-auto flex shrink-0 items-center gap-1">
+            {online && <SeriesPips series={online.series} me={me} names={[state.players[0].name, state.players[1].name]} tiny />}
+            {online && myDecision && <DeadlineChip deadlineAt={online.deadlineAt} mine name={mine.name} compact />}
+            {online && <EmoteBar me={me} latest={online.emote} onSend={online.onEmote} names={[state.players[0].name, state.players[1].name]} place="inline" />}
             {timer && <TimerBadge timer={timer} who={actor!} />}
             <button onClick={() => setShowHistory(true)} className="rounded border border-line px-1.5 text-[11px] text-ink2">
               Plays
@@ -751,7 +865,8 @@ function MatchView({ setup, settings, onExit, onFinish, label, tutorial, next, g
           </div>
           {confirmExit && (
             <div className="pop absolute left-1 top-full z-50 mt-1 flex w-64 flex-col gap-2 rounded-xl border border-red-500/60 bg-panel p-2.5 text-xs shadow-xl" role="dialog" aria-label="Leave match?">
-              <div className="font-bold">Leave this match? It can't be resumed.</div>
+              <div className="font-bold">{online ? 'Leave the series?' : "Leave this match? It can't be resumed."}</div>
+              {online && <div className="text-ink2">{leaveText}</div>}
               <div className="flex gap-2">
                 <button onClick={onExit} className="flex-1 rounded-lg bg-red-700 px-2 py-1.5 font-bold">
                   Leave
@@ -807,6 +922,7 @@ function MatchView({ setup, settings, onExit, onFinish, label, tutorial, next, g
         encounter={encounter}
         me={me}
         objective={objective}
+        banner={online ? `Game 1 · ${stakesOf(online.series, me, theirs.name)}` : undefined}
         onGo={() => {
           tryLandscapeFullscreen();
           setIntroSeen(true);
@@ -821,7 +937,7 @@ function MatchView({ setup, settings, onExit, onFinish, label, tutorial, next, g
       <main className="flex min-w-0 flex-col gap-2 lg:min-h-0">
         {/* Header */}
         <header className="lab-panel relative flex items-center gap-2 rounded-xl border border-line px-3 py-2">
-          <button onClick={() => (over ? onExit() : setConfirmExit(true))} className="rounded-md border border-line px-2 py-1 text-xs text-ink2 hover:border-mute" aria-label="Leave match" title="Leave match">
+          <button onClick={() => (exitNeedsConfirm ? setConfirmExit(true) : onExit())} className="rounded-md border border-line px-2 py-1 text-xs text-ink2 hover:border-mute" aria-label="Leave match" title="Leave match">
             ✕
           </button>
           <div className="whitespace-nowrap font-display text-sm font-bold">
@@ -855,8 +971,8 @@ function MatchView({ setup, settings, onExit, onFinish, label, tutorial, next, g
           {objectiveChip && <span className="ml-auto hidden min-w-0 md:inline-flex">{objectiveChip}</span>}
           {confirmExit && (
             <div className="pop absolute left-2 top-full z-40 mt-1 flex w-72 flex-col gap-2 rounded-xl border border-red-500/60 bg-panel p-3 text-xs shadow-xl" role="dialog" aria-label="Leave match?">
-              <div className="font-bold">Leave this match?</div>
-              <div className="text-ink2">The match is abandoned and can't be resumed.</div>
+              <div className="font-bold">{online ? 'Leave the series?' : 'Leave this match?'}</div>
+              <div className="text-ink2">{leaveText}</div>
               <div className="flex gap-2">
                 <button onClick={onExit} className="flex-1 rounded-lg bg-red-700 px-3 py-1.5 font-bold">
                   Leave
@@ -868,6 +984,12 @@ function MatchView({ setup, settings, onExit, onFinish, label, tutorial, next, g
             </div>
           )}
           <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
+            {online && (
+              <span className="hidden sm:inline-flex">
+                <SeriesPips series={online.series} me={me} names={[state.players[0].name, state.players[1].name]} />
+              </span>
+            )}
+            {online && myDecision && <DeadlineChip deadlineAt={online.deadlineAt} mine name={mine.name} />}
             {timer && <TimerBadge timer={timer} who={actor!} />}
             <SoundToggle size="sm" />
             <button onClick={() => setShowHelp(true)} className="rounded-md border border-line px-2 py-1 text-xs text-ink2 hover:border-mute" title="Quick rules and keyboard shortcuts (?)" aria-label="Help">
@@ -957,7 +1079,7 @@ function MatchView({ setup, settings, onExit, onFinish, label, tutorial, next, g
         ) : !myDecision ? (
           <div className="rounded-xl border border-line bg-panel p-3 text-center text-sm text-ink2">{waitingText}</div>
         ) : state.phase === 'mulligan' ? (
-          <MulliganPrompt onInspect={setViewCard} hand={mine.hand} onKeep={() => send({ type: 'MULLIGAN', player: me, mulligan: false })} onMull={() => send({ type: 'MULLIGAN', player: me, mulligan: true })} state={state} me={me} seconds={defaultConfig.timers.enabled ? state.config.timers.mulliganSeconds : null} />
+          <MulliganPrompt onInspect={setViewCard} hand={mine.hand} onKeep={() => send({ type: 'MULLIGAN', player: me, mulligan: false })} onMull={() => send({ type: 'MULLIGAN', player: me, mulligan: true })} state={state} me={me} seconds={defaultConfig.timers.enabled && !online ? state.config.timers.mulliganSeconds : null} />
         ) : state.phase === 'stance' ? (
           <StancePrompt state={state} me={me} onPick={(st) => send({ type: 'PICK_STANCE', player: me, stance: st })} />
         ) : state.phase === 'feint' ? (
@@ -1307,7 +1429,53 @@ function DetailSheet({ detail, state, me, myTurn, onClose, onReveal }: { detail:
   );
 }
 
-function Intro({ state, encounter, objective, onGo, onExit, me = 0 }: { state: GameState; encounter: EncounterLines | null; objective: Objective | null; onGo: () => void; onExit: () => void; me?: PlayerId }) {
+/** Online, after a game: the series score, then Ready for the next game (with the auto-start clock) or the series result. */
+function OnlineOverActions({ online, me, names, compact }: { online: OnlineInfo; me: PlayerId; names: [string, string]; compact: boolean }) {
+  const sv = online.series;
+  const opp = (1 - me) as PlayerId;
+  const now = useNow(500, online.nextAt !== null);
+  const left = online.nextAt === null ? null : Math.max(0, Math.ceil((online.nextAt - now) / 1000));
+  const iReady = sv.ready[me];
+  const theyReady = sv.ready[opp];
+  useEffect(() => {
+    if (theyReady && !iReady) play('ready');
+  }, [theyReady, iReady]);
+  useAttention(!sv.done && theyReady && !iReady, `${names[opp]} is ready · Specimen`);
+  if (sv.done)
+    return (
+      <div className={`flex flex-col items-center gap-1.5 ${compact ? '' : 'mt-2'}`}>
+        <SeriesPips series={sv} me={me} names={names} big={!compact} />
+        <button onClick={online.onSeries} autoFocus className="rounded-lg bg-accent px-4 py-2 font-display text-sm font-bold text-black">
+          {sv.winner === me ? 'You take the series' : sv.winner === null ? 'Series tied' : `${names[opp]} takes the series`} ▶
+        </button>
+      </div>
+    );
+  return (
+    <div className={`flex flex-col items-center gap-1.5 ${compact ? '' : 'mt-2'}`}>
+      <SeriesPips series={sv} me={me} names={names} big={!compact} />
+      {!compact && <div className="text-[11px] font-semibold text-amber-200">Next: game {sv.games.length + 1} · {stakesOf(sv, me, names[opp])}</div>}
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => {
+            play('ready');
+            online.onReady();
+          }}
+          disabled={iReady}
+          autoFocus
+          className={`rounded-lg px-4 py-2 font-display text-sm font-bold text-black disabled:opacity-60 ${theyReady && !iReady ? 'turn-glow bg-accent' : 'bg-accent'}`}
+        >
+          {iReady ? 'Ready ✓' : `Ready for game ${sv.games.length + 1} ▶`}
+        </button>
+        <span className="text-[11px] text-ink2" aria-live="polite">
+          {theyReady ? <span className="font-semibold text-accent">{names[opp]} is ready</span> : iReady ? `Waiting for ${names[opp]}…` : null}
+          {left !== null && <span className="block tabular-nums text-mute">starts in {left}s</span>}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function Intro({ state, encounter, objective, onGo, onExit, me = 0, banner }: { state: GameState; encounter: EncounterLines | null; objective: Objective | null; onGo: () => void; onExit: () => void; me?: PlayerId; banner?: string }) {
   const them = state.players[other(me)];
   // After a few matches the full briefing is a wall to click through: show who you face, what's special and
   // your goal, with the loadouts one tap away.
@@ -1315,6 +1483,7 @@ function Intro({ state, encounter, objective, onGo, onExit, me = 0 }: { state: G
   if (!full)
     return (
       <div className="mx-auto flex min-h-dvh max-w-xl flex-col justify-center gap-3 p-4 phone:h-dvh phone:min-h-0 phone:gap-2 phone:p-2">
+        {banner && <div className="self-start rounded-md bg-accent/15 px-2 py-0.5 font-display text-xs font-bold uppercase tracking-wider text-accent">{banner}</div>}
         <div className="lab-label">Next opponent</div>
         <div className="flex items-center gap-3">
           <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: PLAYER_COLORS[them.id] }} />

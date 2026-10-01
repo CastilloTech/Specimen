@@ -7,7 +7,7 @@ import type { TimerView } from './useMatch';
 /**
  * The online match, shaped like useMatch so the same match screen plays it: the state is whatever view the
  * server last sent, your moves go to the server, and you act only when the server says it's your decision.
- * Turn time is the server's (a generous backstop), so there is no countdown here.
+ * Turn time is the server's (a generous backstop); its deadline comes along so the screen can warn near the end.
  */
 export function useOnlineMatch(conn: OnlineConn) {
   const [, rerender] = useReducer((x: number) => x + 1, 0);
@@ -18,7 +18,7 @@ export function useOnlineMatch(conn: OnlineConn) {
   const dispatch = useCallback((a: Action) => conn.send(a), [conn]);
   const actor = state.phase !== 'over' && pendingPlayers(state).includes(me) ? me : undefined;
   // Until the end the real setup (with the seed) stays on the server; the match screen only needs its shape.
-  const setup: MatchSetup = view.setup ?? { seed: [...conn.code].reduce((h, ch) => h * 31 + ch.charCodeAt(0), 7) >>> 0, players: [] as unknown as MatchSetup['players'] };
+  const setup: MatchSetup = view.setup ?? { seed: [...`${conn.code}${view.series.n}${view.series.game}`].reduce((h, ch) => h * 31 + ch.charCodeAt(0), 7) >>> 0, players: [] as unknown as MatchSetup['players'] };
   return {
     state,
     dispatch,
@@ -31,5 +31,10 @@ export function useOnlineMatch(conn: OnlineConn) {
     setup,
     status: conn.status,
     opponentConnected: view.opponentConnected,
+    opponentLeft: view.opponentLeft,
+    series: view.series,
+    deadlineAt: view.deadlineAt,
+    nextAt: view.nextAt,
+    emote: conn.emote,
   };
 }

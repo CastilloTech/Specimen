@@ -895,6 +895,33 @@ From the menu, a new player is now one tap from the tutorial match and five more
 
 Play a friend online with a 5-letter room code or an invite link (`#room=ABCDE`). From the menu: **Play online**, then **Create a room** or type a code.
 
+- **Best of 3.** A room plays a series: the first to win two games takes it.
+  - Draws count for no one, and the series stops after 5 games (then it's tied if the wins are level).
+  - Between games both players tap **Ready** (the next game starts on its own after 30 seconds), each with a fresh deal.
+  - After the series, both tapping **Rematch** starts a new series in the same room: no new code to share.
+  - Leaving forfeits a series still in progress, and the opponent is told at once (no 3-minute wait).
+- **Flow, from the menu to the rematch:**
+  - **Lobby:** typing or pasting a whole code (or an invite link) joins straight away. **Send invite link** opens the phone's share sheet, or copies the link. A radar shows while you wait, with how long you've waited.
+  - **Opponent found:** a sound and a short "versus" reveal of both Specimens. If you went to another tab to send the link, the tab title blinks.
+  - **During a game:**
+    - the header shows the series as pips;
+    - the waiting line reads "Ana is deciding";
+    - in the last 30 seconds of a decision, a clock shows (red for the last 10);
+    - your move while the tab is in the background blinks the title.
+  - **Between games:** the result shows the series score, what the next game means ("Match point", "Decider"), Ready with the opponent's state and the auto-start clock. Game 2 opens on the board with a GAME 2 banner instead of the briefing.
+  - **Reactions:** six quick emotes (Good game, Nice play!, Whoa!, Hmm…, Oops, Grrr) show as bubbles on each side, at most one every 2.5 s. The opponent's can be muted.
+  - **Series result** (`SeriesScreen.tsx`):
+    - who took it, game by game, and your record against this opponent;
+    - "Ana wants a rematch!" when they ask first;
+    - one-tap Rematch, New room or Menu.
+  - **Rejoin:** after a reload, the menu's online button becomes "Rejoin ABCDE".
+- **Multiplayer stats** (Saves → Multiplayer, `MultiplayerStats.tsx`, `src/ui/multiplayer.ts`):
+  - **Records:** each finished series is recorded in the loaded save (`SeriesRecord`, once per room and series). Online games are also tagged in the match records (`online: true`).
+  - **Totals:** series and game records, the current and best streak, and deciding games won, plus sweeps and comebacks.
+  - **Rivals:** your record against each person.
+  - **Recent series:** with each game's result.
+  - **Win rate by your online Specimen.**
+
 - **The server runs the match** (`server/`): a Cloudflare Worker, plus one **Durable Object per room** (SQLite-backed, as the free plan requires).
   - The room runs the same engine (`reduce`) on every move, after checking it is that player's and legal.
   - It sends each player only their own view (`redactFor` in `src/engine/view.ts`). Hidden from you: the opponent's hand and cycled cards, both decks' order, the opponent's face-down grafts, their stance until both are picked, and the random-number state.
@@ -904,7 +931,8 @@ Play a friend online with a 5-letter room code or an invite link (`#room=ABCDE`)
   - joining checks the deck, Chip and loadout;
   - a seat token lets a dropped player reconnect to their seat;
   - a decision left 2 minutes gets the same timeout move the offline timer makes;
-  - a player gone 3 minutes forfeits.
+  - a player gone 3 minutes forfeits the series;
+  - the series (`Series`: wins, finished games, who is ready), Ready / Rematch, Leave and emotes (relayed, never stored).
 - **The client** (`src/ui/online.ts`, `useOnlineMatch.ts`, `OnlineScreen.tsx`).
   - The match screen is now a view fed either by the local engine or by the room, and your seat may be player 2 (`MatchView`, `OnlineMatchScreen`).
   - Connections reconnect on their own.

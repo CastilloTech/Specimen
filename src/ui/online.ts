@@ -1,4 +1,8 @@
 import type { Action, GameState, MatchSetup, PlayerId, PlayerSetup } from '../engine';
+import type { EmoteId, SeriesView } from '../../server/room';
+
+export type { EmoteId, GameResult, SeriesView } from '../../server/room';
+export { BEST_OF, EMOTES, WINS_NEEDED } from '../../server/room';
 
 // The client side of online play: create a room (a 5-letter code), join one, and keep a WebSocket to the match
 // server (server/worker.ts). The server runs the match; this only sends your moves and hands the views it
@@ -30,16 +34,49 @@ export interface OnlineView {
   /** The full setup, sent once the match is over (for the replay). */
   setup?: MatchSetup;
   opponentConnected: boolean;
+  /** The opponent left the room on purpose (no rematch with them). */
+  opponentLeft: boolean;
+  series: SeriesView;
+  /** When the current decision times out, on this device's clock (ms), or null. */
+  deadlineAt: number | null;
+  /** Between games: when the next one starts by itself, on this device's clock (ms), or null. */
+  nextAt: number | null;
+}
+
+/** A reaction one of the players just sent. */
+export interface EmoteEvent {
+  seat: PlayerId;
+  id: EmoteId;
+  at: number;
 }
 
 type ServerMsg =
   | { t: 'joined'; seat: PlayerId; token: string; code: string }
   | { t: 'waiting'; code: string }
-  | ({ t: 'state' } & OnlineView)
+  | { t: 'state'; state: GameState; seat: PlayerId; setup?: MatchSetup; opponentConnected: boolean; opponentLeft: boolean; series: SeriesView; deadlineIn: number | null }
+  | { t: 'emote'; seat: PlayerId; id: EmoteId }
   | { t: 'error'; message: string }
   | { t: 'pong' };
 
 const tokenKey = (code: string) => `specimen.room.${code}`;
+const LAST_ROOM = 'specimen.lastRoom';
+
+/** The room this tab was last seated in (within 2 hours), to offer a rejoin after a reload. */
+export function lastRoom(): string | null {
+  try {
+    const r = JSON.parse(sessionStorage.getItem(LAST_ROOM) ?? 'null') as { code: string; at: number } | null;
+    if (!r || Date.now() - r.at > 2 * 60 * 60 * 1000 || !sessionStorage.getItem(tokenKey(r.code))) return null;
+    return r.code;
+  } catch {
+    return null;
+  }
+}
+
+/** A room code from whatever was typed or pasted: the code itself, or an invite link. */
+export function codeFrom(text: string): string {
+  const link = /room=([A-Za-z]{5})/.exec(text);
+  return link ? link[1].toUpperCase() : normalizeCode(text);
+}
 
 /** One player's connection to one room. */
 export class OnlineConn {
@@ -48,6 +85,8 @@ export class OnlineConn {
   status: OnlineStatus = 'connecting';
   view: OnlineView | null = null;
   error: string | null = null;
+  /** The latest reaction (either player's). */
+  emote: EmoteEvent | null = null;
   private ws: WebSocket | null = null;
   private listeners = new Set<() => void>();
   private retries = 0;
@@ -94,20 +133,37 @@ export class OnlineConn {
         this.seat = m.seat;
         try {
           sessionStorage.setItem(tokenKey(this.code), m.token);
+          sessionStorage.setItem(LAST_ROOM, JSON.stringify({ code: this.code, at: Date.now() }));
         } catch {
           /* reconnecting to the same seat won't work this time */
         }
       } else if (m.t === 'waiting') this.status = 'waiting';
       else if (m.t === 'state') {
-        this.view = { state: m.state, seat: m.seat, setup: m.setup, opponentConnected: m.opponentConnected };
+        const now = Date.now();
+        // A server from before series existed: treat the room as a single game.
+        m.series ??= { n: 1, bestOf: 1, game: 1, games: [], wins: [0, 0], done: m.state.phase === 'over', winner: m.state.result?.winner ?? null, forfeit: null, ready: [false, false], nextIn: null };
+        m.deadlineIn ??= null;
+        m.opponentLeft ??= false;
+        this.view = {
+          state: m.state,
+          seat: m.seat,
+          setup: m.setup,
+          opponentConnected: m.opponentConnected,
+          opponentLeft: m.opponentLeft,
+          series: m.series,
+          deadlineAt: m.deadlineIn === null ? null : now + m.deadlineIn,
+          nextAt: m.series.nextIn === null ? null : now + m.series.nextIn,
+        };
         this.status = 'playing';
         this.error = null;
-      } else if (m.t === 'error') this.error = m.message;
+      } else if (m.t === 'emote') this.emote = { seat: m.seat, id: m.id, at: Date.now() };
+      else if (m.t === 'error') this.error = m.message;
       this.emit();
     };
     ws.onclose = () => {
       if (this.ping) clearInterval(this.ping);
-      if (this.closedByUs || this.view?.state.phase === 'over') {
+      // Between games and after the series the room stays open (the next game, a rematch), so reconnect then too.
+      if (this.closedByUs) {
         this.status = 'closed';
         return this.emit();
       }
@@ -125,6 +181,33 @@ export class OnlineConn {
       this.error = 'Not connected: your move was not sent.';
       this.emit();
     }
+  }
+
+  /** Ready for the next game, or for a rematch once the series is over. */
+  ready() {
+    this.raw({ t: 'ready' });
+  }
+
+  /** A quick reaction to the opponent. */
+  sendEmote(id: EmoteId) {
+    this.raw({ t: 'emote', id });
+  }
+
+  /** Leave the room for good: forfeits a series still in progress, and the opponent is told at once. */
+  leave() {
+    this.raw({ t: 'leave' });
+    try {
+      sessionStorage.removeItem(tokenKey(this.code));
+      sessionStorage.removeItem(LAST_ROOM);
+    } catch {
+      /* nothing kept */
+    }
+    // Give the message a moment to go out before the socket closes.
+    setTimeout(() => this.close(), 150);
+  }
+
+  private raw(msg: object) {
+    if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify(msg));
   }
 
   close() {

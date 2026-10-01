@@ -12,6 +12,7 @@ import type { ModeKind } from '../resume';
 import { DailyCard } from '../components/DailyCard';
 import { loadProgress } from '../modes';
 import { buzz, play } from '../sfx';
+import { lastRoom } from '../online';
 
 interface Props {
   onQuick: () => void;
@@ -30,6 +31,8 @@ interface Props {
 // Portrait / desktop: one centered column. Phone landscape (`phone:`): art and title on the left,
 // compact buttons on the right, so the whole menu fits a short screen without scrolling.
 export function Menu({ onQuick, onModes, onBot, onSaves, onGuide, onDecks, onTutorial, onArchive, onDaily, onContinue, onOnline }: Props) {
+  // A room this tab was seated in (the page was reloaded mid-series): one tap back in.
+  const [rejoinCode] = useState(lastRoom);
   const [progress] = useState(loadProgress);
   // Straight back to what you were doing: a Lineage run, a Breach run, or the next Tower floor.
   const [resume] = useState(() => continueTarget(progress, activeSave()?.meta.name ?? 'You'));
@@ -129,8 +132,8 @@ export function Menu({ onQuick, onModes, onBot, onSaves, onGuide, onDecks, onTut
               <b className="font-display text-ink">Custom match</b>
               <span aria-hidden>›</span>
             </button>
-            <button onClick={onOnline} className="flex items-center justify-between rounded-lg px-3 py-2 text-left text-sm text-ink2 transition hover:bg-white/5 hover:text-ink phone:py-1" title="Play a friend online with a room code">
-              <b className="font-display text-ink">Play online</b>
+            <button onClick={onOnline} className={`flex items-center justify-between rounded-lg px-3 py-2 text-left text-sm text-ink2 transition hover:bg-white/5 hover:text-ink phone:py-1 ${rejoinCode ? 'turn-glow border border-accent/60' : ''}`} title="Play a friend online: a best of 3 with a room code">
+              <b className="font-display text-ink">{rejoinCode ? `Rejoin ${rejoinCode}` : 'Play online'}</b>
               <span aria-hidden>›</span>
             </button>
           </div>
