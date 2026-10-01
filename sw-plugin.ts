@@ -41,6 +41,23 @@ self.addEventListener('periodicsync', (e) => {
     })(),
   );
 });
+// Online play while the game is closed: "Ben challenges you", "Ana is online". If the game is open and in view,
+// the lounge already shows it, so no notification.
+self.addEventListener('push', (e) => {
+  let msg = { title: 'Specimen', body: '', url: './#lounge', tag: 'online' };
+  try {
+    msg = { ...msg, ...e.data.json() };
+  } catch {
+    /* a message without a body */
+  }
+  e.waitUntil(
+    (async () => {
+      const open = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      if (open.some((c) => c.visibilityState === 'visible' && c.focused)) return;
+      await self.registration.showNotification(msg.title, { body: msg.body, tag: msg.tag, renotify: true, icon: './icon-192.png', badge: './icon-192.png', data: { url: msg.url } });
+    })(),
+  );
+});
 self.addEventListener('notificationclick', (e) => {
   e.notification.close();
   const url = (e.notification.data && e.notification.data.url) || './';

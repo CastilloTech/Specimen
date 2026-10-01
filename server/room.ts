@@ -67,6 +67,10 @@ export interface RoomData {
   expired?: boolean;
   /** Public ids of players who walked out of a queue series, for the lobby's cooldown (drained by the server). */
   penalties?: string[];
+  /** Games in a series: 3 (the default) or 1. */
+  bestOf?: number;
+  /** Alarms in a row that found nothing to do (each next one waits longer: a safety net against a ringing loop). */
+  idleRings?: number;
 }
 
 /** The series view each player is sent. */
@@ -93,6 +97,8 @@ export type ClientMsg =
   | { t: 'join'; token?: string; player?: Omit<PlayerSetup, 'isBot' | 'ai'>; device?: string; slim?: boolean }
   /** The client lost track of a compact update: send the whole view again. */
   | { t: 'resync' }
+  /** Watch the match without playing, following one player's side (their public id), or the first seat. */
+  | { t: 'watch'; follow?: string; slim?: boolean }
   | { t: 'act'; action: Action }
   | { t: 'ready' }
   | { t: 'leave' }
@@ -120,7 +126,13 @@ export type ServerMsg =
       /** Compact update: `state` comes without `config` and `log`; the log continues from entry `logFrom` with `logTail`. */
       logFrom?: number;
       logTail?: GameState['log'];
+      /** A spectator's view: both hands hidden, nothing to decide. */
+      spectator?: boolean;
+      /** How many are watching. */
+      watching?: number;
     }
+  /** The number watching changed. */
+  | { t: 'watching'; n: number }
   | { t: 'noshow' }
   | { t: 'emote'; seat: PlayerId; id: EmoteId }
   | { t: 'error'; message: string }
@@ -130,11 +142,17 @@ export type ServerMsg =
 export const DECISION_MS = 120_000;
 /** How long a dropped player has to come back before they forfeit. */
 export const ABANDON_MS = 180_000;
-/** Games in a series, and the wins that take it. */
+/** Games in a series (the default, and the choices), and the wins that take it. */
 export const BEST_OF = 3;
+export const BEST_OF_CHOICES = [1, 3] as const;
 export const WINS_NEEDED = Math.ceil(BEST_OF / 2);
-/** Draws don't count, so a series could run on: it stops after this many games. */
+/** Draws don't count, so a series could run on: it stops after this many games (5 for a best of 3, 3 for a best of 1). */
 export const MAX_GAMES = 5;
+export const bestOfRoom = (r: Pick<RoomData, 'bestOf'>) => (r.bestOf === 1 ? 1 : BEST_OF);
+const winsNeeded = (r: RoomData) => Math.ceil(bestOfRoom(r) / 2);
+const maxGames = (r: RoomData) => bestOfRoom(r) + 2;
+/** At most this many spectators per room. */
+export const MAX_WATCHERS = 8;
 /** Between games, the next one starts by itself after this long. */
 export const NEXT_GAME_MS = 30_000;
 /** Queue rooms: how long the two matched players have to both arrive. */
@@ -144,8 +162,8 @@ export const EMOTE_GAP_MS = 2_500;
 
 export const freshSeries = (n: number): Series => ({ n, game: 1, games: [], wins: [0, 0], done: false, winner: null, forfeit: null, ready: [false, false] });
 
-/** `queue`: the two players' public ids, for a room the matchmaking queue made. */
-export const newRoom = (code: string, now: number, queue?: string[]): RoomData => ({
+/** `queue`: the two players' public ids, for a room the matchmaking queue made. `bestOf`: 1 or 3 (the default). */
+export const newRoom = (code: string, now: number, queue?: string[], bestOf?: number): RoomData => ({
   code,
   seats: [null, null],
   setup: null,
@@ -155,6 +173,7 @@ export const newRoom = (code: string, now: number, queue?: string[]): RoomData =
   series: freshSeries(1),
   nextAt: null,
   ...(queue ? { queue, joinBy: now + QUEUE_JOIN_MS } : {}),
+  ...(bestOf === 1 ? { bestOf: 1 } : {}),
 });
 
 const clean = (s: unknown, max: number) => (typeof s === 'string' ? s.replace(/[\u0000-\u001f]/g, '').trim().slice(0, max) : '');
@@ -171,11 +190,22 @@ export function checkPlayer(p: Extract<ClientMsg, { t: 'join' }>['player']): Pla
 
 export function seriesView(r: RoomData, now: number): SeriesView {
   const s = r.series;
-  return { n: s.n, bestOf: BEST_OF, game: s.game, games: s.games, wins: s.wins, done: s.done, winner: s.winner, forfeit: s.forfeit, ready: s.ready, nextIn: r.nextAt === null ? null : Math.max(0, r.nextAt - now) };
+  return { n: s.n, bestOf: bestOfRoom(r), game: s.game, games: s.games, wins: s.wins, done: s.done, winner: s.winner, forfeit: s.forfeit, ready: s.ready, nextIn: r.nextAt === null ? null : Math.max(0, r.nextAt - now) };
+}
+
+/**
+ * A spectator's view, following one side: both players' hands, face-down grafts and secret picks are hidden (the
+ * view hides what each player may not see of the other, applied for both), until the game is over.
+ */
+export function spectatorView(r: RoomData, follow: PlayerId, now = 0, watching = 0): ServerMsg | null {
+  const v = viewFor(r, follow, now, watching);
+  if (!v || v.t !== 'state' || !r.state) return v;
+  const over = r.state.phase === 'over';
+  return { ...v, state: over ? r.state : redactFor(redactFor(r.state, 0), 1), spectator: true, opponentId: null };
 }
 
 /** The message each seat gets after any change: its own view, or the whole game once it is over. */
-export function viewFor(r: RoomData, seat: PlayerId, now = 0): ServerMsg | null {
+export function viewFor(r: RoomData, seat: PlayerId, now = 0, watching = 0): ServerMsg | null {
   if (r.expired) return { t: 'noshow' };
   if (!r.state) return { t: 'waiting', code: r.code };
   const over = r.state.phase === 'over';
@@ -192,6 +222,7 @@ export function viewFor(r: RoomData, seat: PlayerId, now = 0): ServerMsg | null 
     opponentId: opp?.pub ?? null,
     queue: !!r.queue,
     opponentGoneIn: opp && opp.goneAt !== null && !opp.left && !r.series.done ? Math.max(0, opp.goneAt + ABANDON_MS - now) : null,
+    ...(watching ? { watching } : {}),
   };
 }
 
@@ -246,7 +277,7 @@ export function settle(r: RoomData, now: number): void {
   const w = r.state.result?.winner ?? null;
   s.games.push({ winner: w, reason: r.state.result?.reason ?? '', rounds: r.state.round });
   if (w !== null) s.wins[w]++;
-  if (s.wins.some((x) => x >= WINS_NEEDED) || s.games.length >= MAX_GAMES) {
+  if (s.wins.some((x) => x >= winsNeeded(r)) || s.games.length >= maxGames(r)) {
     s.done = true;
     s.winner = s.wins[0] === s.wins[1] ? null : s.wins[0] > s.wins[1] ? 0 : 1;
   }
@@ -432,3 +463,17 @@ export function upgrade(r: RoomData): RoomData {
   r.nextAt ??= null;
   return r;
 }
+
+/** What the admin page sees of a room. */
+export interface RoomInfo {
+  code: string;
+  players: string[];
+  phase: string | null;
+  series: string;
+  createdAt: number;
+  alarmAt: number | null;
+  idleRings: number;
+  sockets: number;
+  watching: number;
+}
+

@@ -26,11 +26,14 @@ export const appLink = (fragment = '') => `${location.origin}${location.pathname
 export const replayLink = async (r: SavedReplay) => appLink(`replay=${await replayCode(r)}`);
 
 /** What a link opened the game with: a shared replay, the daily challenge, or an online room invite. */
-export type Incoming = { kind: 'replay'; code: string } | { kind: 'daily' } | { kind: 'room'; code: string } | null;
+export type Incoming = { kind: 'replay'; code: string } | { kind: 'daily' } | { kind: 'room'; code: string } | { kind: 'lounge' } | { kind: 'admin' } | null;
 export function readIncoming(hash = location.hash): Incoming {
   const h = decodeURIComponent(hash.replace(/^#/, ''));
   if (h.startsWith('replay=')) return { kind: 'replay', code: h.slice('replay='.length) };
   if (h === 'daily') return { kind: 'daily' };
+  // A notification from online play opens the lounge; the admin page has its own link.
+  if (h === 'lounge') return { kind: 'lounge' };
+  if (h === 'admin') return { kind: 'admin' };
   // An online room invite: #room=ABCDE
   if (/^room=[A-Za-z]{5}$/.test(h)) return { kind: 'room', code: h.slice(5).toUpperCase() };
   return null;

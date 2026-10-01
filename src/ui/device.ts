@@ -148,3 +148,21 @@ export const setChatHidden = (on: boolean) => setPref('specimen.chatHidden', on 
 /** Skip the lounge list and go straight to a random lounge. */
 export const alwaysRandomLounge = () => pref('specimen.randomLounge', '0') === '1';
 export const setAlwaysRandomLounge = (on: boolean) => setPref('specimen.randomLounge', on ? '1' : '0');
+/** The length of series you search for and challenge with: 3 (the default) or 1. */
+export const seriesPref = (): 1 | 3 => (pref('specimen.bestOf', '3') === '1' ? 1 : 3);
+export const setSeriesPref = (n: 1 | 3) => setPref('specimen.bestOf', String(n));
+
+/** Notifications while the game is closed (null: off). */
+export interface PushPrefs {
+  friends: boolean;
+  challenges: boolean;
+}
+export function pushPrefs(): PushPrefs | null {
+  try {
+    const v = JSON.parse(pref('specimen.push', 'null')) as PushPrefs | null;
+    return v && typeof v.friends === 'boolean' ? v : null;
+  } catch {
+    return null;
+  }
+}
+export const setPushPrefs = (p: PushPrefs | null) => setPref('specimen.push', JSON.stringify(p));

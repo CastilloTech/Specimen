@@ -42,6 +42,8 @@ type Screen =
   | { name: 'post'; setup: MatchSetup; state: GameState; label?: string; me?: PlayerId }
   | { name: 'online'; code?: string }
   | { name: 'onlineMatch'; conn: OnlineConn }
+  | { name: 'watch'; conn: OnlineConn }
+  | { name: 'admin' }
   | { name: 'saves' }
   | { name: 'guide' }
   | { name: 'archive' }
@@ -62,6 +64,7 @@ const GuideScreen = lazy(() => import('./ui/screens/GuideScreen').then((m) => ({
 const MatchScreen = lazy(() => import('./ui/screens/Match').then((m) => ({ default: m.MatchScreen })));
 const OnlineMatchScreen = lazy(() => import('./ui/screens/Match').then((m) => ({ default: m.OnlineMatchScreen })));
 const OnlineScreen = lazy(() => import('./ui/screens/OnlineScreen').then((m) => ({ default: m.OnlineScreen })));
+const AdminScreen = lazy(() => import('./ui/screens/AdminScreen').then((m) => ({ default: m.AdminScreen })));
 const PostMatch = lazy(() => import('./ui/screens/PostMatch').then((m) => ({ default: m.PostMatch })));
 const SavesScreen = lazy(() => import('./ui/screens/SavesScreen').then((m) => ({ default: m.SavesScreen })));
 const ReplayScreen = lazy(() => import('./ui/screens/ReplayScreen').then((m) => ({ default: m.ReplayScreen })));
@@ -94,7 +97,7 @@ function Loading() {
   );
 }
 
-const SCREEN_DEPTH: Record<Screen['name'], number> = { menu: 0, setup: 1, modes: 1, decks: 1, guide: 1, archive: 1, saves: 1, online: 1, tower: 2, lineage: 2, breach: 2, daily: 2, collection: 2, match: 3, onlineMatch: 3, post: 4, tutorialDone: 4, replay: 4 };
+const SCREEN_DEPTH: Record<Screen['name'], number> = { menu: 0, setup: 1, modes: 1, decks: 1, guide: 1, archive: 1, saves: 1, online: 1, admin: 1, tower: 2, lineage: 2, breach: 2, daily: 2, collection: 2, match: 3, onlineMatch: 3, watch: 3, post: 4, tutorialDone: 4, replay: 4 };
 
 function Screens() {
   useEffect(() => {
@@ -135,6 +138,8 @@ function Screens() {
     clearIncoming();
     if (incoming.kind === 'daily') return setScreen(loadProgress() ? { name: 'daily' } : { name: 'modes' });
     if (incoming.kind === 'room') return setScreen({ name: 'online', code: incoming.code });
+    if (incoming.kind === 'lounge') return setScreen({ name: 'online' });
+    if (incoming.kind === 'admin') return setScreen({ name: 'admin' });
     replayFromCode(incoming.code)
       .then((replay) => setScreen({ name: 'replay', replay, back: { name: 'menu' }, shared: true }))
       .catch((e: Error) => setLinkError(e.message));
@@ -151,7 +156,7 @@ function Screens() {
   const menu = () => setScreen({ name: 'menu' });
   const toLounge = useCallback(() => setScreen({ name: 'online' }), []);
   // In online play (the lounge or a match), stay connected to the lounge: friends see you, challenges reach you.
-  const inOnline = screen.name === 'online' || screen.name === 'onlineMatch';
+  const inOnline = screen.name === 'online' || screen.name === 'onlineMatch' || screen.name === 'watch';
   useEffect(() => (inOnline ? matchmaker.watch() : undefined), [inOnline]);
   const quick = () => setScreen({ name: 'match', setup: quickBotSetup(), run: Date.now(), label: 'Quick match' });
   /** Start a Game Mode's next match directly, or open its screen when something needs doing there first. */
@@ -342,7 +347,11 @@ function Screens() {
       case 'replay':
         return <ReplayScreen replay={screen.replay} shared={screen.shared} startAt={screen.startAt} onBack={() => setScreen(screen.back)} />;
       case 'online':
-        return <OnlineScreen initialCode={screen.code} onBack={menu} onStart={(conn) => setScreen({ name: 'onlineMatch', conn })} onDecks={() => setScreen({ name: 'decks' })} />;
+        return <OnlineScreen initialCode={screen.code} onBack={menu} onStart={(conn) => setScreen({ name: 'onlineMatch', conn })} onWatch={(conn) => setScreen({ name: 'watch', conn })} onDecks={() => setScreen({ name: 'decks' })} />;
+      case 'watch':
+        return <OnlineMatchScreen conn={screen.conn} settings={settings} onExit={toLounge} onNewRoom={toLounge} onFindAnother={toLounge} />;
+      case 'admin':
+        return <AdminScreen onBack={menu} />;
       case 'onlineMatch':
         return (
           <OnlineMatchScreen

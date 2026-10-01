@@ -21,11 +21,46 @@ export const normalizeCode = (s: string) => s.toUpperCase().replace(/[^A-Z]/g, '
 /** A link that opens the game straight into this room. */
 export const roomLink = (code: string) => `${location.origin}${location.pathname}#room=${code}`;
 
-export async function createRoom(): Promise<string> {
-  const res = await fetch(`${SERVER_URL}/rooms`, { method: 'POST' });
+/** Online play is resting (the free server's daily allowance ran out) until this time (ms), or it's up (null). */
+export class RestingError extends Error {
+  constructor(readonly resetAt: number) {
+    super('Online play is resting.');
+  }
+}
+
+export async function createRoom(bestOf = 3): Promise<string> {
+  const res = await fetch(`${SERVER_URL}/rooms`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bestOf }) });
+  if (res.status === 503) {
+    const b = (await res.json().catch(() => null)) as { error?: string; resetAt?: number } | null;
+    if (b?.error === 'resting' && b.resetAt) throw new RestingError(b.resetAt);
+  }
+  if (res.status === 429) throw new Error('Too many rooms from your connection: wait a minute.');
   if (!res.ok) throw new Error(`The match server answered ${res.status}.`);
   const { code } = (await res.json()) as { code: string };
   return code;
+}
+
+export type ServerStatus = { ok: true } | { ok: false; resting: true; resetAt: number } | { ok: false; resting: false };
+/** Is online play up? Asked when connecting fails, to say why (resting until midnight UTC, or just unreachable). */
+export async function serverStatus(): Promise<ServerStatus> {
+  try {
+    const res = await fetch(`${SERVER_URL}/status`);
+    if (res.ok) return { ok: true };
+    const b = (await res.json().catch(() => null)) as { error?: string; resetAt?: number } | null;
+    return b?.error === 'resting' && b.resetAt ? { ok: false, resting: true, resetAt: b.resetAt } : { ok: false, resting: false };
+  } catch {
+    return { ok: false, resting: false };
+  }
+}
+
+/** The server's public key for notifications, or null if it has none. */
+export async function pushKey(): Promise<string | null> {
+  try {
+    const res = await fetch(`${SERVER_URL}/push-key`);
+    return res.ok ? ((await res.json()) as { key: string | null }).key : null;
+  } catch {
+    return null;
+  }
 }
 
 /** `noshow`: a room the queue made, given up because the other player never arrived. */
@@ -61,7 +96,8 @@ export interface EmoteEvent {
 type ServerMsg =
   | { t: 'joined'; seat: PlayerId; token: string; code: string }
   | { t: 'waiting'; code: string }
-  | { t: 'state'; state: GameState; seat: PlayerId; setup?: MatchSetup; opponentConnected: boolean; opponentLeft: boolean; series: SeriesView; deadlineIn: number | null; opponentId?: string | null; queue?: boolean; opponentGoneIn?: number | null; logFrom?: number; logTail?: GameState['log'] }
+  | { t: 'state'; state: GameState; seat: PlayerId; setup?: MatchSetup; opponentConnected: boolean; opponentLeft: boolean; series: SeriesView; deadlineIn: number | null; opponentId?: string | null; queue?: boolean; opponentGoneIn?: number | null; logFrom?: number; logTail?: GameState['log']; spectator?: boolean; watching?: number }
+  | { t: 'watching'; n: number }
   | { t: 'noshow' }
   | { t: 'emote'; seat: PlayerId; id: EmoteId }
   | { t: 'error'; message: string }
@@ -120,10 +156,17 @@ export class OnlineConn {
     }
   };
 
+  /** Watching (not playing): which player's side to follow (their public id). */
+  readonly watching: { follow: string | null } | null;
+  /** How many are watching this match (shown to the players). */
+  watchers = 0;
+
   constructor(
     code: string,
-    private player: Omit<PlayerSetup, 'isBot' | 'ai'>,
+    private player: Omit<PlayerSetup, 'isBot' | 'ai'> | null,
+    watch?: { follow: string | null },
   ) {
+    this.watching = watch ?? null;
     this.code = code;
     this.open();
     if (typeof window !== 'undefined') {
@@ -155,7 +198,8 @@ export class OnlineConn {
       } catch {
         /* no session storage */
       }
-      ws.send(JSON.stringify(token ? { t: 'join', token, player: this.player, slim: true } : { t: 'join', player: this.player, device: deviceId(), slim: true }));
+      if (this.watching) ws.send(JSON.stringify({ t: 'watch', follow: this.watching.follow ?? undefined, slim: true }));
+      else ws.send(JSON.stringify(token ? { t: 'join', token, player: this.player, slim: true } : { t: 'join', player: this.player, device: deviceId(), slim: true }));
       // Keep the connection alive through proxies that drop idle sockets.
       if (this.ping) clearInterval(this.ping);
       this.ping = setInterval(() => ws.readyState === WebSocket.OPEN && ws.send(JSON.stringify({ t: 'ping' })), 25_000);
@@ -189,6 +233,7 @@ export class OnlineConn {
           m.state = { ...m.state, config: prev.config, log: [...prev.log.slice(0, m.logFrom), ...(m.logTail ?? [])] };
         }
         this.viewKey = key;
+        if (m.watching !== undefined) this.watchers = m.watching;
         if (this.wasDown) {
           this.wasDown = false;
           this.reconnectedAt = now;
@@ -213,6 +258,7 @@ export class OnlineConn {
         this.status = 'playing';
         this.error = null;
       } else if (m.t === 'emote') this.emote = { seat: m.seat, id: m.id, at: Date.now() };
+      else if (m.t === 'watching') this.watchers = m.n;
       else if (m.t === 'error') this.error = m.message;
       this.emit();
     };

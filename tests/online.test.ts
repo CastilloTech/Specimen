@@ -3,7 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import { botAction, chipRows, chipsFor, HIDDEN_CARD_ID, makeRng, pendingPlayers, redactFor, starterDeck } from '../src/engine';
 import type { GameState, PlayerId } from '../src/engine';
-import { ABANDON_MS, act, DECISION_MS, disconnected, emote, EMOTE_GAP_MS, join, leave, MAX_GAMES, newRoom, NEXT_GAME_MS, nextWake, ready, settle, tick, viewFor } from '../server/room';
+import { ABANDON_MS, act, DECISION_MS, disconnected, emote, EMOTE_GAP_MS, join, leave, MAX_GAMES, newRoom, NEXT_GAME_MS, nextWake, ready, settle, spectatorView, tick, viewFor } from '../server/room';
 import { onlineSummary, rivalLine, seriesRecord } from '../src/ui/multiplayer';
 import type { SeriesRecord } from '../src/ui/storage';
 import type { RoomData } from '../server/room';
@@ -309,5 +309,31 @@ describe('The room alarm never spins', () => {
     disconnected(s, 0, 0);
     settles(s, 'between games');
     expect(nextWake(r)).toBeNull(); // the series is decided: nothing left to wake for
+  });
+});
+
+describe('Best of 1 and watching', () => {
+  it('a best of 1 is decided by one win (draws replay, up to 3 games)', () => {
+    const r = newRoom('BOONE', 0, undefined, 1);
+    join(r, { t: 'join', player: player('Ana', 'predator', 'corrosion') }, 0, Math.random, tok);
+    join(r, { t: 'join', player: player('Ben', 'bastion', 'aegis') }, 0, Math.random, tok);
+    expect(viewFor(r, 0)).toMatchObject({ series: { bestOf: 1 } });
+    finish(r, null);
+    expect(r.series.done).toBe(false);
+    ready(r, 0, 0, Math.random);
+    ready(r, 1, 0, Math.random);
+    finish(r, 1);
+    expect(r.series).toMatchObject({ done: true, winner: 1, wins: [0, 1] });
+  });
+
+  it("a spectator sees neither player's hand nor face-down grafts, until the game is over", () => {
+    const r = fullRoom();
+    const v = spectatorView(r, 1, 0, 2) as Extract<ReturnType<typeof viewFor>, { t: 'state' }>;
+    expect(v).toMatchObject({ spectator: true, watching: 2, seat: 1, opponentId: null });
+    for (const p of [0, 1] as PlayerId[]) expect(v.state.players[p].hand.every((c) => c.cardId === HIDDEN_CARD_ID)).toBe(true);
+    expect(v.state.players.every((p) => p.deck.every((c) => c.cardId === HIDDEN_CARD_ID))).toBe(true);
+    r.state = { ...r.state!, phase: 'over', result: { winner: 0, reason: 'KO' } };
+    const end = spectatorView(r, 1) as Extract<ReturnType<typeof viewFor>, { t: 'state' }>;
+    expect(end.state.players[0].hand.some((c) => c.cardId !== HIDDEN_CARD_ID)).toBe(true);
   });
 });

@@ -107,7 +107,7 @@ function ChallengeCard({ c, now }: { c: Incoming; now: number }) {
   }, [left, c.id]);
   return (
     <div className="pop turn-glow pointer-events-auto w-full max-w-md rounded-xl border-2 border-accent bg-panel p-3 shadow-2xl" role="alertdialog" aria-label={`${c.from.name} challenges you`}>
-      <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-accent">Challenge · best of 3</div>
+      <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-accent">Challenge · best of {c.bestOf}</div>
       <ProfileCard p={c.from} />
       <div className="mt-2 flex items-center gap-2">
         <span className="flex-1 text-[11px] tabular-nums text-mute">answer in {left}s</span>

@@ -15,17 +15,19 @@ export function useOnlineMatch(conn: OnlineConn) {
   const view = conn.view!;
   const me: PlayerId = view.seat;
   const state = view.state;
+  // A spectator follows one side but never decides anything.
+  const spectator = !!conn.watching;
   // A move is on its way: further taps wait for the server's answer (no doubled moves, no "not your move").
   const sentFor = useRef<GameState | null>(null);
   const dispatch = useCallback(
     (a: Action) => {
-      if (sentFor.current === conn.view?.state && !conn.error) return;
+      if (spectator || (sentFor.current === conn.view?.state && !conn.error)) return;
       sentFor.current = conn.view?.state ?? null;
       conn.send(a);
     },
-    [conn],
+    [conn, spectator],
   );
-  const actor = state.phase !== 'over' && pendingPlayers(state).includes(me) ? me : undefined;
+  const actor = !spectator && state.phase !== 'over' && pendingPlayers(state).includes(me) ? me : undefined;
   // Until the end the real setup (with the seed) stays on the server; the match screen only needs its shape.
   const setup: MatchSetup = view.setup ?? { seed: [...`${conn.code}${view.series.n}${view.series.game}`].reduce((h, ch) => h * 31 + ch.charCodeAt(0), 7) >>> 0, players: [] as unknown as MatchSetup['players'] };
   return {
@@ -48,6 +50,8 @@ export function useOnlineMatch(conn: OnlineConn) {
     nextAt: view.nextAt,
     emote: conn.emote,
     opponentForfeitAt: view.opponentForfeitAt,
+    spectator,
+    watchers: conn.watchers,
     reconnectedAt: conn.reconnectedAt,
   };
 }

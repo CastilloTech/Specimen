@@ -150,13 +150,13 @@ export function EmoteBar({ me, latest, onSend, names, place = 'bottom' }: { me: 
 }
 
 /** The series score as pips: filled for each win, one row per player. */
-export function SeriesPips({ series, me, names, big, tiny }: { series: SeriesView; me: PlayerId; names: [string, string]; big?: boolean; tiny?: boolean }) {
+export function SeriesPips({ series, me, names, big, tiny, spectator }: { series: SeriesView; me: PlayerId; names: [string, string]; big?: boolean; tiny?: boolean; spectator?: boolean }) {
   const need = Math.ceil(series.bestOf / 2);
   const row = (p: PlayerId) => (
     <div className={`flex items-center gap-1.5 ${p === me ? '' : 'flex-row-reverse'}`}>
       {!tiny && (
         <span className={`truncate font-semibold ${big ? 'max-w-[9rem] text-sm' : 'max-w-[5rem] text-[11px]'}`} style={{ color: PLAYER_COLORS[p] }}>
-          {p === me ? 'You' : names[p]}
+          {p === me && !spectator ? 'You' : names[p]}
         </span>
       )}
       <span className="flex gap-1">
@@ -168,7 +168,7 @@ export function SeriesPips({ series, me, names, big, tiny }: { series: SeriesVie
     </div>
   );
   return (
-    <div className={`flex items-center justify-center ${big ? 'gap-4' : 'gap-2'}`} aria-label={`Series: you ${series.wins[me]}, ${names[1 - me]} ${series.wins[1 - me]}`}>
+    <div className={`flex items-center justify-center ${big ? 'gap-4' : 'gap-2'}`} aria-label={`Series: ${spectator ? names[me] : 'you'} ${series.wins[me]}, ${names[1 - me]} ${series.wins[1 - me]}`}>
       {row(me)}
       <span className={`font-display font-bold text-mute ${big ? 'text-base' : 'text-[10px]'}`}>
         {big ? `${series.wins[me]} – ${series.wins[1 - me]}` : `G${series.game}`}
@@ -180,6 +180,7 @@ export function SeriesPips({ series, me, names, big, tiny }: { series: SeriesVie
 
 /** What the next game means: "Match point", "Decider", or just its number. */
 export function stakesOf(series: SeriesView, me: PlayerId, oppName: string): string {
+  if (series.bestOf === 1) return 'Best of 1: one game decides it';
   const need = Math.ceil(series.bestOf / 2);
   const mp = series.wins[me] === need - 1;
   const op = series.wins[1 - me] === need - 1;

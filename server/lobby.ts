@@ -8,6 +8,7 @@
 import { FACTIONS, WORLD_FACTIONS } from '../src/engine';
 import type { Faction, WorldFactionId } from '../src/engine';
 import { checkName } from './names';
+import type { PushSub } from './push';
 
 /** What others see of a player: their name, chosen emblem, current Specimen and series record. */
 export interface Profile {
@@ -45,12 +46,12 @@ export type LobbyClientMsg =
   | { t: 'profile'; profile: Profile }
   | { t: 'status'; status: Presence }
   | { t: 'blocked'; blocked: string[] }
-  | { t: 'find'; since?: number; device?: string; name?: string; blocked?: string[] }
+  | { t: 'find'; since?: number; device?: string; name?: string; blocked?: string[]; bestOf?: number }
   | { t: 'cancel' }
   /** Turning down a found match ("Not now", or too late): the room is called off at once. */
   | { t: 'decline'; code: string }
   | { t: 'chat'; text: string }
-  | { t: 'challenge'; to: string }
+  | { t: 'challenge'; to: string; bestOf?: number }
   | { t: 'withdraw' }
   | { t: 'answer'; id: string; yes: boolean }
   | { t: 'friend'; to: string }
@@ -62,6 +63,9 @@ export type LobbyClientMsg =
   | { t: 'active' }
   /** Out of your lounge (back to the list), staying in online play. */
   | { t: 'leaveLounge' }
+  /** Notifications while the game is closed: the browser's push subscription (null: off), whose arrival to tell
+   *  you about (your friends' public ids), and which kinds you want. */
+  | { t: 'push'; sub: PushSub | null; watch?: string[]; events?: PushEvents }
   | { t: 'ping' };
 /** Lounge → client. */
 export type LobbyServerMsg =
@@ -76,17 +80,19 @@ export type LobbyServerMsg =
   | { t: 'gone'; id: string }
   | { t: 'counts'; searching: number; recent: number }
   | { t: 'searching'; since: number }
-  | { t: 'matched'; code: string; opponent: string; profile?: PresenceEntry; via?: 'queue' | 'challenge' }
+  | { t: 'matched'; code: string; opponent: string; profile?: PresenceEntry; via?: 'queue' | 'challenge'; bestOf?: number }
   | { t: 'cooldown'; until: number }
   | { t: 'chat'; msg: ChatMsg }
-  | { t: 'challenged'; id: string; from: PresenceEntry; until: number }
+  | { t: 'challenged'; id: string; from: PresenceEntry; until: number; bestOf?: number }
   | { t: 'challengeSent'; id: string; to: string; until: number }
   /** A challenge is over without a match: declined, withdrawn, expired, or one side became unavailable. */
   | { t: 'challengeOver'; id: string; reason: string }
   | { t: 'friendReq'; from: PresenceEntry }
   | { t: 'friendAccepted'; from: PresenceEntry }
   | { t: 'notice'; text: string }
-  | { t: 'friends'; online: Record<string, { status: Presence; lounge: number | null }> }
+  | { t: 'friends'; online: Record<string, FriendStatus> }
+  /** Your lounge's chat was cleared (by a moderator). */
+  | { t: 'chatCleared' }
   /** Taken out of your lounge after too long without activity. */
   | { t: 'kicked'; lounge: number }
   | { t: 'error'; message: string }
@@ -100,6 +106,41 @@ export interface Seeker {
   blocked: string[];
   /** When they started waiting (ms): the longest-waiting are matched first. */
   since: number;
+  /** The length of series they want (only matched with the same). */
+  bestOf?: number;
+}
+
+/** Notifications a player wants while the game is closed. */
+export interface PushEvents {
+  /** A friend arrives in the lounges. */
+  friends: boolean;
+  /** Someone challenges you. */
+  challenges: boolean;
+}
+
+/** A friend's whereabouts: in online play (and which lounge), and the room they're playing in, to watch. */
+export interface FriendStatus {
+  status: Presence;
+  lounge: number | null;
+  room?: string | null;
+}
+
+/** A player's ban: from chat only, or from online play with strangers (lounges, search, challenges). */
+export interface Ban {
+  scope: 'chat' | 'all';
+  until: number;
+  reason: string;
+}
+
+/** A report, kept for the admin page. */
+export interface StoredReport {
+  at: number;
+  from: string;
+  target: string;
+  name: string;
+  lounge: number | null;
+  reason: string;
+  message: string | null;
 }
 
 export interface LoungeInfo {
@@ -115,12 +156,15 @@ export interface LoungeTag {
   lounge?: number;
   blocked: string[];
   status: Presence;
-  /** Searching the queue since (ms). */
+  /** Searching the queue since (ms), and for which length of series. */
   since?: number;
+  bestOf?: number;
+  /** The room this player is playing in (made by the lounge), for friends who want to watch. */
+  room?: string;
   /** When this player's last few chat messages went out (ms), for the rate limit. */
   chat?: number[];
-  /** The challenge this player has out. */
-  challenge?: { id: string; to: string; until: number };
+  /** The challenge this player has out (to someone here, or an invite to an offline friend). */
+  challenge?: { id: string; to: string; until: number; bestOf?: number };
   /** Players who just said no to this player: no new challenge to them until then (ms). */
   noAgain?: Record<string, number>;
   /** When this player last did something (ms): sat idle in a lounge too long, they're taken out. */
@@ -159,6 +203,20 @@ export function pickLounge(counts: Map<number, number>, rand: () => number): num
   if (open.length) return open[Math.floor(rand() * open.length)];
   return loungeList(counts).find((l) => l.count === 0)!.id;
 }
+
+/** An invite to an offline friend (sent as a notification) waits this long. */
+export const INVITE_MS = 120_000;
+/** "Your friend is online" at most this often per friend. */
+export const FRIEND_PUSH_GAP_MS = 6 * 60 * 60 * 1000;
+/** A best of 1 or a best of 3 (the default). */
+export const seriesLength = (x: unknown) => (x === 1 ? 1 : 3);
+/** The next midnight UTC: when the free plan's daily allowance resets. */
+export const nextReset = (now: number) => {
+  const d = new Date(now);
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1);
+};
+/** A ban still in force for this kind of thing. */
+export const banned = (b: Ban | null | undefined, what: 'chat' | 'play', now: number) => !!b && b.until > now && (what === 'chat' || b.scope === 'all');
 
 /** A challenge waits this long for an answer. */
 export const CHALLENGE_MS = 20_000;
@@ -219,9 +277,9 @@ export const COOLDOWN_MAX_MS = 30 * 60 * 1000;
 /** A player sent back to the queue (their opponent never showed) keeps their place, up to this far back. */
 export const MAX_REQUEUE_MS = 5 * 60 * 1000;
 
-/** The longest-waiting player `me` may be matched with, or null. */
+/** The longest-waiting player `me` may be matched with (wanting the same length of series), or null. */
 export function pickPartner(me: Seeker, others: Seeker[]): Seeker | null {
-  const ok = others.filter((o) => o.pub !== me.pub && !me.blocked.includes(o.pub) && !o.blocked.includes(me.pub));
+  const ok = others.filter((o) => o.pub !== me.pub && !me.blocked.includes(o.pub) && !o.blocked.includes(me.pub) && seriesLength(o.bestOf) === seriesLength(me.bestOf));
   ok.sort((a, b) => a.since - b.since);
   return ok[0] ?? null;
 }
@@ -248,3 +306,17 @@ export async function pubOf(device: string): Promise<string> {
     .map((x) => x.toString(16).padStart(2, '0'))
     .join('');
 }
+
+/** What the admin page sees. */
+export interface LoungeOverview {
+  online: number;
+  searching: number;
+  playing: number;
+  lounges: LoungeInfo[];
+  matchesToday: number;
+  matchesHour: number;
+  reports: StoredReport[];
+  bans: (Ban & { id: string })[];
+  pushSubscribers: number;
+}
+

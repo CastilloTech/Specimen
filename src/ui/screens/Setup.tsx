@@ -17,7 +17,7 @@ const buildOptions = FACTIONS.map((f) => ({ id: f, label: FACTION_META[f].name, 
 const worldOptions = WORLD_FACTIONS.map((wf) => ({ id: wf, label: WORLD_FACTION_META[wf].name, color: WORLD_FACTION_META[wf].color, title: WORLD_FACTION_META[wf].tagline, icon: <ChipArt id={wf} size={30} /> }));
 
 /** Build, World Faction, deck, Chip and (for you) the loadout, as compact pickers. */
-function PlayerPicks({ cfg, onChange, isBot, onDecks }: { cfg: PlayerCfg; onChange: (c: PlayerCfg) => void; isBot?: boolean; onDecks?: () => void }) {
+export function PlayerPicks({ cfg, onChange, isBot, onDecks }: { cfg: PlayerCfg; onChange: (c: PlayerCfg) => void; isBot?: boolean; onDecks?: () => void }) {
   const decks = loadDecks().filter((d) => d.faction === cfg.faction && d.worldFaction === cfg.worldFaction);
   const set = (patch: Partial<PlayerCfg>) => onChange({ ...cfg, ...patch });
   const changeWorldFaction = (wf: WorldFactionId) => {

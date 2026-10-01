@@ -1,10 +1,11 @@
 import { useEffect, useReducer } from 'react';
-import type { ChatMsg, LobbyServerMsg, LoungeInfo, Presence, PresenceEntry, Profile } from '../../server/lobby';
+import type { ChatMsg, FriendStatus, LobbyServerMsg, LoungeInfo, Presence, PresenceEntry, Profile } from '../../server/lobby';
 import { IDLE_WARN_MS } from '../../server/lobby';
-import { addFriend, deviceId, isFriend, loadBlocked, loadEmblem, loadFriends, onlineName, refreshFriend } from './device';
+import { addFriend, deviceId, isFriend, loadBlocked, loadEmblem, loadFriends, onlineName, pushPrefs, refreshFriend, seriesPref, setPushPrefs } from './device';
+import type { PushPrefs } from './device';
 import { buzz, play } from './sfx';
 import { onlineSummary } from './multiplayer';
-import { SERVER_URL } from './online';
+import { pushKey, SERVER_URL, serverStatus } from './online';
 import { myDefaults } from './picks';
 import { loadSeries } from './storage';
 
@@ -23,11 +24,13 @@ export interface Found {
   profile: PresenceEntry | null;
   via: 'queue' | 'challenge';
   at: number;
+  bestOf: number;
 }
 export interface Incoming {
   id: string;
   from: PresenceEntry;
   until: number;
+  bestOf: number;
 }
 export interface Toast {
   text: string;
@@ -67,6 +70,11 @@ class Lounge {
   private lastActiveSent = 0;
   /** Your friends in online play right now, and in which lounge (asked for while the lounge is open). */
   friendsOn: Record<string, FriendOnline> = {};
+  /** Online play is resting (the free server's daily allowance ran out) until this time, or null. */
+  resting: number | null = null;
+  /** Connections that failed before the lounge answered (two in a row: ask the server why). */
+  private failed = 0;
+  private welcomed = false;
   toast: Toast | null = null;
   /** A game is being played on this device: requests wait instead of popping up. */
   quiet = false;
@@ -114,6 +122,8 @@ class Lounge {
     this.ws = ws;
     ws.onopen = () => {
       this.retries = 0;
+      this.failed = 0;
+      this.resting = null;
       this.connected = true;
       this.hello();
       if (this.searching) this.sendFind();
@@ -126,12 +136,22 @@ class Lounge {
       if (this.ping) clearInterval(this.ping);
       if (this.ws !== ws) return;
       this.ws = null;
+      const neverOpened = !this.connected;
       this.connected = false;
       this.players = [];
       this.emit();
-      // Still wanted: reconnect, waiting a little longer each time.
-      if (this.wanted()) setTimeout(() => this.wanted() && this.open(), Math.min(10_000, 500 * 2 ** this.retries++));
+      // Couldn't connect twice running: ask the server whether online play is resting (and until when).
+      if (neverOpened && ++this.failed === 2) void this.checkStatus();
+      // Still wanted: reconnect, waiting a little longer each time (a minute at most while resting).
+      const wait = this.resting ? Math.min(60_000, Math.max(5_000, this.resting - Date.now())) : Math.min(10_000, 500 * 2 ** this.retries++);
+      if (this.wanted()) setTimeout(() => this.wanted() && this.open(), wait);
     };
+  }
+
+  private async checkStatus() {
+    const s = await serverStatus();
+    this.resting = !s.ok && s.resting ? s.resetAt : null;
+    this.emit();
   }
 
   private hello() {
@@ -146,6 +166,13 @@ class Lounge {
       case 'welcome':
         this.you = m.you;
         this.mutedUntil = m.mutedUntil;
+        if (!this.welcomed) {
+          this.welcomed = true;
+          void this.syncPush();
+        }
+        break;
+      case 'chatCleared':
+        this.chat = [];
         break;
       case 'lounges':
         this.lounges = m.list;
@@ -181,7 +208,7 @@ class Lounge {
         this.outgoing = null;
         this.incoming = [];
         this.status = 'matched';
-        this.found = { code: m.code, opponent: m.opponent, profile: m.profile ?? null, via: m.via ?? 'queue', at: Date.now() };
+        this.found = { code: m.code, opponent: m.opponent, profile: m.profile ?? null, via: m.via ?? 'queue', at: Date.now(), bestOf: m.bestOf ?? 3 };
         break;
       case 'cooldown':
         this.searching = false;
@@ -204,7 +231,7 @@ class Lounge {
         this.say(`You left Lounge ${m.lounge} after 10 minutes without activity. Pick a lounge to come back.`);
         break;
       case 'challenged':
-        this.incoming = [...this.incoming.filter((c) => c.from.id !== m.from.id), { id: m.id, from: m.from, until: m.until }];
+        this.incoming = [...this.incoming.filter((c) => c.from.id !== m.from.id), { id: m.id, from: m.from, until: m.until, bestOf: m.bestOf ?? 3 }];
         break;
       case 'challengeSent':
         this.outgoing = { id: m.id, to: m.to, until: m.until };
@@ -222,6 +249,7 @@ class Lounge {
       case 'friendAccepted':
         addFriend({ id: m.from.id, name: m.from.name, emblem: m.from.emblem });
         this.say(`${m.from.name} is now your friend.`);
+        void this.syncPush();
         break;
       case 'notice':
         this.say(m.text);
@@ -295,7 +323,7 @@ class Lounge {
     if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify(msg));
   }
   private sendFind() {
-    this.send({ t: 'find', ...(this.since ? { since: this.since } : {}) });
+    this.send({ t: 'find', bestOf: seriesPref(), ...(this.since ? { since: this.since } : {}) });
   }
 
   /** Your name, emblem or Specimen changed: tell the lounge (or say hello, the first time). */
@@ -373,7 +401,55 @@ class Lounge {
     this.send({ t: 'chat', text });
   }
   challenge(to: string) {
-    this.send({ t: 'challenge', to });
+    this.send({ t: 'challenge', to, bestOf: seriesPref() });
+  }
+
+  // ---------- Notifications while the game is closed ----------
+
+  /** Whether this browser can get notifications from the game (installed apps on iPhone; most browsers elsewhere). */
+  get pushSupported(): boolean {
+    return typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+  }
+  /** Turn notifications on (asks the browser's permission) for friends coming online and/or challenges. */
+  async enablePush(prefs: PushPrefs): Promise<string | null> {
+    if (!this.pushSupported) return 'This browser can\'t show notifications from the game. On iPhone, add the game to your Home Screen first.';
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') return 'Notifications are blocked for this site. Allow them in your browser settings.';
+    const key = await pushKey();
+    if (!key) return 'The server has notifications turned off right now.';
+    try {
+      const reg = await navigator.serviceWorker.getRegistration();
+      if (!reg) return 'Notifications work in the installed game (or the website), not this preview.';
+      const sub = (await reg.pushManager.getSubscription()) ?? (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlKey(key) }));
+      setPushPrefs(prefs);
+      this.send({ t: 'push', sub: sub.toJSON(), watch: loadFriends().map((f) => f.id), events: prefs });
+      this.emit();
+      return null;
+    } catch (e) {
+      return `Couldn't turn notifications on: ${(e as Error).message}`;
+    }
+  }
+  async disablePush(): Promise<void> {
+    setPushPrefs(null);
+    this.send({ t: 'push', sub: null });
+    try {
+      const reg = await navigator.serviceWorker.getRegistration();
+      await (await reg?.pushManager.getSubscription())?.unsubscribe();
+    } catch {
+      /* already off */
+    }
+    this.emit();
+  }
+  /** Notifications on: keep the server's copy of your friends list (whose arrival to tell you about) current. */
+  async syncPush(): Promise<void> {
+    const prefs = pushPrefs();
+    if (!prefs || !this.pushSupported || Notification.permission !== 'granted') return;
+    try {
+      const sub = await (await navigator.serviceWorker.getRegistration())?.pushManager.getSubscription();
+      if (sub) this.send({ t: 'push', sub: sub.toJSON(), watch: loadFriends().map((f) => f.id), events: prefs });
+    } catch {
+      /* next time */
+    }
   }
   withdraw() {
     this.send({ t: 'withdraw' });
@@ -398,6 +474,7 @@ class Lounge {
     if (yes) {
       addFriend({ id: from.id, name: from.name, emblem: from.emblem });
       this.say(`${from.name} is now your friend.`);
+      void this.syncPush();
     }
     this.send({ t: 'friendAnswer', to: from.id, yes });
     this.friendReqs = this.friendReqs.filter((f) => f.id !== from.id);
@@ -427,9 +504,12 @@ export function useMatchmaker() {
 /** How long a found match waits for you to join before the room gives up (a little under the server's 30 s). */
 export const JOIN_WINDOW_MS = 25_000;
 
-export interface FriendOnline {
-  status: Presence;
-  lounge: number | null;
+export type FriendOnline = FriendStatus;
+
+/** A base64url key as the bytes the browser's push subscription wants. */
+function urlKey(b64: string): Uint8Array<ArrayBuffer> {
+  const s = atob(b64.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((b64.length + 3) % 4));
+  return Uint8Array.from(s, (c) => c.charCodeAt(0));
 }
 
 /** Whether a chat message names you (your online name as a whole word, any case). */

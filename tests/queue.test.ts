@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import { chipRows, chipsFor, starterDeck } from '../src/engine';
 import { checkName } from '../server/names';
-import { cleanBlocks, cooldownUntil, COOLDOWN_MAX_MS, COOLDOWN_STEP_MS, FREE_LEAVES, MAX_REQUEUE_MS, pickPartner, pubOf, searchSince } from '../server/lobby';
+import { banned, cleanBlocks, cooldownUntil, COOLDOWN_MAX_MS, COOLDOWN_STEP_MS, FREE_LEAVES, MAX_REQUEUE_MS, nextReset, pickPartner, pubOf, searchSince } from '../server/lobby';
 import type { Seeker } from '../server/lobby';
 import { decline, join, leave, newRoom, nextWake, QUEUE_JOIN_MS, tick, viewFor } from '../server/room';
 
@@ -143,5 +143,24 @@ describe('Rooms the queue makes', () => {
     join(f, { t: 'join', player: player('Ben') }, 0, Math.random, tok, 'pb');
     leave(f, 1, 10);
     expect(f.penalties ?? []).toEqual([]);
+  });
+});
+
+describe('Series length, bans and the daily reset', () => {
+  it('the queue only matches players wanting the same length of series', () => {
+    expect(pickPartner({ ...seek('a', 50), bestOf: 1 }, [seek('b', 10), { ...seek('c', 30), bestOf: 1 }])?.pub).toBe('c');
+    expect(pickPartner(seek('a', 50), [{ ...seek('b', 10), bestOf: 1 }])).toBeNull();
+  });
+  it('a chat ban mutes; a suspension also stops play with strangers; both end', () => {
+    const now = 1000;
+    expect(banned({ scope: 'chat', until: 2000, reason: '' }, 'chat', now)).toBe(true);
+    expect(banned({ scope: 'chat', until: 2000, reason: '' }, 'play', now)).toBe(false);
+    expect(banned({ scope: 'all', until: 2000, reason: '' }, 'play', now)).toBe(true);
+    expect(banned({ scope: 'all', until: 2000, reason: '' }, 'chat', 2000)).toBe(false);
+    expect(banned(null, 'chat', now)).toBe(false);
+  });
+  it('the free allowance comes back at the next midnight UTC', () => {
+    expect(new Date(nextReset(Date.UTC(2026, 9, 1, 20, 30))).toISOString()).toBe('2026-10-02T00:00:00.000Z');
+    expect(new Date(nextReset(Date.UTC(2026, 11, 31, 23, 59))).toISOString()).toBe('2027-01-01T00:00:00.000Z');
   });
 });

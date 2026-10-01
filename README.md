@@ -975,6 +975,25 @@ Play a friend online with a 5-letter room code or an invite link (`#room=ABCDE`)
   - On a phone, the Chat tab counts messages that came in while you looked at the players (amber if one names you).
   - A friend joining your lounge is announced.
   - **Inactivity:** 10 minutes without a tap or keypress (searching or a challenge out counts as busy) and you leave the lounge, so its seat goes to someone who's there. A minute before, "Still there?" counts down with **I'm here**. The server does the same a minute later for a tab left open and forgotten (a once-a-minute check while anyone is in a lounge).
+- **Series length:** a best of 3 (first to two wins) or a best of 1, picked in the lounge. It applies to the random search (which only pairs players wanting the same length), your challenges and new friend rooms.
+- **Your Specimen from the lounge:** **Change Specimen** on your card picks the Build, World Faction, deck, Chip and loadout you bring online (the same picks as Quick match).
+- **Watching a friend:** a friend in a match the lounge made shows **Watch**. You follow their side with both hands hidden until the game ends, can't act, and nothing is recorded; the players see "👁 N". At most 8 watchers per match (`spectatorView` in `server/room.ts`).
+- **Notifications while the game is closed** (Web Push, `server/push.ts`, no library: RFC 8291 encryption and an RFC 8292 VAPID token, both checked by `tests/push.test.ts`):
+  - opt in from the lounge (🔔), for friends coming online (at most every 6 hours per friend) and/or invites;
+  - **Invite** an offline friend: if they turned challenge notifications on (and have you as a friend), they get "Ana challenges you" and have 2 minutes to tap it and answer in the lounge;
+  - nothing is sent while the game is open and in view;
+  - on iPhone and iPad, notifications need the game added to the Home Screen.
+- **When online play is down:** if the free plan's daily allowance runs out, the server answers "resting" with the reset time (midnight UTC), and the lounge says so in your local time and points to the offline modes (`GET /status`).
+- **Admin page** (open the game with `#admin`, enter the admin code: the server's `ADMIN_TOKEN` secret):
+  - today's usage: match-server requests against the free 100,000, and the busiest rooms (inspect one, or close it). This needs a read-only Cloudflare analytics token: `npx wrangler secret put CF_API_TOKEN` in `server/` (Account Analytics: Read);
+  - who's online, searching, in a match, matches today and in the last hour, lounges (clear a lounge's chat);
+  - reports with the reported chat message; mute in chat for 24 hours, suspend from playing strangers for 7 days, or dismiss;
+  - bans (lift one, or ban a player id by hand).
+- **Protection:**
+  - per-address limits on creating rooms (8 a minute), connecting (30) and other calls (30), with Cloudflare's rate limiting (which doesn't use the Durable Objects allowance);
+  - a room's alarm is never set less than 5 s ahead, and each alarm that finds nothing to do doubles the next wait (up to about 40 minutes), so a mistake can't make a room ring nonstop again;
+  - the bug behind the first outage: a room still waiting for its second player, after its only player had left, kept scheduling its forfeit check in the past and rang nonstop. Waiting rooms now free the seat; `tests/online.test.ts` checks that no room's alarm can spin.
+- **Server files:** `worker.ts` (routes, limits, status, admin), `matchroom.ts` (a match room), `lounge.ts` (the lounges), `env.ts` (shared settings); rules in `room.ts`, `lobby.ts`, `names.ts`, `push.ts`. Secrets: `ADMIN_TOKEN`, `VAPID_PRIVATE` (and optionally `CF_API_TOKEN`); local development reads `server/.dev.vars` (not in git).
 - **Free-plan budget** (per day): 100,000 requests, 13,000 GB-s of compute, 5 GB stored. A match is about 150 messages, and the largest view is about 35 KB. Hitting a limit makes requests fail for the rest of the day; it never bills.
 
 ### UI pass: containment-lab look and quality of life

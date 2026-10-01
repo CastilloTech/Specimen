@@ -16,7 +16,17 @@
     { "tag": "v2", "new_sqlite_classes": ["Lobby"] }
   ],
   "vars": {
-    "ALLOWED_ORIGINS": "https://castillotech.github.io"
+    "ALLOWED_ORIGINS": "https://castillotech.github.io",
+    // Web Push: the server's public key (the private one is a Worker secret, VAPID_PRIVATE).
+    "VAPID_PUBLIC": "BJg2unH7exoVXbpTVWjGObipwuAAhMYUyKfuS4kruF8Yj6dyHBS08Zu2ZAmL_n8CMjHmGfhZyzwedYCmVrJ2qGo",
+    // For the admin page's usage numbers (with the CF_API_TOKEN secret: a read-only analytics token).
+    "CF_ACCOUNT_ID": "52c46d79c29a0a2bf30b61c7a556becb"
   },
+  // How often one address may create rooms, open connections, and make other calls (per minute).
+  "ratelimits": [
+    { "name": "RL_ROOMS", "namespace_id": "1001", "simple": { "limit": 8, "period": 60 } },
+    { "name": "RL_CONNECT", "namespace_id": "1002", "simple": { "limit": 30, "period": 60 } },
+    { "name": "RL_MISC", "namespace_id": "1003", "simple": { "limit": 30, "period": 60 } }
+  ],
   "observability": { "enabled": true }
 }

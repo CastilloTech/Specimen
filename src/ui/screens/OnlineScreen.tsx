@@ -5,15 +5,17 @@ import { ChipArt } from '../components/Emblem';
 import { useAttention, useNow } from '../components/OnlineBits';
 import { EmblemPicker, ProfileBadge, ProfileCard } from '../components/ProfileCard';
 import { checkName, CHAT_MAX, NAME_MAX } from '../../../server/names';
-import { alwaysRandomLounge, block, chatHidden, isFriend, keepSearching, loadBlocked, loadEmblem, loadFriends, onlineName, removeFriend, saveEmblem, setAlwaysRandomLounge, setChatHidden, setKeepSearching, setOnlineName, suggestName, unblock } from '../device';
+import { alwaysRandomLounge, block, chatHidden, pushPrefs, seriesPref, setSeriesPref, isFriend, keepSearching, loadBlocked, loadEmblem, loadFriends, onlineName, removeFriend, saveEmblem, setAlwaysRandomLounge, setChatHidden, setKeepSearching, setOnlineName, suggestName, unblock } from '../device';
 import { IDLE_MS, IDLE_WARN_MS, LOUNGE_SIZE, matchmaker, mentions, myProfile, useMatchmaker } from '../matchmaker';
 import type { ChatMsg, FriendOnline, PresenceEntry, Profile } from '../matchmaker';
 import { FACTION_META, PLAYER_COLORS, WORLD_FACTION_META } from '../meta';
-import { BEST_OF, codeFrom, createRoom, lastRoom, OnlineConn, ROOM_CODE, roomLink } from '../online';
+import { BEST_OF, codeFrom, createRoom, lastRoom, OnlineConn, RestingError, ROOM_CODE, roomLink } from '../online';
 import { ONLINE_DAILY_REWARD, ONLINE_DAILY_TEXT, onlineDailyDone } from '../onlineDaily';
-import { deckOf, myDefaults } from '../picks';
+import { deckOf, myDefaults, toPick } from '../picks';
+import type { PlayerCfg } from '../picks';
+import { PlayerPicks } from './Setup';
 import { buzz, play } from '../sfx';
-import { activeSave } from '../storage';
+import { activeSave, loadLastSetup, saveChipLoadout, saveLastSetup } from '../storage';
 
 const clock = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 const REPORT_REASONS = ['Offensive message or name', 'Harassment', 'Sharing personal info', 'Something else'] as const;
@@ -23,8 +25,9 @@ const REPORT_REASONS = ['Offensive message or name', 'Harassment', 'Sharing pers
  * cards), chat, challenge someone directly (they answer yes or no), search the casual queue, or play a friend
  * with a room code. Every match is a best of 3, and starts with a moment to see who you're facing.
  */
-export function OnlineScreen({ onBack, onStart, initialCode, onDecks }: { onBack: () => void; onStart: (conn: OnlineConn) => void; initialCode?: string; onDecks: () => void }) {
-  const [me] = useState(myDefaults);
+export function OnlineScreen({ onBack, onStart, initialCode, onDecks, onWatch }: { onBack: () => void; onStart: (conn: OnlineConn) => void; initialCode?: string; onDecks: () => void; onWatch: (conn: OnlineConn) => void }) {
+  const [me, setMe] = useState(myDefaults);
+  const [picking2, setPicking2] = useState(false); // choosing your Specimen
   const [code, setCode] = useState(initialCode ?? '');
   const [conn, setConn] = useState<OnlineConn | null>(null);
   const [busy, setBusy] = useState(false);
@@ -111,11 +114,12 @@ export function OnlineScreen({ onBack, onStart, initialCode, onDecks }: { onBack
     setBusy(true);
     setErr(null);
     try {
-      const c = await createRoom();
+      const c = await createRoom(seriesPref());
       setCode(c);
       enter(c);
     } catch (e) {
-      setErr(`Couldn't reach the match server. ${(e as Error).message}`);
+      if (e instanceof RestingError) matchmaker.resting = e.resetAt;
+      setErr(e instanceof RestingError ? null : `Couldn't reach the match server. ${(e as Error).message}`);
     } finally {
       setBusy(false);
     }
@@ -137,7 +141,7 @@ export function OnlineScreen({ onBack, onStart, initialCode, onDecks }: { onBack
     const nav = navigator as Navigator & { share?: (d: ShareData) => Promise<void> };
     if (nav.share && matchMedia('(pointer: coarse)').matches) {
       try {
-        await nav.share({ title: 'Specimen', text: `Play me in Specimen: best of ${BEST_OF}. Room ${code}`, url });
+        await nav.share({ title: 'Specimen', text: `Play me in Specimen: best of ${seriesPref()}. Room ${code}`, url });
         return;
       } catch {
         /* closed the share sheet: fall back to copying */
@@ -223,6 +227,8 @@ export function OnlineScreen({ onBack, onStart, initialCode, onDecks }: { onBack
             Cancel
           </button>
         </section>
+      ) : mm.resting ? (
+        <Resting until={mm.resting} />
       ) : !strangerName || editing ? (
         <Welcome
           first={!strangerName}
@@ -242,16 +248,28 @@ export function OnlineScreen({ onBack, onStart, initialCode, onDecks }: { onBack
         <div className="grid gap-3 lg:grid-cols-[340px_minmax(0,1fr)]">
           <IdleGuard />
           <div className="flex flex-col gap-3">
-            <YourCard onEdit={() => setEditing(true)} />
+            <YourCard onEdit={() => setEditing(true)} onSpecimen={() => setPicking2(true)} />
+            {picking2 && (
+              <SpecimenPicker
+                onClose={() => setPicking2(false)}
+                onSaved={() => {
+                  setMe(myDefaults());
+                  setPicking2(false);
+                  matchmaker.refreshProfile();
+                }}
+                onDecks={onDecks}
+              />
+            )}
+            <Notifications />
             <PlayPanel faction={me.faction} worldFaction={me.worldFaction} onDecks={onDecks} />
             <FriendRoom rejoin={rejoin} busy={busy} host={host} code={code} onType={onType} saveName={me.name} enter={enter} />
             <BlockedList />
           </div>
-          <LoungePanels />
+          <LoungePanels onWatch={onWatch} />
         </div>
       )}
       <p className="mt-auto text-[11px] leading-snug text-mute">
-        Every match is a best of {BEST_OF}: the first to win two games takes the series. The lounge chat is with strangers: be kind, never share personal details, and tap a name to block or report. If your connection drops you rejoin your seat automatically; a player away for 3 minutes forfeits the series.
+        Matches are a best of 3 (first to two wins) or a best of 1, your choice. The lounge chat is with strangers: be kind, never share personal details, and tap a name to block or report. If your connection drops you rejoin your seat automatically; a player away for 3 minutes forfeits the series.
       </p>
     </div>
   );
@@ -411,7 +429,7 @@ function Versus({ conn }: { conn: OnlineConn }) {
   const prof = (p: typeof mine, given: Profile | null | undefined): Profile => given ?? { name: p.name, emblem: p.faction, faction: p.faction, worldFaction: p.worldFaction, won: 0, lost: 0 };
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center gap-6 overflow-hidden p-4 phone:gap-3" role="status" aria-live="assertive">
-      <div className="lab-label">Opponent found · best of {BEST_OF}</div>
+      <div className="lab-label">Opponent found · best of {v.series.bestOf}</div>
       <div className="flex w-full max-w-2xl items-center justify-center gap-4 phone:gap-2">
         {[
           { p: mine, pr: prof(mine, conn.myProfile) },
@@ -484,7 +502,7 @@ function Welcome({ first, initialName, onDone, onCancel }: { first: boolean; ini
   );
 }
 
-function YourCard({ onEdit }: { onEdit: () => void }) {
+function YourCard({ onEdit, onSpecimen }: { onEdit: () => void; onSpecimen: () => void }) {
   const p = myProfile();
   const done = onlineDailyDone();
   if (!p) return null;
@@ -492,9 +510,14 @@ function YourCard({ onEdit }: { onEdit: () => void }) {
     <section className="lab-panel flex flex-col gap-2 rounded-xl border border-line p-3">
       <div className="flex items-center gap-2">
         <ProfileCard p={p} className="flex-1" />
-        <button onClick={onEdit} className="shrink-0 rounded-md border border-line px-2 py-1 text-[11px] text-ink2 hover:border-mute">
-          Edit
-        </button>
+        <div className="flex shrink-0 flex-col gap-1">
+          <button onClick={onEdit} className="rounded-md border border-line px-2 py-1 text-[11px] text-ink2 hover:border-mute" title="Your online name and emblem">
+            Edit card
+          </button>
+          <button onClick={onSpecimen} className="rounded-md border border-accent/60 px-2 py-1 text-[11px] font-semibold text-accent" title="The Specimen and deck you bring online">
+            Change Specimen
+          </button>
+        </div>
       </div>
       <div className={`flex items-center gap-2 rounded-lg px-2 py-1.5 text-[11px] ${done ? 'bg-emerald-950/40 text-emerald-200' : 'bg-black/25 text-ink2'}`} title="Resets every day">
         <span aria-hidden>{done ? '✓' : '◎'}</span>
@@ -567,6 +590,7 @@ function PlayPanel({ faction, worldFaction, onDecks }: { faction: Faction; world
           Find a random opponent ▶
         </button>
       )}
+      <SeriesLength disabled={searching} />
       <label className="flex items-center gap-2 text-[11px] text-ink2">
         <input
           type="checkbox"
@@ -657,7 +681,7 @@ function BlockedList() {
 }
 
 /** Who's here and the chat: side by side on a wide screen, as two tabs on a phone. */
-function LoungePanels() {
+function LoungePanels({ onWatch }: { onWatch: (conn: OnlineConn) => void }) {
   const [tab, setTab] = useState<'chat' | 'players'>('chat');
   const mm = useMatchmaker();
   const [hidden, setHidden] = useState(chatHidden);
@@ -694,7 +718,7 @@ function LoungePanels() {
           />
         </div>
         <div className={`${tab === 'players' ? '' : 'hidden'} min-w-0 md:block`}>
-          <PlayersPanel onChange={refresh} />
+          <PlayersPanel onChange={refresh} onWatch={onWatch} />
         </div>
       </div>
     </div>
@@ -791,7 +815,7 @@ function PlayerMenu({ p, msg, onClose, onChange }: { p: { id: string; name: stri
 
 const STATUS_LABEL = { lounge: null, searching: 'searching', playing: 'in a match' } as const;
 
-function PlayersPanel({ onChange }: { onChange: () => void }) {
+function PlayersPanel({ onChange, onWatch }: { onChange: () => void; onWatch: (conn: OnlineConn) => void }) {
   const mm = useMatchmaker();
   const [menu, setMenu] = useState<string | null>(null);
   const blocked = new Set(loadBlocked().map((b) => b.id));
@@ -803,6 +827,23 @@ function PlayersPanel({ onChange }: { onChange: () => void }) {
   here.sort((a, b) => order(a) - order(b));
   const friendsOn = useFriendsOnline();
   const away = friends.filter((f) => !here.some((p) => p.id === f.id) && !blocked.has(f.id));
+  // Watching a friend's match (one the lounge made: its room code comes with the friend's whereabouts). The
+  // match opens once its first view has arrived; a room that won't have you says why.
+  const watch = (id: string) => {
+    const room = friendsOn[id]?.room;
+    if (!room) return;
+    const k = new OnlineConn(room, null, { follow: id });
+    const off = k.subscribe(() => {
+      if (k.view) {
+        off();
+        onWatch(k);
+      } else if (k.error) {
+        off();
+        k.close();
+        matchmaker.toastNow(k.error);
+      }
+    });
+  };
   const elsewhere = away.filter((f) => friendsOn[f.id]);
   const offline = away.filter((f) => !friendsOn[f.id]);
   const row = (p: PresenceEntry) => {
@@ -813,6 +854,11 @@ function PlayersPanel({ onChange }: { onChange: () => void }) {
         <div className="flex items-center gap-2 rounded-lg bg-black/25 px-2 py-1.5">
           <ProfileCard p={p} className="flex-1" tag={friendIds.has(p.id) ? <span className="text-[10px] text-sky-300" title="Friend">★</span> : undefined} />
           {st && <span className={`shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase ${p.status === 'searching' ? 'bg-accent/20 text-accent' : 'bg-white/10 text-mute'}`}>{st}</span>}
+          {p.status === 'playing' && friendsOn[p.id]?.room && (
+            <button onClick={() => watch(p.id)} className="shrink-0 rounded-md border border-sky-400/60 px-2 py-1 text-[11px] font-semibold text-sky-200">
+              Watch
+            </button>
+          )}
           <button onClick={() => matchmaker.challenge(p.id)} disabled={!can} className="shrink-0 rounded-md bg-accent px-2 py-1 text-[11px] font-bold text-black disabled:opacity-30" title={can ? 'Challenge to a best of 3' : p.status === 'playing' ? 'In a match' : 'You have a challenge out'}>
             Challenge
           </button>
@@ -851,11 +897,15 @@ function PlayersPanel({ onChange }: { onChange: () => void }) {
                     <span className="font-semibold text-sky-200">{f.name}</span>
                     <span className="text-mute"> · {playing ? 'in a match' : where.lounge ? `Lounge ${where.lounge}` : 'online'}</span>
                   </span>
-                  {where.lounge && (
+                  {playing && where.room ? (
+                    <button onClick={() => watch(f.id)} className="shrink-0 rounded-md border border-sky-400/60 px-2 py-1 text-[11px] font-semibold text-sky-200">
+                      Watch
+                    </button>
+                  ) : where.lounge ? (
                     <button onClick={() => matchmaker.joinLounge(where.lounge!)} className="shrink-0 rounded-md border border-line px-2 py-1 text-[11px] text-ink2">
                       Go there
                     </button>
-                  )}
+                  ) : null}
                   <button onClick={() => matchmaker.challenge(f.id)} disabled={playing || !!mm.outgoing} className="shrink-0 rounded-md bg-accent px-2 py-1 text-[11px] font-bold text-black disabled:opacity-30">
                     Challenge
                   </button>
@@ -875,6 +925,14 @@ function PlayersPanel({ onChange }: { onChange: () => void }) {
                   <ProfileBadge emblem={f.emblem} size={22} />
                 </span>
                 <span className="min-w-0 flex-1 truncate">{f.name}</span>
+                <button
+                  onClick={() => matchmaker.challenge(f.id)}
+                  disabled={!!mm.outgoing}
+                  className="shrink-0 rounded-md border border-line px-2 py-1 text-[11px] text-ink2 disabled:opacity-30"
+                  title="Sends them a notification, if they turned notifications on: they have 2 minutes to answer"
+                >
+                  Invite
+                </button>
                 <button
                   onClick={() => {
                     removeFriend(f.id);
@@ -973,5 +1031,114 @@ function ChatPanel({ hidden, onToggle, onChange }: { hidden: boolean; onToggle: 
         </button>
       </form>
     </section>
+  );
+}
+
+/** Best of 3 or best of 1: for the random search, your challenges and new friend rooms. */
+function SeriesLength({ disabled }: { disabled?: boolean }) {
+  const [n, setN] = useState(seriesPref);
+  const pick = (v: 1 | 3) => {
+    setN(v);
+    setSeriesPref(v);
+  };
+  return (
+    <div className="flex items-center gap-2 text-[11px] text-ink2" role="radiogroup" aria-label="Series length">
+      <span className="flex-1">Series</span>
+      {([3, 1] as const).map((v) => (
+        <button key={v} role="radio" aria-checked={n === v} disabled={disabled} onClick={() => pick(v)} className={`rounded-md px-2 py-1 font-semibold disabled:opacity-50 ${n === v ? 'bg-accent text-black' : 'border border-line'}`} title={v === 1 ? 'One game decides it' : 'First to two wins'}>
+          Best of {v}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** Online play is resting until midnight UTC (the free server's daily allowance ran out): when, and what still works. */
+function Resting({ until }: { until: number }) {
+  const now = useNow(30_000);
+  const mins = Math.max(0, Math.ceil((until - now) / 60000));
+  return (
+    <section className="lab-panel mx-auto flex w-full max-w-md flex-col gap-2 rounded-xl border-2 border-amber-400/60 p-4 text-center" role="status">
+      <div className="font-display text-lg font-bold text-amber-200">Online play is resting</div>
+      <p className="text-sm text-ink2">
+        The free server used up today's allowance. It's back at <b>{new Date(until).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}</b> your time ({mins >= 60 ? `${Math.floor(mins / 60)} h ${mins % 60} min` : `${mins} min`}).
+      </p>
+      <p className="text-xs text-mute">Quick match, Custom match, the Tower, Lineage, Breach and the Daily all still work.</p>
+    </section>
+  );
+}
+
+/** Choosing the Specimen and deck you bring online (the same picks as Quick match and Custom match). */
+function SpecimenPicker({ onClose, onSaved, onDecks }: { onClose: () => void; onSaved: () => void; onDecks: () => void }) {
+  const [cfg, setCfg] = useState<PlayerCfg>(myDefaults);
+  const save = () => {
+    const rest = loadLastSetup()?.slice(1) ?? [];
+    saveLastSetup([toPick(cfg), ...rest]);
+    saveChipLoadout(cfg.chip, cfg.loadout);
+    onSaved();
+  };
+  return (
+    <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/60 p-2 sm:items-center" onClick={onClose}>
+      <div className="pop lab-panel flex max-h-[92dvh] w-full max-w-lg flex-col gap-3 overflow-y-auto rounded-xl border border-line bg-panel p-4" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Your Specimen">
+        <div>
+          <h2 className="font-display text-lg font-bold">Your Specimen</h2>
+          <p className="text-xs text-ink2">What you bring to online matches (and Quick match). Your card shows it to others.</p>
+        </div>
+        <PlayerPicks cfg={cfg} onChange={setCfg} onDecks={onDecks} />
+        <div className="sticky bottom-0 flex gap-2 bg-panel pt-1">
+          <button onClick={onClose} className="rounded-lg border border-line px-3 py-2 text-sm text-ink2">
+            Cancel
+          </button>
+          <button onClick={save} className="flex-1 rounded-lg bg-accent px-3 py-2 font-display font-bold text-black">
+            Use this Specimen
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Notifications while the game is closed: friends coming online, and challenges (invites) from friends. */
+function Notifications() {
+  const mm = useMatchmaker();
+  const [prefs, setPrefs] = useState(pushPrefs);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const on = !!prefs;
+  const toggle = async (next: { friends: boolean; challenges: boolean } | null) => {
+    setBusy(true);
+    setMsg(null);
+    if (!next || (!next.friends && !next.challenges)) {
+      await matchmaker.disablePush();
+      setPrefs(null);
+    } else {
+      const err = await matchmaker.enablePush(next);
+      if (err) setMsg(err);
+      else setPrefs(next);
+    }
+    setBusy(false);
+  };
+  return (
+    <details className="lab-panel rounded-xl border border-line px-3 py-2 text-sm">
+      <summary className="cursor-pointer text-xs text-ink2">🔔 Notifications {on ? '(on)' : '(off)'}: friends online, challenges</summary>
+      <div className="mt-2 flex flex-col gap-1.5 text-xs text-ink2">
+        {!mm.pushSupported ? (
+          <p className="text-mute">This browser can't show notifications from the game. On iPhone or iPad, add the game to your Home Screen first, then open it from there.</p>
+        ) : (
+          <>
+            <label className="flex items-center gap-2">
+              <input type="checkbox" disabled={busy} checked={!!prefs?.friends} onChange={(e) => void toggle({ friends: e.target.checked, challenges: !!prefs?.challenges || !prefs })} />
+              When a friend comes online (at most every few hours per friend)
+            </label>
+            <label className="flex items-center gap-2">
+              <input type="checkbox" disabled={busy} checked={!!prefs?.challenges} onChange={(e) => void toggle({ friends: !!prefs?.friends || !prefs, challenges: e.target.checked })} />
+              When a friend invites you to a match (you have 2 minutes to answer)
+            </label>
+            <p className="text-[11px] text-mute">Only friends can notify you. Nothing is sent while you're in the game.</p>
+          </>
+        )}
+        {msg && <p className="text-amber-200">{msg}</p>}
+      </div>
+    </details>
   );
 }
