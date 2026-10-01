@@ -55,14 +55,23 @@ describe('Daily challenge', () => {
     expect(r.outcome).toMatchObject({ firstWin: false, reward: 0, newBest: true });
     expect(r.progress.daily).toMatchObject({ attempts: 3, bestHp: 30 });
     p = r.progress;
-    // The next day continues the streak; skipping a day resets it.
+    // The next day continues the streak. One missed day a week is forgiven; a second within the week resets it.
     r = applyDaily(p, '2026-03-02', fakeEnd(true));
     expect(r.outcome.streak).toBe(2);
     expect(r.outcome.reward).toBe(dailyReward(2));
     expect(r.progress.daily).toMatchObject({ key: '2026-03-02', attempts: 1 });
-    r = applyDaily(r.progress, '2026-03-04', fakeEnd(true));
+    r = applyDaily(r.progress, '2026-03-04', fakeEnd(true)); // missed the 3rd: grace
+    expect(r.outcome.streak).toBe(3);
+    expect(r.progress.dailyStreak?.grace).toBe('2026-03-04');
+    r = applyDaily(r.progress, '2026-03-06', fakeEnd(true)); // missed the 5th, grace already spent this week
     expect(r.outcome.streak).toBe(1);
-    expect(r.progress.dailyStreak?.best).toBe(2);
+    expect(r.progress.dailyStreak?.best).toBe(3);
+    r = applyDaily(r.progress, '2026-03-07', fakeEnd(true));
+    r = applyDaily(r.progress, '2026-03-12', fakeEnd(true)); // four days missed: no grace covers that
+    expect(r.outcome.streak).toBe(1);
+    // Every first win recovers the next dispatch.
+    expect(r.progress.dailyWins).toBe(6);
+    expect(r.outcome.dispatch).toBe(6);
   });
 
   it('day keys roll over months and years', () => {

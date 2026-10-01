@@ -644,6 +644,237 @@
     "n": 1
    },
    "text": "Field note: when one graft sets off another, the specimen goes very still, like it's remembering something.\n\nThe manuals call it synergy. The old program called it integration. The first researchers called it the cycle, and then stopped calling it anything."
+  },
+  {
+   "id": "dispatch_1",
+   "source": "dispatch",
+   "title": "Dispatch 1: Ridge Outpost",
+   "where": "Win the daily challenge (1 day won)",
+   "text": "Offshoots sighted at dawn. They didn't advance. Every one of them faced north-east, like compass needles.\n\nWe fired anyway. It seemed important to be doing something.",
+   "unlock": {
+    "kind": "daily",
+    "n": 1
+   }
+  },
+  {
+   "id": "dispatch_2",
+   "source": "dispatch",
+   "title": "Dispatch 2: River Crossing",
+   "where": "Win the daily challenge (2 days won)",
+   "text": "Patrol reports a handler with no insignia at the crossing. Hollow tissue on her Specimen. She watched ours drink, then left before anyone thought to ask her name.",
+   "unlock": {
+    "kind": "daily",
+    "n": 2
+   }
+  },
+  {
+   "id": "dispatch_3",
+   "source": "dispatch",
+   "title": "Dispatch 3: Seized Crate",
+   "where": "Win the daily challenge (3 days won)",
+   "text": "Black-market crate seized at the border. Inside: grafts from all four factions, packed together with care, labelled in a single hand.\n\nThe label reads: parts.",
+   "unlock": {
+    "kind": "daily",
+    "n": 3
+   }
+  },
+  {
+   "id": "dispatch_4",
+   "source": "dispatch",
+   "title": "Dispatch 4: Quarantine Notice",
+   "where": "Win the daily challenge (4 days won)",
+   "text": "Any handler returning from the north-east is to be filtered before debrief. Twice.\n\nHandlers who ask why are to be filtered three times.",
+   "unlock": {
+    "kind": "daily",
+    "n": 4
+   }
+  },
+  {
+   "id": "dispatch_5",
+   "source": "dispatch",
+   "title": "Dispatch 5: Field Recording",
+   "where": "Win the daily challenge (5 days won)",
+   "text": "[static]\n\nA Specimen in the pens is humming the same note as the offshoots outside the wire. When we numbed it, the offshoots went quiet too.\n\nWe have not decided who was answering whom.",
+   "unlock": {
+    "kind": "daily",
+    "n": 5
+   }
+  },
+  {
+   "id": "dispatch_6",
+   "source": "dispatch",
+   "title": "Dispatch 6: Ledger Page",
+   "where": "Win the daily challenge (6 days won)",
+   "text": "Debts outstanding: four. Debts paid: two.\n\nThe two unpaid names have been scratched out so hard the paper tore.",
+   "unlock": {
+    "kind": "daily",
+    "n": 6
+   }
+  },
+  {
+   "id": "dispatch_7",
+   "source": "dispatch",
+   "title": "Dispatch 7: Night Watch",
+   "where": "Win the daily challenge (7 days won)",
+   "text": "A shed offshoot crawled to the fence and died against it. Its residue dried into a line pointing north-east.\n\nThe morning shift swept it up. It was back the next night, in the same place, pointing the same way.",
+   "unlock": {
+    "kind": "daily",
+    "n": 7
+   }
+  },
+  {
+   "id": "dispatch_8",
+   "source": "dispatch",
+   "title": "Dispatch 8: Misfiled Footage",
+   "where": "Win the daily challenge (8 days won)",
+   "text": "Exhibition season one. Mid-bout, the Predator-line Specimen stops and turns to the stands. Every tank in the arena turns with it.\n\nBroadcast cut for \"technical difficulties\".",
+   "unlock": {
+    "kind": "daily",
+    "n": 8
+   }
+  },
+  {
+   "id": "dispatch_9",
+   "source": "dispatch",
+   "title": "Dispatch 9: Recruitment Figures",
+   "where": "Win the daily challenge (9 days won)",
+   "text": "Three new handlers this month. Each told they are the first.\n\nEach assigned a number anyway.",
+   "unlock": {
+    "kind": "daily",
+    "n": 9
+   }
+  },
+  {
+   "id": "dispatch_10",
+   "source": "dispatch",
+   "title": "Dispatch 10: Sermon, Transcribed",
+   "where": "Win the daily challenge (10 days won)",
+   "text": "Every wound is a door, and every door opens both ways.\n\nSomething has been coming through ours. We have decided to call that faith.",
+   "unlock": {
+    "kind": "daily",
+    "n": 10
+   }
+  },
+  {
+   "id": "dispatch_11",
+   "source": "dispatch",
+   "title": "Dispatch 11: Lab Note",
+   "where": "Win the daily challenge (11 days won)",
+   "text": "Sample filtered to purity. Purity confirmed.\n\nThe sample then rebuilt everything we had filtered out, in the original order, overnight.",
+   "unlock": {
+    "kind": "daily",
+    "n": 11
+   }
+  },
+  {
+   "id": "dispatch_12",
+   "source": "dispatch",
+   "title": "Dispatch 12: Scout Report",
+   "where": "Win the daily challenge (12 days won)",
+   "text": "Scouts found a space the horde keeps open. Nobody went in.\n\nTwo scouts say they heard their names from inside. One of them has never told anyone his.",
+   "unlock": {
+    "kind": "daily",
+    "n": 12
+   }
+  },
+  {
+   "id": "dispatch_13",
+   "source": "dispatch",
+   "title": "Dispatch 13: Letter, Undelivered",
+   "where": "Win the daily challenge (13 days won)",
+   "text": "It isn't a war. It's a conversation that started badly.\n\nWe were the first to stop shouting. Maybe that's why it answers us and not them.",
+   "unlock": {
+    "kind": "daily",
+    "n": 13
+   }
+  },
+  {
+   "id": "dispatch_14",
+   "source": "dispatch",
+   "title": "Dispatch 14: Memorandum",
+   "where": "Win the daily challenge (14 days won)",
+   "text": "Re: shed tissue.\n\nDo not destroy. Do not study. Keep it near something you would like it to find.",
+   "unlock": {
+    "kind": "daily",
+    "n": 14
+   }
+  },
+  {
+   "id": "dispatch_15",
+   "source": "dispatch",
+   "title": "Dispatch 15: Badge in the Mud",
+   "where": "Win the daily challenge (15 days won)",
+   "text": "Found at the old program site: a staff badge, stage SETTING. The photo is of nobody we can identify.\n\nThe badge is warm.",
+   "unlock": {
+    "kind": "daily",
+    "n": 15
+   }
+  },
+  {
+   "id": "dispatch_16",
+   "source": "dispatch",
+   "title": "Dispatch 16: Unsigned Note",
+   "where": "Win the daily challenge (16 days won)",
+   "text": "Four of us met where the war frays. Each brought what our faction had.\n\nNone of us brought what our faction had lost. That was the mistake, and also the point.",
+   "unlock": {
+    "kind": "daily",
+    "n": 16
+   }
+  },
+  {
+   "id": "dispatch_17",
+   "source": "dispatch",
+   "title": "Dispatch 17: Handler File 7",
+   "where": "Win the daily challenge (17 days won)",
+   "text": "Contents, in full:\n\n\"The bond is the only thing it can't integrate. Make sure yours is real.\"",
+   "unlock": {
+    "kind": "daily",
+    "n": 17
+   }
+  },
+  {
+   "id": "dispatch_18",
+   "source": "dispatch",
+   "title": "Dispatch 18: Offshoot Behaviour",
+   "where": "Win the daily challenge (18 days won)",
+   "text": "Offshoots now avoid Stable Specimens. Not fleeing. Avoiding, the way you step around someone asleep.",
+   "unlock": {
+    "kind": "daily",
+    "n": 18
+   }
+  },
+  {
+   "id": "dispatch_19",
+   "source": "dispatch",
+   "title": "Dispatch 19: Photograph: A Desk",
+   "where": "Win the daily challenge (19 days won)",
+   "text": "A recruiter's desk. A tray of memos. Four stamps, one for each faction.\n\nThree are dusty. One is clean, and there is a cloth beside it.",
+   "unlock": {
+    "kind": "daily",
+    "n": 19
+   }
+  },
+  {
+   "id": "dispatch_20",
+   "source": "dispatch",
+   "title": "Dispatch 20: 03:10",
+   "where": "Win the daily challenge (20 days won)",
+   "text": "For one second at 03:10, every Specimen in the lab faced the same wall.\n\nThe instruments were fine. We checked the instruments.",
+   "unlock": {
+    "kind": "daily",
+    "n": 20
+   }
+  },
+  {
+   "id": "dispatch_21",
+   "source": "dispatch",
+   "title": "Dispatch 21: Last in the Stack",
+   "where": "Win the daily challenge (21 days won)",
+   "text": "If you are reading these in order, you have been coming back every day.\n\nSo has it. Every day, a little closer to finished.",
+   "unlock": {
+    "kind": "daily",
+    "n": 21
+   }
   }
  ],
  "encounters": {

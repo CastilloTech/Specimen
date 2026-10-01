@@ -330,7 +330,16 @@ export function botReaction(s: GameState, p: PlayerId): Action {
 }
 
 /** Decide the next action for player p, whatever the phase requires, at the player's bot tier. */
+/** With the deferred evolution choice, a bot takes an offered form at its next decision. */
+function deferredEvolution(s: GameState, p: PlayerId, rng: Rng): Action | null {
+  const pl = s.players[p];
+  if (!s.config.evolution.deferredChoice || !pl.evolutionOptions.length || s.phase === 'mulligan' || s.phase === 'over') return null;
+  return { type: 'CHOOSE_EVOLUTION', player: p, id: rng.pick(pl.evolutionOptions) };
+}
+
 export function botAction(s: GameState, p: PlayerId, rng: Rng): Action {
+  const evo = deferredEvolution(s, p, rng);
+  if (evo) return evo;
   const tier = s.players[p].ai;
   if (tier === 'reader') return readerAction(s, p, rng);
   if (tier === 'search') return searchAction(s, p, rng);
@@ -340,6 +349,8 @@ export function botAction(s: GameState, p: PlayerId, rng: Rng): Action {
 /** The prototype heuristic bot (tier 'basic'), also the rollout policy of the search bot. */
 export function basicAction(s: GameState, p: PlayerId, rng: Rng): Action {
   const pl = s.players[p];
+  const evo = deferredEvolution(s, p, rng);
+  if (evo) return evo;
   switch (s.phase) {
     case 'mulligan': {
       const playable = pl.hand.filter((c) => {

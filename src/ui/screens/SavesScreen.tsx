@@ -11,6 +11,7 @@ import { ComboGuide } from '../components/ComboGuide';
 import { FactionMastery } from '../components/FactionMastery';
 import type { MatchRecord, SavedReplay } from '../storage';
 import { createSave, deleteSave, loadDecks, loadLastSetup, loadMatches, loadSaveIndex, renameSave, SAVE_SLOTS, setActiveSave, deleteReplay, loadReplays, MAX_REPLAYS } from '../storage';
+import { IconText } from '../components/EngineIcon';
 
 export function SavesScreen({ onBack, onWatch }: { onBack: () => void; onWatch: (r: SavedReplay) => void }) {
   // Storage is the source of truth; bump this to re-read it after a change.
@@ -192,7 +193,7 @@ function AchievementGallery({ records }: { records: MatchRecord[] }) {
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {sorted.map(({ a, have, need, unlocked, at }) => (
           <div key={a.id} className={`flex items-center gap-3 rounded-lg border px-3 py-2 ${unlocked ? 'border-amber-400/50 bg-amber-950/25' : 'border-line bg-black/20'}`}>
-            <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-full font-display text-lg ${unlocked ? 'bg-amber-400 text-black' : 'bg-panel2 text-mute'}`}>{a.icon}</span>
+            <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-full font-display text-lg ${unlocked ? 'bg-amber-400 text-black' : 'bg-panel2 text-mute'}`}><IconText text={a.icon} /></span>
             <div className="min-w-0 flex-1">
               <div className={`truncate font-display text-sm font-bold ${unlocked ? 'text-amber-200' : 'text-ink2'}`}>{a.name}</div>
               <div className="text-[11px] leading-snug text-ink2">{a.text}</div>

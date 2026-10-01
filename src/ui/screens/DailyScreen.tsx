@@ -103,6 +103,7 @@ export function DailyScreen({ onBack, onFight, onWatch, last }: { onBack: () => 
               'Same match, same shuffle: try another line.'
             )}
           </div>
+          {last.dispatch && <div className="mt-1 text-[12px] font-semibold text-sky-200">◆ Dispatch {last.dispatch} recovered. It's in the Archive. Come back tomorrow for the next.</div>}
         </section>
       )}
 

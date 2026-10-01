@@ -5,6 +5,7 @@ import { loadSaveData, saveSaveData } from './storage';
 import type { LineageState } from './lineage';
 import type { BreachRun } from './breach';
 import { OPERATIVE_NAME, Z_NAME } from './lore';
+import { autoFill } from './deckHelpers';
 
 // Game Modes progression, kept per save: you start with one Build + World Faction starter deck (no
 // Signatures) and one Chip, win matches for biomass, and spend it on crafting cards and unlocking more
@@ -49,6 +50,8 @@ export interface Progress {
   /** The daily challenge: today's attempts and best, and the run of consecutive days won. */
   daily?: DailyRecord;
   dailyStreak?: DailyStreak;
+  /** Daily challenges won (first wins), in total: each recovers a numbered dispatch for the Archive. */
+  dailyWins?: number;
 }
 
 export const TOWER_FLOORS = 50;
@@ -110,6 +113,22 @@ export function craft(p: Progress, id: string): Progress | string {
 
 /** Unlocking a Build or World Faction also grants its starter set (so a deck can be built with it), and a
  * World Faction comes with its first Chip. */
+/**
+ * Put something just unlocked to use: equip a Chip, or switch the Game Modes deck to a new Build / World
+ * Faction, keeping the cards that still fit and filling the rest from what you own.
+ */
+export function applyUnlock(p: Progress, kind: 'build' | 'world' | 'chip', id: string): Progress {
+  const d = p.deck;
+  if (kind === 'chip') return { ...p, deck: { ...d, chip: id, loadout: chipRows(id).map((r) => r.nodes[0].id) } };
+  const faction = kind === 'build' ? (id as Faction) : d.faction;
+  const worldFaction = kind === 'world' ? (id as WorldFactionId) : d.worldFaction;
+  const chip = kind === 'world' ? (chipsFor(worldFaction).find((c) => p.chips.includes(c.id))?.id ?? chipsFor(worldFaction)[0].id) : d.chip;
+  const keep = d.cards.filter((cid) => [faction, worldFaction, 'tech'].includes(CARD_MAP[cid].faction));
+  const counts = autoFill(faction, worldFaction, tally(keep), (c) => !c.mastery, (c) => p.owned[c.id] ?? 0);
+  const cards = Object.entries(counts).flatMap(([cid, n]) => Array<string>(n).fill(cid));
+  return { ...p, deck: { faction, worldFaction, chip, loadout: kind === 'world' ? chipRows(chip).map((r) => r.nodes[0].id) : d.loadout, cards } };
+}
+
 export function unlock(p: Progress, kind: 'build' | 'world' | 'chip', id: string): Progress | string {
   const cost = COSTS[kind];
   if (p.biomass < cost) return 'Not enough biomass.';

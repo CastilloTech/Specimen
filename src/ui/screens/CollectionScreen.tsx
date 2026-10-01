@@ -16,6 +16,7 @@ import { craft, craftable, craftCost, deckProblems, loadProgress, maxOwned, save
 import type { Progress } from '../modes';
 import { useMediaQuery } from '../useMediaQuery';
 import { BiomassBadge, BiomassIcon } from './GameModes';
+import { plainText } from '../components/EngineIcon';
 
 const D = defaultConfig.deck;
 const ORDER = ['graft', 'serum', 'toxin', 'sabotage', 'protocol'];
@@ -29,6 +30,7 @@ export function CollectionScreen({ onBack }: { onBack: () => void }) {
   const [pool, setPool] = useState<'build' | 'world' | 'tech'>('build');
   const [viewing, setViewing] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
+  const [crafted, setCrafted] = useState<string | null>(null);
   const wide = useMediaQuery('(min-width: 1024px)');
   const update = (next: Progress) => {
     saveProgress(next);
@@ -53,6 +55,7 @@ export function CollectionScreen({ onBack }: { onBack: () => void }) {
     else {
       play('craft');
       setMsg(`Crafted ${CARD_MAP[id].name}.`);
+      setCrafted(id);
       update(r);
     }
   };
@@ -83,7 +86,7 @@ export function CollectionScreen({ onBack }: { onBack: () => void }) {
       </div>
       {/* Chip and loadout change rarely: tucked away, with the current picks in the header. */}
       <Collapsible id="collection-chip" defaultOpen={false} title="Chip" meta={`${chipsFor(d.worldFaction).find((c) => c.id === d.chip)?.name ?? ''} · ${d.loadout.map((id) => findNode(id)?.name ?? id).join(' · ')}`} bodyClass="space-y-2">
-        <Pills label="Chip" cols={chips.length} options={chips.map((c) => ({ id: c.id, label: c.name, title: c.text }))} value={d.chip} onChange={(chip) => setDeck({ chip, loadout: chipRows(chip).map((r) => r.nodes[0].id) })} hint={chipsFor(d.worldFaction).find((c) => c.id === d.chip)?.text} />
+        <Pills label="Chip" cols={chips.length} options={chips.map((c) => ({ id: c.id, label: c.name, title: plainText(c.text) }))} value={d.chip} onChange={(chip) => setDeck({ chip, loadout: chipRows(chip).map((r) => r.nodes[0].id) })} hint={chipsFor(d.worldFaction).find((c) => c.id === d.chip)?.text} />
         <LoadoutPicker rows={chipRows(d.chip)} errors={[]} value={d.loadout} onChange={(loadout) => setDeck({ loadout })} />
       </Collapsible>
 
@@ -121,7 +124,27 @@ export function CollectionScreen({ onBack }: { onBack: () => void }) {
         </div>
       </div>
 
-      {msg && <p className="text-xs text-emerald-300">{msg}</p>}
+      {msg && (
+        <p className="flex items-center gap-2 text-xs text-emerald-300">
+          {msg}
+          {crafted && (counts[crafted] ?? 0) < Math.min(p.owned[crafted] ?? 0, maxOwned(CARD_MAP[crafted])) && (
+            d.cards.length < D.size ? (
+              <button
+                onClick={() => {
+                  change(crafted, 1);
+                  setMsg(`${CARD_MAP[crafted].name} is in your deck.`);
+                  setCrafted(null);
+                }}
+                className="rounded-md bg-accent px-2 py-0.5 font-bold text-black"
+              >
+                Add to deck
+              </button>
+            ) : (
+              <span className="text-mute">Deck full: take a card out to add it.</span>
+            )
+          )}
+        </p>
+      )}
       <div className="grid grid-cols-[repeat(auto-fill,minmax(100px,1fr))] justify-items-center gap-x-2 gap-y-4 pb-4 sm:grid-cols-[repeat(auto-fill,minmax(136px,1fr))]">
         {cards.map((c) => {
           const own = p.owned[c.id] ?? 0;

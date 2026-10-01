@@ -52,6 +52,8 @@ export function baseMatch(f0: Faction = 'predator', f1: Faction = 'predator', co
         },
       },
       evolutions: evolutionFixture as unknown as Config['evolutions'],
+      // The rule tests drive the blocking 'evolve' phase; the deferred choice has its own tests.
+      evolution: { deferredChoice: false, ...config?.evolution },
     },
     players: [
       { name: 'P1', faction: f0, worldFaction: FIXTURE_WORLD_FACTION, chip: FIXTURE_CHIP, deck: starterDeck(f0, FIXTURE_WORLD_FACTION), loadout: defaultLoadout() },

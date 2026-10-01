@@ -9,6 +9,7 @@ import { EvolutionSheet, EvolvedBadge } from './Evolution';
 import { EnergyPips, EvolutionBars, HpBar, HpFlash, HpGhost, StrainMeter } from './Meters';
 import { STATUS_META, StatusIcon, statusCount } from './StatusFx';
 import { StrainDelta, strainSegFx, useChange } from './StrainFx';
+import { plainText } from './EngineIcon';
 
 /**
  * A player's picked Chip nodes. Given the match (`state` + `player`), nodes with a condition show whether it
@@ -29,7 +30,7 @@ export function LoadoutChips({ loadout, stances = [], state, player }: { loadout
         return (
           <span
             key={`${id}:${on}`}
-            title={gated ? `${n!.text} (${on ? 'active now' : 'condition not met right now'})` : n?.text}
+            title={gated ? `${plainText(n!.text)} (${on ? 'active now' : 'condition not met right now'})` : plainText(n?.text)}
             className={`rounded border px-1.5 py-0.5 text-[10px] ${on ? 'node-on border-accent/70 bg-accent/15 text-accent' : 'border-transparent bg-black/40 text-ink2'}`}
           >
             {gated && <span className={on ? '' : 'text-mute'}>{on ? '◆ ' : '◇ '}</span>}

@@ -118,7 +118,7 @@ export function BreachScreen({ onBack, onCollection, onFight, last }: { onBack: 
 
       <div className="sticky bottom-0 z-10 -mx-3 mt-auto flex gap-2 border-t border-line bg-bg/90 px-3 pt-2.5 backdrop-blur" style={{ paddingBottom: 'max(10px, env(safe-area-inset-bottom))' }}>
         {active ? (
-          <button onClick={() => onFight(waveMatch(run!, activeSave()?.meta.name ?? 'You'))} className="flex-1 rounded-xl bg-red-500 px-4 py-3 font-display font-bold text-black">
+          <button onClick={() => onFight(waveMatch(run!, activeSave()?.meta.name ?? 'You'))} data-primary className="flex-1 rounded-xl bg-red-500 px-4 py-3 font-display font-bold text-black">
             Hold the line: wave {run!.wave}
           </button>
         ) : (

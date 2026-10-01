@@ -1,4 +1,5 @@
 import type { TreeRow } from '../../engine';
+import { IconText } from './EngineIcon';
 
 /** One node per row, two nodes side by side (also on a phone). The caller resolves rows and validation errors. */
 export function LoadoutPicker({ rows, errors, value, onChange, disabled }: { rows: TreeRow[]; errors: string[]; value: string[]; onChange: (l: string[]) => void; disabled?: boolean }) {
@@ -24,7 +25,7 @@ export function LoadoutPicker({ rows, errors, value, onChange, disabled }: { row
                     className={`rounded-lg border px-2 py-1.5 text-left transition disabled:cursor-default ${on ? 'border-accent bg-accent/10' : 'border-line hover:border-mute disabled:opacity-50'}`}
                   >
                     <div className={`text-[12px] font-bold ${on ? 'text-accent' : ''}`}>{n.name}</div>
-                    <div className="mt-0.5 text-[10.5px] leading-snug text-ink2">{n.text}</div>
+                    <div className="mt-0.5 text-[10.5px] leading-snug text-ink2"><IconText text={n.text} /></div>
                   </button>
                 );
               })}

@@ -115,6 +115,14 @@ const ALL_ACHIEVEMENTS = [...ACHIEVEMENTS, ...FACTION_ACHIEVEMENTS];
 
 /** The Mastery Signature a faction's achievements unlock. */
 export const masteryCard = (f: Id): CardDef | undefined => CARDS.find((c) => c.mastery && c.faction === f);
+/** A Build's or World Faction's mastery so far: feats done, and the nearest unfinished one with its progress. */
+export function masteryProgress(rs: MatchRecord[], f: Id): { done: number; total: number; next?: { name: string; have: number; need: number } } {
+  const feats = FACTION_ACHIEVEMENTS.filter((a) => a.faction === f);
+  const open = feats.filter((a) => !done(a, rs)).map((a) => ({ name: a.name, pr: a.progress(rs) }));
+  open.sort((x, y) => y.pr[0] / y.pr[1] - x.pr[0] / x.pr[1]);
+  const n = open[0];
+  return { done: feats.length - open.length, total: feats.length, ...(n ? { next: { name: n.name, have: n.pr[0], need: n.pr[1] } } : {}) };
+}
 export const masteryDone = (rs: MatchRecord[], f: Id) => FACTION_ACHIEVEMENTS.filter((a) => a.faction === f).every((a) => done(a, rs));
 /** Mastery card ids this history has unlocked. */
 export function unlockedMastery(rs: MatchRecord[]): Set<string> {

@@ -139,6 +139,15 @@ export function MatchEndOverlay({ state, me }: { state: GameState; me: PlayerId 
   if (!show || !state.result) return null;
   const w = state.result.winner;
   const [word, color] = w === null ? ['DRAW', '#e5e7eb'] : w === me ? ['VICTORY', '#7be0b0'] : ['DEFEAT', '#f87171'];
+  // A close finish, called out as it happens.
+  const winner = w === null ? null : state.players[w];
+  const loser = w === null ? null : state.players[w === 0 ? 1 : 0];
+  const clutch =
+    winner && winner.hp <= 3
+      ? `Survived on ${winner.hp} HP`
+      : winner && loser && state.round >= state.config.match.maxRounds && Math.abs(winner.hp - loser.hp) <= 3
+        ? 'Decided in the final round'
+        : null;
   return (
     <div className="end-veil pointer-events-none fixed inset-0 z-[46] grid place-items-center" aria-live="assertive" data-match-fx="end">
       <div className="relative flex flex-col items-center">
@@ -153,6 +162,7 @@ export function MatchEndOverlay({ state, me }: { state: GameState; me: PlayerId 
           {word}
         </span>
         <span className="end-sub relative mt-2 rounded-full bg-black/70 px-3 py-1 text-sm text-ink2">{state.result.reason}</span>
+        {clutch && <span className="end-sub relative mt-1.5 rounded-full border border-amber-300/70 bg-black/80 px-3 py-0.5 font-display text-xs font-bold uppercase tracking-wider text-amber-200">{clutch}</span>}
       </div>
     </div>
   );

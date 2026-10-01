@@ -73,11 +73,57 @@ export const lastDifficulty = (): BotTier => {
   return tierOk(ai) ? ai : 'basic';
 };
 
-/** Quick match: your default picks against a random bot build at your last difficulty, no setup screen. */
+// Quick match keeps you in the challenge band: three wins in a row step the bot up one tier, three losses
+// step it down, never more than one tier away from the difficulty you picked. Remembered on this device.
+const ADAPT_KEY = 'specimen.quickAdapt';
+interface Adapt {
+  offset: -1 | 0 | 1;
+  streak: number;
+}
+function loadAdapt(): Adapt {
+  try {
+    const a = JSON.parse(localStorage.getItem(ADAPT_KEY) ?? 'null') as Adapt | null;
+    return a && [-1, 0, 1].includes(a.offset) ? a : { offset: 0, streak: 0 };
+  } catch {
+    return { offset: 0, streak: 0 };
+  }
+}
+/** Wins in a row toward the next step up (0..2), and whether a step up is still possible. */
+export function adaptStatus(): { winRun: number; canStepUp: boolean; next: BotTier | null } {
+  const a = loadAdapt();
+  const base = DIFFICULTY.findIndex((d) => d.id === lastDifficulty());
+  const up = base + a.offset + 1;
+  const canStepUp = a.offset < 1 && up < DIFFICULTY.length;
+  return { winRun: Math.max(0, a.streak), canStepUp, next: canStepUp ? DIFFICULTY[up].id : null };
+}
+
+/** Quick match's bot tier now: your difficulty, adapted to your recent results. */
+export function quickTier(): BotTier {
+  const base = DIFFICULTY.findIndex((d) => d.id === lastDifficulty());
+  return DIFFICULTY[Math.max(0, Math.min(DIFFICULTY.length - 1, base + loadAdapt().offset))].id;
+}
+/** Count a Quick match result toward the adaptation. Returns the new tier if it changed. */
+export function recordQuickResult(result: 'win' | 'loss' | 'draw'): BotTier | null {
+  const before = quickTier();
+  const a = loadAdapt();
+  let streak = result === 'win' ? Math.max(0, a.streak) + 1 : result === 'loss' ? Math.min(0, a.streak) - 1 : 0;
+  let offset = a.offset;
+  if (streak >= 3) [offset, streak] = [Math.min(1, offset + 1) as Adapt['offset'], 0];
+  if (streak <= -3) [offset, streak] = [Math.max(-1, offset - 1) as Adapt['offset'], 0];
+  try {
+    localStorage.setItem(ADAPT_KEY, JSON.stringify({ offset, streak }));
+  } catch {
+    /* not remembered this time */
+  }
+  const after = quickTier();
+  return after !== before ? after : null;
+}
+
+/** Quick match: your default picks against a random bot build at your (adapted) difficulty, no setup screen. */
 export function quickBotSetup(): MatchSetup {
   const me = myDefaults();
   const bot = randomCfg('Bot');
-  const ai = lastDifficulty();
+  const ai = quickTier();
   return {
     seed: Math.floor(Math.random() * 2 ** 31),
     players: [

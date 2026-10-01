@@ -24,6 +24,8 @@ const TENSE = [
 const BUBBLES = [74, 77, 79, 81, 84, 86]; // D minor pentatonic, high
 
 let mood: Mood = 'calm';
+/** Match tension, 0..1: quickens the heartbeat and bubbles and brightens the pad (Strain, Meltdown, low HP). */
+let intensity = 0;
 let bus: GainNode | null = null; // music volume
 let tone: BiquadFilterNode | null = null; // pad brightness
 let echo: DelayNode | null = null;
@@ -140,12 +142,12 @@ function tick() {
   }
   while (nextBubble < ahead) {
     bubble(c, Math.max(nextBubble, now));
-    nextBubble = Math.max(nextBubble, now) + (tense ? 1.2 : 2.5) + Math.random() * (tense ? 2 : 4);
+    nextBubble = Math.max(nextBubble, now) + (tense ? 1.2 - 0.6 * intensity : 2.5) + Math.random() * (tense ? 2 - intensity : 4);
   }
   if (tense) {
     while (nextBeat < ahead) {
       beat(c, Math.max(nextBeat, now));
-      nextBeat = Math.max(nextBeat, now) + 1.6;
+      nextBeat = Math.max(nextBeat, now) + 1.6 - 0.75 * intensity; // the heartbeat quickens with the tension
     }
   }
 }
@@ -188,6 +190,15 @@ function stop() {
   fadeTo(0, 1.2);
 }
 
+/** How tense the match is right now (0 calm .. 1 on the edge). Eased in, so the music swells rather than jumps. */
+export function setMusicIntensity(x: number) {
+  const v = Math.max(0, Math.min(1, x));
+  if (Math.abs(v - intensity) < 0.05) return;
+  intensity = v;
+  const c = audio();
+  if (c && tone && running && mood === 'match') tone.frequency.setTargetAtTime(950 + 650 * v, c.currentTime, 1.5);
+}
+
 /** Calm on the menus, tense in a match. */
 export function setMusicMood(m: Mood) {
   if (m === mood) return;
@@ -196,7 +207,8 @@ export function setMusicMood(m: Mood) {
   if (c && tone && running) {
     // Let the current chord finish its bar, then switch.
     nextChord = Math.min(nextChord, c.currentTime + 2);
-    tone.frequency.setTargetAtTime(m === 'match' ? 950 : 700, c.currentTime, 2);
+    if (m === 'calm') intensity = 0;
+    tone.frequency.setTargetAtTime(m === 'match' ? 950 + 650 * intensity : 700, c.currentTime, 2);
   }
 }
 

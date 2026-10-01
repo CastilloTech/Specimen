@@ -142,7 +142,21 @@ export interface DailyStreak {
   /** The last day won. */
   last: string;
   best: number;
+  /** The last day a missed day was forgiven (one per week keeps a streak alive). */
+  grace?: string;
 }
+
+/** Whole days from key a to key b (b later). */
+function daysBetween(a: string, b: string): number {
+  const t = (k: string) => {
+    const [y, m, d] = k.split('-').map(Number);
+    return Date.UTC(y, m - 1, d);
+  };
+  return Math.round((t(b) - t(a)) / 86400000);
+}
+/** Days of grace: one missed day is forgiven, at most once a week. */
+export const GRACE_DAYS = 7;
+const graceReady = (s: DailyStreak, key: string) => !s.grace || daysBetween(s.grace, key) >= GRACE_DAYS;
 
 export const DAILY_BASE_REWARD = 70;
 export const DAILY_STREAK_STEP = 10;
@@ -153,12 +167,18 @@ export const dailyReward = (streak: number) => DAILY_BASE_REWARD + DAILY_STREAK_
 /** Today's record (a fresh one if the stored record is from another day). */
 export const todayRecord = (p: Progress, key: string): DailyRecord => (p.daily?.key === key ? p.daily : { key, attempts: 0, won: false, bestHp: 0 });
 
-/** The current streak: still alive if the last win was today or yesterday. */
+/** The current streak: alive if the last win was today or yesterday, or the day before when this week's grace is unused. */
 export function liveStreak(p: Progress, key: string): number {
   const s = p.dailyStreak;
   if (!s) return 0;
-  return s.last === key || s.last === prevDay(key) ? s.count : 0;
+  if (s.last === key || s.last === prevDay(key)) return s.count;
+  return s.last === prevDay(prevDay(key)) && graceReady(s, key) ? s.count : 0;
 }
+/** True when today's win would spend the week's grace to keep the streak (a day was missed). */
+export const streakNeedsGrace = (p: Progress, key: string): boolean => {
+  const s = p.dailyStreak;
+  return !!s && liveStreak(p, key) > 0 && s.last === prevDay(prevDay(key));
+};
 
 export interface DailyOutcome {
   won: boolean;
@@ -167,6 +187,8 @@ export interface DailyOutcome {
   streak: number;
   hp: number;
   newBest: boolean;
+  /** The dispatch this first win recovered (a numbered Archive record), if any. */
+  dispatch?: number;
 }
 
 /** Record an attempt: the first win of the day pays and extends the streak; later wins can set a better score. */
@@ -179,15 +201,18 @@ export function applyDaily(p: Progress, key: string, s: GameState): { progress: 
   const daily: DailyRecord = newBest ? { key, attempts: rec.attempts + 1, won: true, bestHp: hp, bestRounds: s.round, bestGrid: roundGrid(s, 0), bestActions: s.history } : { ...rec, attempts: rec.attempts + 1 };
   let dailyStreak = p.dailyStreak;
   let reward = 0;
+  let dailyWins = p.dailyWins ?? 0;
   if (firstWin) {
     const count = liveStreak(p, key) + 1;
-    dailyStreak = { count, last: key, best: Math.max(count, p.dailyStreak?.best ?? 0) };
+    const grace = streakNeedsGrace(p, key) ? key : p.dailyStreak?.grace;
+    dailyStreak = { count, last: key, best: Math.max(count, p.dailyStreak?.best ?? 0), ...(grace ? { grace } : {}) };
     reward = dailyReward(count);
+    dailyWins++;
   }
   const streak = dailyStreak ? liveStreak({ ...p, dailyStreak }, key) : 0;
   return {
-    progress: { ...p, daily, dailyStreak, biomass: p.biomass + reward, earned: p.earned + reward },
-    outcome: { won, firstWin, reward, streak, hp, newBest },
+    progress: { ...p, daily, dailyStreak, dailyWins, biomass: p.biomass + reward, earned: p.earned + reward },
+    outcome: { won, firstWin, reward, streak, hp, newBest, ...(firstWin ? { dispatch: dailyWins } : {}) },
   };
 }
 

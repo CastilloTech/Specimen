@@ -227,7 +227,7 @@ export function LineageScreen({ onBack, onCollection, onFight, report }: { onBac
 
       {l && l.status === 'active' && (
         <div className="sticky bottom-0 z-10 -mx-3 mt-auto flex gap-2 border-t border-line bg-bg/90 px-3 pt-2.5 backdrop-blur" style={{ paddingBottom: 'max(10px, env(safe-area-inset-bottom))' }}>
-          <button onClick={() => onFight(lineageMatch(l, name))} disabled={!!l.offer} className="flex-1 rounded-xl bg-accent px-4 py-3 font-display font-bold text-black disabled:opacity-40">
+          <button onClick={() => onFight(lineageMatch(l, name))} disabled={!!l.offer} data-primary className="flex-1 rounded-xl bg-accent px-4 py-3 font-display font-bold text-black disabled:opacity-40">
             {l.offer ? 'Choose a mutation first' : `Match ${l.match} of ${LINEAGE_MATCHES}`}
           </button>
         </div>

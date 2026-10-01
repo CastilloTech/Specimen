@@ -465,9 +465,14 @@ const MOMENTS: Tip[] = [
   {
     id: 'evolve',
     title: 'Evolution!',
-    body: () => <>Your Specimen met the condition to evolve. Pick a form: it's permanent and changes how your Specimen fights for the rest of the match.</>,
-    show: (c) => c.state.phase === 'evolve' && me_(c).evolutionOptions.length > 0,
-    done: (c) => c.state.phase !== 'evolve',
+    body: (c) =>
+      c.state.phase === 'evolve' ? (
+        <>Your Specimen met the condition to evolve. Pick a form: it's permanent and changes how your Specimen fights for the rest of the match.</>
+      ) : (
+        <>Your Specimen met the condition to evolve. Tap <b className="text-violet-300">✦ Evolve</b> (or Choose) when it suits you: the form is permanent. The match doesn't wait, and you can hold off.</>
+      ),
+    show: (c) => me_(c).evolutionOptions.length > 0 && !me_(c).evolution,
+    done: (c) => !me_(c).evolutionOptions.length || !!me_(c).evolution,
   },
 ];
 

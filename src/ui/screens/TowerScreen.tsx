@@ -142,7 +142,7 @@ export function TowerScreen({ onBack, onCollection, onFight, last }: { onBack: (
         <button onClick={onCollection} className="rounded-xl bg-panel2 px-4 py-3 text-sm font-semibold">
           Deck
         </button>
-        <button onClick={() => onFight(setup, pick, replay)} disabled={problems.length > 0} className="flex-1 rounded-xl bg-accent px-4 py-3 font-display font-bold text-black disabled:opacity-40">
+        <button onClick={() => onFight(setup, pick, replay)} disabled={problems.length > 0} data-primary className="flex-1 rounded-xl bg-accent px-4 py-3 font-display font-bold text-black disabled:opacity-40">
           {replay ? `Replay floor ${pick}` : `Climb to floor ${pick}`}
         </button>
       </div>

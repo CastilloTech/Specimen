@@ -5,6 +5,7 @@ import { currentRecruiter, FRAGMENTS, fragmentText, loadSeenLore, markLoreSeen, 
 import type { Fragment, LoreSource } from '../lore';
 import { loadProgress } from '../modes';
 import { activeSave, loadMatches } from '../storage';
+import { useScrollMemory, useSessionState } from '../session';
 
 /** Redacted bars standing in for a record not yet recovered: roughly the shape of its text, none of its words. */
 function Redacted({ f }: { f: Fragment }) {
@@ -29,12 +30,15 @@ export function ArchiveScreen({ onBack }: { onBack: () => void }) {
   const save = activeSave();
   const unlocked = useMemo(() => unlockedFragments(loadMatches(), loadProgress()), []);
   const [seen, setSeen] = useState(loadSeenLore);
-  const [source, setSource] = useState<LoreSource | 'all'>('all');
+  const [source, setSource] = useSessionState<LoreSource | 'all'>('archive.source', 'all');
+  useScrollMemory('archive');
   const [open, setOpen] = useState<Fragment | null>(null);
   const recruiter = useMemo(currentRecruiter, []);
   // Only sources you have recovered something from: an empty tab would name what is still to come.
   const sources = (Object.keys(SOURCE_META) as LoreSource[]).filter((s) => FRAGMENTS.some((f) => f.source === s && unlocked.has(f.id)));
-  const list = FRAGMENTS.filter((f) => source === 'all' || f.source === source);
+  // Dispatches arrive one per daily win: show the ones recovered and only the next one still to come.
+  const nextDispatch = FRAGMENTS.find((f) => f.source === 'dispatch' && !unlocked.has(f.id))?.id;
+  const list = FRAGMENTS.filter((f) => (source === 'all' || f.source === source) && (f.source !== 'dispatch' || unlocked.has(f.id) || f.id === nextDispatch));
   const read = (f: Fragment) => {
     setOpen(f);
     if (!seen.has(f.id)) {

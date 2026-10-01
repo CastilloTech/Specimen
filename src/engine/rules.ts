@@ -838,6 +838,19 @@ function clashDamage(s: GameState, atk: PlayerId): ClashResult {
   return { damage: dmg, prevented, notes };
 }
 
+/**
+ * What the coming Clash would do if it happened now: the HP each Specimen would lose (after armor, stances,
+ * Fortify counters and Clash heals), from a throwaway copy of the state. Plays still to come can change it.
+ */
+export function previewClash(s: GameState): [number, number] {
+  // Copy without the match's history (log, actions, plays): it grows all match long and the Clash only
+  // appends to it, so leaving it out makes the copy several times cheaper late in a match.
+  const c = JSON.parse(JSON.stringify({ ...s, log: [], history: [], plays: [] })) as GameState;
+  const before = [c.players[0].hp, c.players[1].hp];
+  clash(c);
+  return [Math.max(0, before[0] - c.players[0].hp), Math.max(0, before[1] - c.players[1].hp)];
+}
+
 export function clash(s: GameState): void {
   const cfg = s.config;
   const r0 = clashDamage(s, 0);
@@ -1033,11 +1046,17 @@ export function strainCheck(s: GameState): void {
       .map((d) => d.id);
   });
   s.evoQueue = [];
+  // Deferred choice: the offer stands (and play goes on) until the player evolves, declines, or the next
+  // Strain check re-reads the conditions. Otherwise the match pauses in the 'evolve' phase for the choice.
+  const deferred = cfg.evolution.deferredChoice;
   for (const p of ids) {
-    if (!eligible[p].length) continue;
     const pl = s.players[p];
+    const was = pl.evolutionOptions.join(',');
+    if (deferred && !pl.evolution) pl.evolutionOptions = eligible[p];
+    if (!eligible[p].length) continue;
     pl.evolutionOptions = eligible[p];
-    s.evoQueue.push(p);
+    if (!deferred) s.evoQueue.push(p);
+    else if (was === eligible[p].join(',')) continue; // still on offer: no need to announce it again
     if (eligible[p].length > 1) logMsg(s, 'evolve', p, `${name(s, p)} meets both evolution conditions: choose one, or hold off.`);
     else {
       const def = evolutionDefs(s, pl).find((d) => d.id === eligible[p][0])!;

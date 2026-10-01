@@ -83,7 +83,7 @@ describe('The Archive', () => {
       ...Array.from({ length: 8 }, (_, i) => rec({ opp: 'Pale Leech of Vesk', result: i % 2 ? 'win' : 'loss' })),
       ...Array.from({ length: 30 }, () => rec()),
     ];
-    const p = { ...startProgress('predator', 'corrosion', chipsFor('corrosion')[0].id), tower: { floor: 50, best: TOWER_FLOORS, checkpoint: 50 }, lineagesCompleted: 1 } as Progress;
+    const p = { ...startProgress('predator', 'corrosion', chipsFor('corrosion')[0].id), tower: { floor: 50, best: TOWER_FLOORS, checkpoint: 50 }, lineagesCompleted: 1, dailyWins: 21 } as Progress;
     const got = unlockedFragments(rs, p);
     expect(FRAGMENTS.filter((f) => !got.has(f.id)).map((f) => f.id)).toEqual([]);
   });

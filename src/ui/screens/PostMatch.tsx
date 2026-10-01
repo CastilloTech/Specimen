@@ -11,6 +11,7 @@ import { CardView, factionName } from '../components/CardView';
 import { ENGINE_META, engineColor, FACTION_META, PLAYER_COLORS, WORLD_FACTION_META } from '../meta';
 import { activeSave, loadMatches } from '../storage';
 import { EngineIcon } from '../components/EngineIcon';
+import { IconText } from '../components/EngineIcon';
 
 interface Props {
   state: GameState;
@@ -21,6 +22,8 @@ interface Props {
   onMenu: () => void;
   /** Watch this match again, step by step (from a given step). */
   onReplay?: (step?: number) => void;
+  /** Open the deck builder with a deck built around this card. */
+  onBuildWith?: (cardId: string) => void;
 }
 
 export function exportMatchJson(state: GameState, setup: MatchSetup): string {
@@ -51,7 +54,7 @@ function download(name: string, text: string) {
   URL.revokeObjectURL(url);
 }
 
-export function PostMatch({ state, setup, onRematch, onNext, onMenu, onReplay }: Props) {
+export function PostMatch({ state, setup, onRematch, onNext, onMenu, onReplay, onBuildWith }: Props) {
   const [a, b] = state.players;
   const names: [string, string] = [a.name, b.name];
   const rounds = state.snapshots.map((s) => s.round);
@@ -177,6 +180,11 @@ export function PostMatch({ state, setup, onRematch, onNext, onMenu, onReplay }:
                   <div key={c.id} className="achievement-pop flex flex-col items-center gap-1">
                     <CardView def={c} onClick={() => setViewCard(c.id)} />
                     <span className="text-xs text-ink2">Now in the {factionName(c.faction)} pool of the deck builder.</span>
+                    {onBuildWith && (
+                      <button onClick={() => onBuildWith(c.id)} className="rounded-lg bg-amber-400 px-3 py-1 text-xs font-bold text-black">
+                        Build a deck with it ▶
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -189,7 +197,7 @@ export function PostMatch({ state, setup, onRematch, onNext, onMenu, onReplay }:
               <div className="mt-2 flex flex-wrap gap-2">
                 {unlocked.map((u, i) => (
                   <div key={u.id} className="achievement-pop flex items-center gap-2 rounded-lg border border-amber-400/50 bg-amber-950/30 px-3 py-2" style={{ animationDelay: `${i * 0.15}s` }}>
-                    <span className="grid h-9 w-9 place-items-center rounded-full bg-amber-400 font-display text-lg text-black">{u.icon}</span>
+                    <span className="grid h-9 w-9 place-items-center rounded-full bg-amber-400 font-display text-lg text-black"><IconText text={u.icon} /></span>
                     <span>
                       <span className="block font-display text-sm font-bold text-amber-200">{u.name}</span>
                       <span className="block text-xs text-ink2">{u.text}</span>

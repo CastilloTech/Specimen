@@ -9,11 +9,11 @@ import { activeSave, loadSaveData, saveSaveData } from './storage';
 // records (the Archive) unlocked by playing, and in a few lines spoken by named opponents in the Tower and
 // Lineage. Each source is biased; the truth sits in the gaps between them.
 
-export type LoreSource = 'program' | 'corrosion' | 'aegis' | 'miasma' | 'hollow' | 'handler' | 'operative' | 'z' | 'unknown';
+export type LoreSource = 'program' | 'corrosion' | 'aegis' | 'miasma' | 'hollow' | 'handler' | 'operative' | 'z' | 'unknown' | 'dispatch';
 
 export type Unlock =
   | { kind: 'start' }
-  | { kind: 'matches' | 'wins' | 'engines' | 'forms' | 'tower' | 'lineage'; n: number }
+  | { kind: 'matches' | 'wins' | 'engines' | 'forms' | 'tower' | 'lineage' | 'daily'; n: number }
   | { kind: 'winBuild' | 'winWorld' | 'engine'; id: string }
   | { kind: 'evolve'; id?: string }
   | { kind: 'lineageComplete' }
@@ -60,6 +60,7 @@ export const SOURCE_META: Record<LoreSource, { name: string; color: string }> = 
   operative: { name: 'Unregistered', color: '#6f7d88' },
   z: { name: 'Z', color: '#e8b04a' },
   unknown: { name: 'Unsigned', color: '#b7c4bf' },
+  dispatch: { name: 'Dispatches', color: '#7fb6d9' },
 };
 
 /** Lineage rivals are named "<epithet> <Build noun> of <line>" or "Matriarch of the <line> Line". */
@@ -114,6 +115,8 @@ export function unlockedFragments(rs: MatchRecord[], p: Progress | null): Set<st
         return (p?.tower.best ?? 0) >= u.n;
       case 'lineage':
         return lineageMatches >= u.n;
+      case 'daily':
+        return (p?.dailyWins ?? 0) >= u.n;
       case 'lineageComplete':
         return (p?.lineagesCompleted ?? 0) > 0;
       case 'met':

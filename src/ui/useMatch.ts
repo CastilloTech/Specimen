@@ -48,12 +48,19 @@ export function useMatch(setup: MatchSetup, timersOn: boolean, pausedRef: Mutabl
   const botP = pend.find((p) => state.players[p].isBot);
   const actor = pend.find((p) => !state.players[p].isBot);
 
-  // Bot moves, with a small delay so the log is readable.
+  // Bot moves, with a small delay so the log is readable: full in round 1 while you learn its pace, quicker
+  // after, and almost none once you hurry it (until it's your decision again).
+  const [hurried, setHurried] = useState(false);
+  useEffect(() => {
+    if (botP === undefined) setHurried(false);
+  }, [botP]);
   useEffect(() => {
     if (state.phase === 'over' || botP === undefined) return;
-    const t = setTimeout(() => dispatch(botAction(ref.current, botP, rngs[botP])), state.phase === 'actions' ? cfg.bot.actionDelayMs : 250);
+    const pace = state.round <= 1 ? cfg.bot.actionDelayMs : Math.round(cfg.bot.actionDelayMs * 0.6);
+    const t = setTimeout(() => dispatch(botAction(ref.current, botP, rngs[botP])), hurried ? 60 : state.phase === 'actions' ? pace : 250);
     return () => clearTimeout(t);
-  }, [state, botP, dispatch, rngs, cfg.bot.actionDelayMs]);
+  }, [state, botP, dispatch, rngs, cfg.bot.actionDelayMs, hurried]);
+  const hurry = useCallback(() => setHurried(true), []);
 
   // Timers: 10s per stance; 90s for the opening mulligan decision (no reserve used);
   // 30s per other decision plus a 30s reserve bank per player per match.
@@ -88,5 +95,5 @@ export function useMatch(setup: MatchSetup, timersOn: boolean, pausedRef: Mutabl
   }, [timersOn, actor, key, useReserve, state.phase, dispatch, pausedRef]);
 
   const timer: TimerView | null = timersOn && actor !== undefined ? { left, limit, reserve, usingReserve: left <= 0 && useReserve } : null;
-  return { state, dispatch, error, actor, timer };
+  return { state, dispatch, error, actor, timer, hurry, botActing: botP !== undefined && state.phase !== 'over' };
 }

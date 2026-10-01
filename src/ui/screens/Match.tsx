@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import { useMatchSounds } from '../sfx';
 import { SoundToggle } from '../components/AudioMenu';
-import { setMusicMood } from '../music';
+import { setMusicIntensity, setMusicMood } from '../music';
 import { Coach } from '../components/Coach';
 import { setLessonDone } from '../tutorial';
 import type { Lesson } from '../tutorial';
@@ -27,11 +28,20 @@ import type { KeyAction, Settings } from '../storage';
 import { keyLabel, loadMatches, recordMatch, saveReplay } from '../storage';
 import { encounterLines, EVOLUTION_FLAVOR, metBefore, unlockedFragments } from '../lore';
 import type { EncounterLines } from '../lore';
-import { loadProgress } from '../modes';
+import { loadProgress, saveProgress } from '../modes';
+import { objectiveDone, objectiveFailed, OBJECTIVE_REWARD, pickObjective } from '../objectives';
+import type { Objective } from '../objectives';
+import { newlyUnlocked, newlyUnlockedMastery } from '../achievements';
 import { LoreText } from '../components/Flavor';
+import { nextGoals } from '../nextGoals';
+import { turningPoints } from '../turningPoints';
+import { ChainFx } from '../components/ChainFx';
+import { clashPreview, playPreview } from '../preview';
+import type { ClashPreview, PlayPreview } from '../preview';
 import { useMatch } from '../useMatch';
 import type { TimerView } from '../useMatch';
 import { Flavor } from '../components/Flavor';
+import { IconText } from '../components/EngineIcon';
 
 interface Props {
   setup: MatchSetup;
@@ -42,6 +52,8 @@ interface Props {
   label?: string;
   /** A tutorial match: no timers, and the coach explains each step of this lesson. */
   tutorial?: Lesson;
+  /** One tap from the result into the mode's next match (Quick match, the next Tower floor or Breach wave). */
+  next?: { label: (s: GameState) => string | null; go: (s: GameState, setup: MatchSetup) => void };
 }
 
 interface Detail {
@@ -54,9 +66,9 @@ interface Detail {
 
 const PHASE_LABEL = { mulligan: 'Mulligan', stance: 'Choose stance', feint: 'Feint', actions: 'Actions', evolve: 'Evolution', over: 'Match over' } as const;
 
-export function MatchScreen({ setup, settings, onExit, onFinish, label, tutorial }: Props) {
+export function MatchScreen({ setup, settings, onExit, onFinish, label, tutorial, next }: Props) {
   const pausedRef = useRef(false);
-  const { state, dispatch, error, actor, timer } = useMatch(setup, defaultConfig.timers.enabled && !tutorial, pausedRef);
+  const { state, dispatch, error, actor, timer, hurry, botActing } = useMatch(setup, defaultConfig.timers.enabled && !tutorial, pausedRef);
   const [coaching, setCoaching] = useState(!!tutorial);
   const [introSeen, setIntroSeen] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
@@ -71,6 +83,7 @@ export function MatchScreen({ setup, settings, onExit, onFinish, label, tutorial
   const [confirmingPass, setConfirmingPass] = useState(false);
   const [confirmExit, setConfirmExit] = useState(false);
   const [evoSheet, setEvoSheet] = useState(false);
+  const [evoPick, setEvoPick] = useState(false); // the deferred evolution choice, opened from its banner
   const [viewCard, setViewCard] = useState<string | null>(null); // a card open in the full view
   const [evoEvents, dismissEvo] = useEvolutionEvents(state);
   const clash = useClashEvent(state);
@@ -78,7 +91,10 @@ export function MatchScreen({ setup, settings, onExit, onFinish, label, tutorial
   // The music turns tense for the match and calms again after.
   useEffect(() => {
     setMusicMood('match');
-    return () => setMusicMood('calm');
+    return () => {
+      setMusicIntensity(0);
+      setMusicMood('calm');
+    };
   }, []);
   const arrivals = useArrivals(state.players[0].hand.map((c) => c.uid), introSeen);
   const phone = useMediaQuery(PHONE_LANDSCAPE);
@@ -87,7 +103,7 @@ export function MatchScreen({ setup, settings, onExit, onFinish, label, tutorial
   const rotating = portrait && !portraitOk;
 
   const over = state.phase === 'over';
-  pausedRef.current = !introSeen || !!detail || !!playSheet || showHistory || showHelp || confirmExit || rotating || evoSheet || !!viewCard;
+  pausedRef.current = !introSeen || !!detail || !!playSheet || showHistory || showHelp || confirmExit || rotating || evoSheet || evoPick || !!viewCard;
 
   // You are always Player 1; the bot is Player 2.
   const me: PlayerId = 0;
@@ -98,11 +114,34 @@ export function MatchScreen({ setup, settings, onExit, onFinish, label, tutorial
   // A named opponent (Z, the Unregistered Handler) speaks before and after; the lines depend on how often you've met.
   const [encounter] = useState<EncounterLines | null>(() => encounterLines(state.players[1].name, metBefore(loadMatches(), state.players[1].name), state.players[1].worldFaction));
   const [newLore, setNewLore] = useState(0);
+  // A side goal for this match (none in tutorials), and what the match unlocked, shown on the result.
+  const [objective] = useState<Objective | null>(() => (tutorial ? null : pickObjective(state, me, setup.seed)));
+  const [objectivePaid, setObjectivePaid] = useState<number | null>(null);
+  const [unlocks, setUnlocks] = useState<string[]>([]);
+  const [goals, setGoals] = useState<string[]>([]);
+  const [lesson, setLesson] = useState<string | null>(null);
   useEffect(() => {
     if (!over || recorded.current) return;
     recorded.current = true;
     const lore0 = unlockedFragments(loadMatches(), loadProgress());
     recordMatch(matchRecord(state, me));
+    if (objective && objectiveDone(objective, state, me)) {
+      const p = loadProgress();
+      if (p) saveProgress({ ...p, biomass: p.biomass + OBJECTIVE_REWARD, earned: p.earned + OBJECTIVE_REWARD });
+      setObjectivePaid(p ? OBJECTIVE_REWARD : 0);
+    }
+    const rs = loadMatches();
+    setUnlocks([...newlyUnlocked(rs).map((a) => `${a.icon} ${a.name}`), ...newlyUnlockedMastery(rs).map((c) => `★ ${c.name} unlocked`)]);
+    if (!tutorial) {
+      // What you're closest to next, and after a loss the one moment that decided it.
+      setGoals(nextGoals(rs, loadProgress(), { faction: state.players[me].faction, worldFaction: state.players[me].worldFaction }, label === 'Quick match'));
+      if (state.result?.winner === other(me)) {
+        const worst = turningPoints(setup, state, me, 5)
+          .filter((t) => !t.good)
+          .sort((a, b) => b.weight - a.weight)[0];
+        if (worst) setLesson(`${/^Round \d/.test(worst.title) ? '' : `Round ${worst.round}: `}${worst.title.replace(/\.$/, '')}. ${worst.detail}`);
+      }
+    }
     const lore1 = unlockedFragments(loadMatches(), loadProgress());
     setNewLore([...lore1].filter((id) => !lore0.has(id)).length);
     const w = state.result?.winner;
@@ -173,9 +212,9 @@ export function MatchScreen({ setup, settings, onExit, onFinish, label, tutorial
   // extra "select, then confirm" step for the common case of a plain instant.
   const onHandDoubleClick = (uid: string) => {
     if (cycleMode || !myTurn) return;
-    const matches = legal.filter((a) => a.type === 'PLAY_CARD' && a.uid === uid);
-    const plain = matches.length === 1 && matches.every((a) => a.type === 'PLAY_CARD' && !a.slot && !a.target);
-    if (plain) send({ type: 'PLAY_CARD', player: me, uid });
+    // Plays straight away when there is exactly one way to play it: a plain instant, one free slot, one target.
+    const matches = legal.filter((a) => a.type === 'PLAY_CARD' && a.uid === uid && !a.faceDown);
+    if (matches.length === 1) send(matches[0]);
   };
 
   // ----- Quality of life: pass confirmation, "nothing to play" hint, keyboard shortcuts -----
@@ -260,6 +299,24 @@ export function MatchScreen({ setup, settings, onExit, onFinish, label, tutorial
   })();
 
   const lastStanceLine = [...state.log].reverse().find((l) => l.kind === 'stance' && l.round === state.round)?.text;
+  // The Clash as things stand, and what the selected card would change.
+  const clashNow = useMemo(() => clashPreview(state, me), [state, me]);
+  // The music follows the match: Strain near the line, Meltdown, and low HP on either side raise the tension;
+  // the result releases it.
+  useEffect(() => {
+    if (state.phase === 'over') return setMusicIntensity(0);
+    const T = state.config.strain.threshold;
+    const strainT = Math.max(0, (mine.strain - T * 0.5) / (T * 0.5)) * 0.4;
+    const meltdown = state.round >= state.config.match.meltdownFromRound ? 0.25 : 0;
+    const low = Math.min(...state.players.map((p) => p.hp / p.maxHp));
+    const hpT = low < 0.35 ? 0.35 * (1 - low / 0.35) + 0.15 : 0;
+    setMusicIntensity(strainT + meltdown + hpT);
+  }, [state.phase, state.round, mine.strain, state.players, state.config]);
+  const selActions = useMemo(() => (selected && !cycleMode ? legal.filter((a): a is Extract<Action, { type: 'PLAY_CARD' }> => a.type === 'PLAY_CARD' && a.uid === selected && !a.faceDown) : []), [legal, selected, cycleMode]);
+  // A card with exactly one place to go (one free slot, one target) plays with one more tap, no board hunt.
+  const sole = selActions.length === 1 ? selActions[0] : null;
+  const previewAction = sole ?? selActions.find((a) => !a.slot || !mine.grafts.some((g) => g.slot === a.slot)) ?? null;
+  const selPreview = useMemo(() => (previewAction && myTurn ? playPreview(state, me, previewAction, clashNow) : null), [previewAction, myTurn, state, me, clashNow]);
   const stancesRevealed = state.phase === 'actions' || state.phase === 'feint' || state.phase === 'evolve' || over;
 
   // ----- Pieces shared by the desktop board and the phone board -----
@@ -281,10 +338,18 @@ export function MatchScreen({ setup, settings, onExit, onFinish, label, tutorial
     }
     const why = whyNot(selected);
     if (why) return <span className="text-amber-300">{why}</span>;
+    const previewLine = selPreview && <PreviewLine p={selPreview} compact={compact} />;
+    const soleButton = sole && (sole.slot || sole.target) && (
+      <button className={`${b} bg-accent text-black`} onClick={() => send(faceDown && sole.slot ? { ...sole, faceDown: true } : sole)}>
+        {sole.slot ? `Play to ${SLOT_LABEL[sole.slot]}` : `Play on their ${SLOT_LABEL[sole.target!]}`}
+      </button>
+    );
     if (selDef.type === 'graft') {
       return (
         <>
-          <span className="text-accent">{compact ? 'Tap a glowing slot.' : 'Tap a glowing slot on your Specimen.'}</span>
+          {soleButton}
+          {previewLine}
+          {!sole && <span className="text-accent">{compact ? 'Tap a glowing slot.' : 'Tap a glowing slot on your Specimen.'}</span>}
           {replaceSlots.length > 0 && <span className="text-amber-300">{compact ? `Filled slot: replace (+${state.config.replace.extraCost}).` : `Occupied glowing slots replace that graft (+${state.config.replace.extraCost} Energy).`}</span>}
           {canFaceDown && (
             <label
@@ -297,11 +362,20 @@ export function MatchScreen({ setup, settings, onExit, onFinish, label, tutorial
         </>
       );
     }
-    if (selDef.effect.target === 'enemySlot') return <span className="text-accent">Tap a glowing enemy graft.</span>;
+    if (selDef.effect.target === 'enemySlot')
+      return (
+        <>
+          {soleButton ?? <span className="text-accent">Tap a glowing enemy graft.</span>}
+          {previewLine}
+        </>
+      );
     return (
-      <button className={`${b} bg-accent text-black`} onClick={() => send({ type: 'PLAY_CARD', player: me, uid: selected })}>
-        Play {selDef.name}
-      </button>
+      <>
+        <button className={`${b} bg-accent text-black`} onClick={() => send({ type: 'PLAY_CARD', player: me, uid: selected })}>
+          Play {selDef.name}
+        </button>
+        {previewLine}
+      </>
     );
   };
 
@@ -362,14 +436,68 @@ export function MatchScreen({ setup, settings, onExit, onFinish, label, tutorial
             <LoreText text={state.result?.winner === me ? encounter.win : encounter.loss} />
           </p>
         )}
+        {!compact && objective && (
+          <div className={`mt-1.5 text-[11px] font-semibold ${objectivePaid !== null ? 'text-emerald-300' : 'text-mute'}`}>
+            ◎ {objective.text}: {objectivePaid !== null ? `done${objectivePaid ? ` (+${objectivePaid} biomass)` : ''}` : 'missed'}
+          </div>
+        )}
+        {!compact && unlocks.length > 0 && (
+          <div className="mt-1 text-[11px] font-semibold text-amber-200">
+            Unlocked: <IconText text={unlocks.join(' · ')} />
+          </div>
+        )}
+        {!compact && lesson && (
+          <div className="mx-auto mt-1.5 max-w-lg text-[11.5px] text-ink2">
+            <span className="font-semibold text-red-300">What decided it</span> · {lesson}
+          </div>
+        )}
+        {goals.length > 0 && (
+          <div className={`mx-auto mt-1 max-w-lg text-[11px] text-sky-200 ${compact ? 'hidden min-[700px]:block' : ''}`}>
+            <span className="font-semibold">Next:</span> {goals.join(' · ')}
+          </div>
+        )}
         {newLore > 0 && <div className="mt-1 text-[11px] font-semibold text-amber-200">◆ {newLore === 1 ? 'A record was' : `${newLore} records were`} recovered. Read {newLore === 1 ? 'it' : 'them'} in the Archive.</div>}
       </div>
-      <button onClick={() => onFinish(state, setup)} className={`rounded-lg bg-accent px-4 py-2 text-sm font-bold text-black ${compact ? '' : 'mt-2'}`}>
-        See results
-      </button>
+      <div className={`flex items-center justify-center gap-2 ${compact ? '' : 'mt-2'}`}>
+        {nextLabel ? (
+          <>
+            <button onClick={() => onFinish(state, setup)} className="rounded-lg border border-accent/60 px-3 py-2 text-sm font-semibold text-accent">
+              Results
+            </button>
+            <button onClick={() => next!.go(state, setup)} autoFocus className="rounded-lg bg-accent px-4 py-2 text-sm font-bold text-black">
+              {nextLabel} ▶
+            </button>
+          </>
+        ) : (
+          <button onClick={() => onFinish(state, setup)} autoFocus className="rounded-lg bg-accent px-4 py-2 text-sm font-bold text-black">
+            See results
+          </button>
+        )}
+      </div>
     </div>
   );
-  const waitingText = actor === undefined ? `${(botOf(state) ?? theirs).name} is thinking…` : 'Waiting…';
+  const waitingText =
+    actor === undefined ? (
+      <span className="flex items-center justify-center gap-2">
+        {(botOf(state) ?? theirs).name} is thinking…
+        {botActing && (
+          <button onClick={hurry} className="rounded-md border border-line px-2 py-0.5 text-[11px] font-semibold text-ink2 hover:border-mute" title="Skip the bot's pauses until it's your decision again">
+            Hurry ›
+          </button>
+        )}
+      </span>
+    ) : (
+      'Waiting…'
+    );
+  const nextLabel = over && next ? next.label(state) : null;
+  // Evolution offered without pausing the match: a banner you answer when it suits you.
+  const evoOffer = !over && state.phase !== 'mulligan' && state.config.evolution.deferredChoice && mine.evolutionOptions.length > 0;
+  const evoForms = (state.config.evolutions as Record<string, { id: string; name: string }[]>)[mine.faction].filter((d) => mine.evolutionOptions.includes(d.id));
+  const chooseEvo = (id: string | null) => {
+    setEvoPick(false);
+    send({ type: 'CHOOSE_EVOLUTION', player: me, id });
+  };
+  const objectiveChip = objective && !over ? <ObjectiveChip objective={objective} state={state} me={me} /> : null;
 
   /** Shared overlays: evolution banners, rules help, play history and card sheets, graft detail. */
   const overlays = () => (
@@ -377,6 +505,17 @@ export function MatchScreen({ setup, settings, onExit, onFinish, label, tutorial
       <EvolutionBanners state={state} events={evoEvents} me={me} onDismiss={dismissEvo} />
       <RoundBanner state={state} />
       <MatchEndOverlay state={state} me={me} />
+      <ChainFx state={state} me={me} />
+      {evoPick && evoOffer && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-2 sm:items-center" onClick={() => setEvoPick(false)}>
+          <div className="pop w-full max-w-xl phone:max-h-[94dvh] phone:overflow-y-auto" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Choose your evolution">
+            <EvolvePrompt state={state} me={me} onPick={(id) => chooseEvo(id)} onDecline={() => chooseEvo(null)} />
+            <button onClick={() => setEvoPick(false)} className="mt-2 w-full rounded-lg border border-line bg-bg px-3 py-2 text-sm text-ink2">
+              Decide later (the offer stands until the next Strain check)
+            </button>
+          </div>
+        </div>
+      )}
       {coaching && (
         <Coach
           lesson={tutorial}
@@ -502,6 +641,13 @@ export function MatchScreen({ setup, settings, onExit, onFinish, label, tutorial
             <span className="truncate font-display text-[10px] font-semibold uppercase tracking-wider text-accent">{state.phase === 'actions' ? `${state.players[state.window ? state.window.reactor : state.turn].name}'s turn` : PHASE_LABEL[state.phase]}</span>
           )}
           {lastStanceLine && state.phase !== 'stance' && <span className="hidden min-w-0 truncate text-[10px] text-sky-300 min-[760px]:inline">{lastStanceLine}</span>}
+          {clashNow && !over && <ClashChip p={clashNow} compact />}
+          {objectiveChip && <span className="hidden min-w-0 min-[700px]:inline-flex">{objectiveChip}</span>}
+          {evoOffer && (
+            <button onClick={() => setEvoPick(true)} className="turn-glow shrink-0 rounded bg-violet-400 px-1.5 font-display text-[11px] font-bold text-black">
+              ✦ Evolve
+            </button>
+          )}
           <div className="ml-auto flex shrink-0 items-center gap-1">
             {timer && <TimerBadge timer={timer} who={actor!} />}
             <button onClick={() => setShowHistory(true)} className="rounded border border-line px-1.5 text-[11px] text-ink2">
@@ -571,6 +717,7 @@ export function MatchScreen({ setup, settings, onExit, onFinish, label, tutorial
       <Intro
         state={state}
         encounter={encounter}
+        objective={objective}
         onGo={() => {
           tryLandscapeFullscreen();
           setIntroSeen(true);
@@ -617,6 +764,7 @@ export function MatchScreen({ setup, settings, onExit, onFinish, label, tutorial
           ) : (
             <div className="truncate font-display text-xs font-semibold uppercase tracking-wider text-accent">{PHASE_LABEL[state.phase]}</div>
           )}
+          {objectiveChip && <span className="ml-auto hidden min-w-0 md:inline-flex">{objectiveChip}</span>}
           {confirmExit && (
             <div className="pop absolute left-2 top-full z-40 mt-1 flex w-72 flex-col gap-2 rounded-xl border border-red-500/60 bg-panel p-3 text-xs shadow-xl" role="dialog" aria-label="Leave match?">
               <div className="font-bold">Leave this match?</div>
@@ -690,6 +838,11 @@ export function MatchScreen({ setup, settings, onExit, onFinish, label, tutorial
               </div>
             </div>
             {lastStanceLine && state.phase !== 'stance' && <div className="mx-1 mt-1 rounded-lg bg-sky-950/40 px-3 py-1 text-center text-xs text-sky-200">{lastStanceLine}</div>}
+            {clashNow && !over && (
+              <div className="mx-1 mt-1 flex justify-center">
+                <ClashChip p={clashNow} />
+              </div>
+            )}
             {recap && <div className="mx-1 mt-1 rounded-lg bg-black/30 px-3 py-1 text-center text-xs text-ink2">{recap}</div>}
             <PlaysStrip state={state} viewer={me} onOpen={setPlaySheet} />
           </section>
@@ -700,6 +853,15 @@ export function MatchScreen({ setup, settings, onExit, onFinish, label, tutorial
         </div>
 
         {/* Prompt / hand */}
+        {evoOffer && (
+          <div className="pop flex items-center gap-2 rounded-xl border-2 border-violet-400/70 bg-violet-950/40 px-3 py-2 text-sm" role="status">
+            <span className="font-display font-bold text-violet-200">✦ Evolution ready</span>
+            <span className="min-w-0 flex-1 truncate text-xs text-ink2">{evoForms.map((d) => d.name).join(' or ')}: choose whenever you like this round.</span>
+            <button onClick={() => setEvoPick(true)} className="rounded-lg bg-violet-400 px-3 py-1 text-xs font-bold text-black">
+              Choose
+            </button>
+          </div>
+        )}
         {over ? (
           overBox(false)
         ) : !myDecision ? (
@@ -1055,13 +1217,58 @@ function DetailSheet({ detail, state, me, myTurn, onClose, onReveal }: { detail:
   );
 }
 
-function Intro({ state, encounter, onGo, onExit }: { state: GameState; encounter: EncounterLines | null; onGo: () => void; onExit: () => void }) {
+function Intro({ state, encounter, objective, onGo, onExit }: { state: GameState; encounter: EncounterLines | null; objective: Objective | null; onGo: () => void; onExit: () => void }) {
+  // After a few matches the full briefing is a wall to click through: show who you face, what's special and
+  // your goal, with the loadouts one tap away.
+  const [full, setFull] = useState(() => introsSeen() < 3);
+  useEffect(() => bumpIntros(), []);
+  if (!full)
+    return (
+      <div className="mx-auto flex min-h-dvh max-w-xl flex-col justify-center gap-3 p-4 phone:h-dvh phone:min-h-0 phone:gap-2 phone:p-2">
+        <div className="lab-label">Next opponent</div>
+        <div className="flex items-center gap-3">
+          <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: PLAYER_COLORS[1] }} />
+          <span className="min-w-0 flex-1 truncate font-display text-2xl font-bold phone:text-lg">{state.players[1].name}</span>
+          {[state.players[1].faction, state.players[1].worldFaction].map((id) => (
+            <ChipArt key={id} id={id} size={40} className="phone:h-8! phone:w-8!" />
+          ))}
+        </div>
+        <div className="text-xs text-ink2">
+          <span style={{ color: FACTION_META[state.players[1].faction].color }}>{FACTION_META[state.players[1].faction].name}</span> /{' '}
+          <span style={{ color: WORLD_FACTION_META[state.players[1].worldFaction].color }}>{WORLD_FACTION_META[state.players[1].worldFaction].name}</span>
+          {state.players[1].evolution && <span className="text-violet-300"> · starts evolved</span>}
+        </div>
+        {encounter && (
+          <p className="lab-panel rounded-xl border border-amber-400/40 px-3 py-2 font-serif text-[14px] italic leading-snug text-ink phone:py-1.5 phone:text-[12px]">
+            <LoreText text={encounter.before} />
+          </p>
+        )}
+        {state.players.some((p) => p.integrates) && (
+          <p className="text-[12px] text-amber-200">
+            <b>Integration:</b> at each Strain check, if your Specimen is Overclocked or worse, {state.players.find((p) => p.integrates)!.name} absorbs your most worn-down awake graft. Stay Stable to hold on to it.
+          </p>
+        )}
+        {objective && <p className="text-sm font-semibold text-emerald-300">◎ Goal: {objective.text}</p>}
+        <div className="mt-2 flex gap-2">
+          <button onClick={onExit} className="rounded-lg bg-panel2 px-4 py-3 text-sm font-semibold">
+            Back
+          </button>
+          <button onClick={() => setFull(true)} className="rounded-lg border border-line px-3 py-3 text-sm text-ink2">
+            Loadouts
+          </button>
+          <button onClick={onGo} autoFocus className="flex-1 rounded-lg bg-accent px-4 py-3 font-display text-sm font-bold text-black">
+            Start match
+          </button>
+        </div>
+      </div>
+    );
   return (
     <div className="mx-auto flex min-h-dvh max-w-3xl flex-col gap-3 p-3 phone:h-dvh phone:min-h-0 phone:max-w-none phone:gap-1.5 phone:p-2">
       <div>
         <div className="lab-label">Pre-match briefing</div>
         <h1 className="font-display text-2xl font-bold phone:text-base">Specimens and loadouts</h1>
         <p className="text-xs text-ink2 phone:hidden">Both players see both Chip loadouts and each Build's two evolutions.</p>
+        {objective && <p className="mt-1 text-sm font-semibold text-emerald-300 phone:text-xs">◎ Goal this match: {objective.text}</p>}
       </div>
       {encounter && (
         <p className="lab-panel rounded-xl border border-amber-400/40 px-3 py-2 font-serif text-[14px] italic leading-snug text-ink phone:py-1.5 phone:text-[12px]">
@@ -1101,7 +1308,7 @@ function Intro({ state, encounter, onGo, onExit }: { state: GameState; encounter
                 const n = findNode(id);
                 return (
                   <li key={id} className="text-xs">
-                    <span className="font-semibold text-accent">{n?.name}</span> <span className="text-ink2">— {n?.text}</span>
+                    <span className="font-semibold text-accent">{n?.name}</span> <span className="text-ink2">— <IconText text={n?.text ?? ''} /></span>
                   </li>
                 );
               })}
@@ -1118,5 +1325,79 @@ function Intro({ state, encounter, onGo, onExit }: { state: GameState; encounter
         </button>
       </div>
     </div>
+  );
+}
+
+/** How many pre-match briefings this device has seen (the full one shows for the first few). */
+const INTROS_KEY = 'specimen.introsSeen';
+function introsSeen(): number {
+  try {
+    return Number(localStorage.getItem(INTROS_KEY)) || 0;
+  } catch {
+    return 0;
+  }
+}
+function bumpIntros(): void {
+  try {
+    localStorage.setItem(INTROS_KEY, String(introsSeen() + 1));
+  } catch {
+    /* not remembered this time */
+  }
+}
+
+/** This match's side goal in the header: live progress, green when done, struck through once out of reach. */
+function ObjectiveChip({ objective, state, me }: { objective: Objective; state: GameState; me: PlayerId }) {
+  const [have, need] = objective.progress(state, me);
+  const done = objectiveDone(objective, state, me) || (!objective.needsWin && have >= need);
+  const failed = objectiveFailed(objective, state, me);
+  return (
+    <span
+      className={`truncate rounded-full border px-2 py-0.5 text-[10.5px] font-semibold ${done ? 'border-emerald-400/60 text-emerald-300' : failed ? 'border-line text-mute line-through' : 'border-line text-ink2'}`}
+      title={`Goal this match: ${objective.text}${objective.needsWin ? ' (and win)' : ''}`}
+    >
+      ◎ {objective.text}
+      {need > 1 && !failed ? ` ${have}/${need}` : done ? ' ✓' : ''}
+    </span>
+  );
+}
+
+/** The coming Clash as things stand: what you'd deal and take if it happened now. */
+function ClashChip({ p, compact = false }: { p: ClashPreview; compact?: boolean }) {
+  return (
+    <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border border-line bg-black/40 font-display font-bold ${compact ? 'px-1.5 text-[10px]' : 'px-2.5 py-0.5 text-xs'}`} title="The Clash if it happened now (plays still to come can change it)">
+      <span className="font-sans font-normal text-mute">{compact ? 'Clash' : 'Clash now:'}</span>
+      <span className="text-red-300">deal {p.deal}</span>
+      <span className="text-mute">·</span>
+      <span className="text-sky-300">take {p.take}</span>
+    </span>
+  );
+}
+
+const ZONE_TEXT = { stable: 'Stable', overclocked: 'Overclocked', rejection: 'rejection!' } as const;
+
+/** What the selected card would do: Strain and Energy after, the Clash after, grafts it breaks or costs you. */
+function PreviewLine({ p, compact }: { p: PlayPreview; compact: boolean }) {
+  const parts: ReactNode[] = [];
+  if (p.strain[0] !== p.strain[1]) parts.push(<span key="s" className={p.zone === 'rejection' ? 'text-red-300' : p.zone === 'overclocked' ? 'text-amber-300' : 'text-ink2'}>Strain {p.strain[0]}→{p.strain[1]}{p.zone !== 'stable' ? ` (${ZONE_TEXT[p.zone]})` : ''}</span>);
+  if (p.energy[0] !== p.energy[1]) parts.push(<span key="e" className="text-ink2">Energy {p.energy[0]}→{p.energy[1]}</span>);
+  if (p.clash && (p.clash.after.deal !== p.clash.before.deal || p.clash.after.take !== p.clash.before.take)) {
+    const d = p.clash.after.deal - p.clash.before.deal;
+    const t = p.clash.after.take - p.clash.before.take;
+    parts.push(
+      <span key="c" className="text-ink2">
+        Clash: deal <b className="text-red-300">{p.clash.after.deal}</b>
+        {d ? ` (${d > 0 ? '+' : ''}${d})` : ''}, take <b className="text-sky-300">{p.clash.after.take}</b>
+        {t ? ` (${t > 0 ? '+' : ''}${t})` : ''}
+      </span>,
+    );
+  }
+  if (p.kills.length) parts.push(<span key="k" className="text-emerald-300">destroys {p.kills.join(', ')}</span>);
+  if (p.losses.length) parts.push(<span key="l" className="text-amber-300">you lose {p.losses.join(', ')}</span>);
+  if (!parts.length) return null;
+  return (
+    <span className={`flex flex-wrap items-center gap-x-2 gap-y-0.5 ${compact ? 'text-[10px]' : 'text-[11px]'}`} aria-label="If you play it">
+      <span className="text-mute">If played:</span>
+      {parts}
+    </span>
   );
 }

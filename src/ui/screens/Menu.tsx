@@ -1,12 +1,15 @@
 import { InstallCard } from '../components/AppPrompts';
 import { useState } from 'react';
 import { setTutorialDone, tutorialDone } from '../tutorial';
-import { DIFFICULTY, lastDifficulty } from '../picks';
+import { DIFFICULTY, lastDifficulty, quickTier } from '../picks';
 import { SoundToggle } from '../components/AudioMenu';
 import { Creature } from '../components/Specimen';
 import { FACTION_META, WORLD_FACTION_META } from '../meta';
 import { activeSave, loadLastSetup, loadMatches } from '../storage';
 import { unreadLore } from '../lore';
+import { continueTarget } from '../resume';
+import type { ModeKind } from '../resume';
+import { DailyCard } from '../components/DailyCard';
 import { loadProgress } from '../modes';
 
 interface Props {
@@ -18,16 +21,22 @@ interface Props {
   onDecks: () => void;
   onTutorial: () => void;
   onArchive: () => void;
+  onDaily: () => void;
+  onContinue: (kind: ModeKind) => void;
 }
 
 // Portrait / desktop: one centered column. Phone landscape (`phone:`): art and title on the left,
 // compact buttons on the right, so the whole menu fits a short screen without scrolling.
-export function Menu({ onQuick, onModes, onBot, onSaves, onGuide, onDecks, onTutorial, onArchive }: Props) {
+export function Menu({ onQuick, onModes, onBot, onSaves, onGuide, onDecks, onTutorial, onArchive, onDaily, onContinue }: Props) {
+  const [progress] = useState(loadProgress);
+  // Straight back to what you were doing: a Lineage run, a Breach run, or the next Tower floor.
+  const [resume] = useState(() => continueTarget(progress, activeSave()?.meta.name ?? 'You'));
   const [unread] = useState(() => unreadLore(loadMatches(), loadProgress()));
   const [newcomer, setNewcomer] = useState(() => !tutorialDone());
   const save = activeSave();
   const last = loadLastSetup()?.[0];
-  const tier = DIFFICULTY.find((d) => d.id === lastDifficulty())!;
+  const tier = DIFFICULTY.find((d) => d.id === quickTier())!;
+  const adapted = quickTier() !== lastDifficulty();
   const btn = 'lab-panel w-full rounded-xl border border-line px-4 py-3 text-left transition hover:-translate-y-0.5 hover:border-accent phone:rounded-lg phone:px-3 phone:py-1.5';
   const desc = 'text-xs text-ink2 phone:hidden';
   return (
@@ -92,10 +101,10 @@ export function Menu({ onQuick, onModes, onBot, onSaves, onGuide, onDecks, onTut
             <div className="text-xs text-black/70">
               {last ? (
                 <>
-                  Your {FACTION_META[last.faction]?.name}/{WORLD_FACTION_META[last.worldFaction]?.name} vs a random {tier.label} bot. No setup.
+                  Your {FACTION_META[last.faction]?.name}/{WORLD_FACTION_META[last.worldFaction]?.name} vs a random {tier.label} bot{adapted ? ' (adjusted to your recent results)' : ''}. No setup.
                 </>
               ) : (
-                `Straight into a game against a random ${tier.label} bot.`
+                `Straight into a game against a random ${tier.label} bot${adapted ? ' (adjusted to your recent results)' : ''}.`
               )}
             </div>
           </button>
@@ -108,6 +117,18 @@ export function Menu({ onQuick, onModes, onBot, onSaves, onGuide, onDecks, onTut
           </button>
         </section>
         <InstallCard />
+        {resume && (
+          <button onClick={() => onContinue(resume.kind)} data-primary className="lab-panel flex items-center gap-3 rounded-xl border-2 border-accent/70 px-4 py-2.5 text-left transition hover:-translate-y-0.5 phone:rounded-lg phone:px-3 phone:py-1.5">
+            <span className="min-w-0 flex-1">
+              <span className="block font-display font-bold text-accent">Continue</span>
+              <span className="block truncate text-xs text-ink2">{resume.label}{resume.setup ? '' : ' (opens its screen first)'}</span>
+            </span>
+            <span className="font-display text-lg text-accent" aria-hidden>
+              ▶
+            </span>
+          </button>
+        )}
+        {progress && <DailyCard p={progress} onOpen={onDaily} compact />}
         <button className={`${btn} border-accent/50`} onClick={onModes}>
           <div className="font-display font-bold text-accent">Game Modes</div>
           <div className={desc}>A daily challenge, the Tower, Lineage and Containment Breach: earn biomass, craft cards and unlock Builds, World Factions and Chips.</div>

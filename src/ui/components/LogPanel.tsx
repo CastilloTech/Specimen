@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type { LogEntry } from '../../engine';
 import { PLAYER_COLORS } from '../meta';
+import { IconText } from './EngineIcon';
 
 const KIND_STYLE: Partial<Record<LogEntry['kind'], string>> = {
   round: 'mt-2 border-t border-line pt-1 font-display font-bold tracking-wider text-accent',
@@ -29,7 +30,7 @@ export function LogPanel({ log, className = '' }: { log: LogEntry[]; className?:
           ) : (
             <>
               {e.player !== null && e.kind !== 'end' && <span className="mr-1 inline-block h-1.5 w-1.5 rounded-full align-middle" style={{ background: PLAYER_COLORS[e.player] }} />}
-              {e.text}
+              <IconText text={e.text} />
             </>
           )}
         </div>

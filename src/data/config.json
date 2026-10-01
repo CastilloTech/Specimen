@@ -108,6 +108,7 @@
     "actionSeconds": 30,
     "reserveSeconds": 30
   },
+  "evolution": { "deferredChoice": true },
   "evolutions": {
     "predator": [
       {

@@ -116,7 +116,9 @@ export function validateAction(s: GameState, a: Action): string | null {
       if (a.stance !== null && !STANCES.includes(a.stance)) return 'Unknown stance.';
       return null;
     case 'CHOOSE_EVOLUTION':
-      if (s.phase !== 'evolve' || s.evoQueue[0] !== a.player) return 'Not your evolution choice.';
+      if (s.config.evolution.deferredChoice) {
+        if (s.phase === 'mulligan' || !pl.evolutionOptions.length) return 'No evolution to choose.';
+      } else if (s.phase !== 'evolve' || s.evoQueue[0] !== a.player) return 'Not your evolution choice.';
       if (a.id !== null && !pl.evolutionOptions.includes(a.id)) return 'Not a valid evolution.';
       return null;
     case 'REACT':
@@ -281,7 +283,11 @@ function apply(s: GameState, a: Action): void {
     }
     case 'CHOOSE_EVOLUTION': {
       if (a.id !== null) evolve(s, a.player, a.id);
-      else logMsg(s, 'evolve', a.player, `${pl.name} holds off on evolving for now.`);
+      else {
+        logMsg(s, 'evolve', a.player, `${pl.name} holds off on evolving for now.`);
+        if (s.config.evolution.deferredChoice) pl.evolutionOptions = []; // offered again at a later Strain check
+      }
+      if (s.config.evolution.deferredChoice) return;
       s.evoQueue.shift();
       if (!s.evoQueue.length) finishRound(s);
       return;

@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { loadDeckDraft, saveDeckDraft, useScrollMemory, useSessionState } from '../session';
 import { DeckStatsPanel } from '../components/DeckStatsPanel';
 import { autoFill } from '../deckHelpers';
 import { ScreenHeader } from '../components/ScreenHeader';
@@ -37,18 +38,32 @@ const sameDeck = (a: Record<string, number>, b: Record<string, number>) => {
   return [...keys].every((k) => (a[k] ?? 0) === (b[k] ?? 0));
 };
 
-function DeckTab() {
-  const [faction, setFaction] = useState<Faction>('predator');
-  const [worldFaction, setWorldFaction] = useState<WorldFactionId>('corrosion');
-  const [counts, setCounts] = useState<Record<string, number>>(() => tally(starterDeck('predator', 'corrosion')));
-  const [clean, setClean] = useState<Record<string, number>>(counts); // last loaded / saved / starter state
-  const [name, setName] = useState('My deck');
+/** A deck to try in a match straight from the builder. */
+export interface DeckTest {
+  faction: Faction;
+  worldFaction: WorldFactionId;
+  cards: string[];
+}
+
+function DeckTab({ onTest }: { onTest?: (d: DeckTest) => void }) {
+  // The work in progress outlives the screen for the session: test it in a match, come back, carry on.
+  const [draft] = useState(loadDeckDraft);
+  const [faction, setFaction] = useState<Faction>(draft?.faction ?? 'predator');
+  const [worldFaction, setWorldFaction] = useState<WorldFactionId>(draft?.worldFaction ?? 'corrosion');
+  const [counts, setCounts] = useState<Record<string, number>>(() => draft?.counts ?? tally(starterDeck('predator', 'corrosion')));
+  const [clean, setClean] = useState<Record<string, number>>(draft?.clean ?? counts); // last loaded / saved / starter state
+  const [name, setName] = useState(draft?.name ?? 'My deck');
+  useEffect(() => saveDeckDraft({ faction, worldFaction, counts, clean, name }), [faction, worldFaction, counts, clean, name]);
   const [saved, setSaved] = useState<SavedDeck[]>(loadDecks);
-  const [pool, setPool] = useState<Pool>('build');
+  const [pool, setPool] = useSessionState<Pool>('decks.pool', 'build');
+  useScrollMemory('decks');
   const [sheet, setSheet] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
   const [viewing, setViewing] = useState<string | null>(null); // card id open in the full view
-  const [engine, setEngine] = useState<EngineId | null>(null); // pool filter: one engine's cards, from all three pools
+  const [engine, setEngine] = useSessionState<EngineId | null>('decks.engine', null); // pool filter: one engine's cards, from all three pools
+  // Undo instead of "are you sure?": big changes happen at once, with a few seconds to take them back.
+  const [undo, setUndo] = useState<{ label: string; snap: { faction: Faction; worldFaction: WorldFactionId; counts: Record<string, number>; clean: Record<string, number>; name: string; saved: SavedDeck[] } } | null>(null);
+  const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wide = useMediaQuery('(min-width: 1024px)');
   // Mastery Signatures stay locked until their faction's achievements are done in the loaded save.
   const unlocked = useMemo(() => unlockedMastery(loadMatches()), []);
@@ -70,31 +85,47 @@ function DeckTab() {
   const cards = (activeEngine
     ? CARDS.filter((c) => (c.faction === faction || c.faction === worldFaction || c.faction === 'tech') && inEngine(c)).sort((a, b) => Number(b.engines!.some((t) => t.id === activeEngine && t.role === 'payoff')) - Number(a.engines!.some((t) => t.id === activeEngine && t.role === 'payoff')) || byTypeThenCost(a, b))
     : CARDS.filter((c) => c.faction === poolFaction).sort(byTypeThenCost));
-  /** Replace the deck with one built around an engine: its payoffs and enablers first, the rest filled as usual. */
-  const buildAround = (e: EngineId) => {
-    if (dirty && !window.confirm(`Replace this deck with one built around ${ENGINE_META[e].name}?`)) return;
-    setCounts(autoFill(faction, worldFaction, {}, (c) => !locked(c), undefined, e));
-    setFlash(`Built around ⚙ ${ENGINE_META[e].name}`);
-    setTimeout(() => setFlash(null), 1600);
+  const withUndo = (label: string, fn: () => void) => {
+    const snap = { faction, worldFaction, counts, clean, name, saved };
+    fn();
+    setUndo({ label, snap });
+    if (undoTimer.current) clearTimeout(undoTimer.current);
+    undoTimer.current = setTimeout(() => setUndo(null), 6000);
   };
+  const doUndo = () => {
+    if (!undo) return;
+    const s = undo.snap;
+    setFaction(s.faction);
+    setWorldFaction(s.worldFaction);
+    setCounts(s.counts);
+    setClean(s.clean);
+    setName(s.name);
+    if (s.saved !== saved) persist(s.saved);
+    setUndo(null);
+  };
+  /** Replace the deck with one built around an engine: its payoffs and enablers first, the rest filled as usual. */
+  const buildAround = (e: EngineId) => withUndo(`Built around ${ENGINE_META[e].name}`, () => setCounts(autoFill(faction, worldFaction, {}, (c) => !locked(c), undefined, e)));
 
   const change = (id: string, delta: number) => setCounts((c) => ({ ...c, [id]: Math.max(0, (c[id] ?? 0) + delta) }));
   const reset = (next: Record<string, number>) => {
     setCounts(next);
     setClean(next);
   };
-  /** Switching identity replaces the deck with that pair's starter deck: ask first if there are unsaved edits. */
-  const guard = () => !dirty || window.confirm('Switching replaces your unsaved changes with the starter deck. Continue?');
+  /** Switching identity replaces the deck with that pair's starter deck (undoable). */
   const switchFaction = (f: Faction) => {
-    if (f === faction || !guard()) return;
-    setFaction(f);
-    reset(tally(starterDeck(f, worldFaction)));
-    setName(`My ${FACTION_META[f].name} deck`);
+    if (f === faction) return;
+    withUndo(`Switched to ${FACTION_META[f].name}`, () => {
+      setFaction(f);
+      reset(tally(starterDeck(f, worldFaction)));
+      setName(`My ${FACTION_META[f].name} deck`);
+    });
   };
   const switchWorldFaction = (wf: WorldFactionId) => {
-    if (wf === worldFaction || !guard()) return;
-    setWorldFaction(wf);
-    reset(tally(starterDeck(faction, wf)));
+    if (wf === worldFaction) return;
+    withUndo(`Switched to ${WORLD_FACTION_META[wf].name}`, () => {
+      setWorldFaction(wf);
+      reset(tally(starterDeck(faction, wf)));
+    });
   };
   const persist = (next: SavedDeck[]) => {
     setSaved(next);
@@ -119,7 +150,7 @@ function DeckTab() {
     <div className="flex flex-col gap-3">
       <div className="flex items-center gap-2">
         <input value={name} onChange={(e) => setName(e.target.value)} maxLength={28} aria-label="Deck name" className="min-w-0 flex-1 rounded-lg border border-line bg-black/30 px-2 py-1.5 text-sm font-semibold" />
-        <button onClick={() => (!dirty || window.confirm('Reset to the starter deck?')) && reset(tally(starterDeck(faction, worldFaction)))} className="shrink-0 rounded-lg border border-line px-2.5 py-1.5 text-xs text-ink2 hover:border-mute" title="Replace with the starter deck">
+        <button onClick={() => withUndo('Reset to the starter deck', () => reset(tally(starterDeck(faction, worldFaction))))} className="shrink-0 rounded-lg border border-line px-2.5 py-1.5 text-xs text-ink2 hover:border-mute" title="Replace with the starter deck">
           Starter
         </button>
         <button
@@ -130,6 +161,11 @@ function DeckTab() {
         >
           Auto-fill
         </button>
+        {onTest && (
+          <button onClick={() => onTest({ faction, worldFaction, cards: deck })} disabled={errors.length > 0} className="shrink-0 rounded-lg border border-accent/70 px-2.5 py-1.5 text-xs font-bold text-accent disabled:opacity-40" title={errors.length ? 'Fix the deck first' : 'Play a Quick match with this deck, then come straight back here'}>
+            Test ▶
+          </button>
+        )}
       </div>
       {errors.length > 0 ? (
         <ul className="rounded-lg border border-amber-500/40 bg-amber-950/25 p-2 text-[11px] text-amber-200" role="alert">
@@ -188,18 +224,19 @@ function DeckTab() {
               </span>
               <button
                 className="rounded-md bg-panel2 px-2 py-1"
-                onClick={() => {
-                  if (dirty && !window.confirm('Load this deck and drop your unsaved changes?')) return;
-                  setFaction(d.faction);
-                  setWorldFaction(d.worldFaction);
-                  reset(tally(d.cards));
-                  setName(d.name);
-                  setSheet(false);
-                }}
+                onClick={() =>
+                  withUndo(`Loaded "${d.name}"`, () => {
+                    setFaction(d.faction);
+                    setWorldFaction(d.worldFaction);
+                    reset(tally(d.cards));
+                    setName(d.name);
+                    setSheet(false);
+                  })
+                }
               >
                 Load
               </button>
-              <button className="rounded-md bg-panel2 px-2 py-1 text-red-300" onClick={() => window.confirm(`Delete "${d.name}"?`) && persist(saved.filter((x) => x.id !== d.id))} aria-label={`Delete ${d.name}`}>
+              <button className="rounded-md bg-panel2 px-2 py-1 text-red-300" onClick={() => withUndo(`Deleted "${d.name}"`, () => persist(saved.filter((x) => x.id !== d.id)))} aria-label={`Delete ${d.name}`}>
                 ✕
               </button>
             </li>
@@ -407,6 +444,14 @@ function DeckTab() {
         );
       })()}
       {flash && <div className="pop fixed left-1/2 top-4 z-50 -translate-x-1/2 rounded-full bg-emerald-600 px-4 py-1.5 text-sm font-bold text-white shadow-xl">{flash}</div>}
+      {undo && (
+        <div className="pop fixed bottom-20 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-full border border-line bg-panel px-4 py-2 text-sm shadow-xl" role="status">
+          <span className="text-ink2">{undo.label}</span>
+          <button onClick={doUndo} className="font-bold text-accent">
+            Undo
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -436,8 +481,8 @@ function LoadoutTab() {
   );
 }
 
-export function DeckBuilder({ onBack }: { onBack: () => void }) {
-  const [tab, setTab] = useState<'deck' | 'tree'>('deck');
+export function DeckBuilder({ onBack, onTest }: { onBack: () => void; onTest?: (d: DeckTest) => void }) {
+  const [tab, setTab] = useSessionState<'deck' | 'tree'>('decks.tab', 'deck');
   return (
     <div className="mx-auto flex min-h-dvh max-w-6xl flex-col p-3 pb-0">
       <ScreenHeader
@@ -456,7 +501,7 @@ export function DeckBuilder({ onBack }: { onBack: () => void }) {
           </div>
         }
       />
-      <div className="flex-1">{tab === 'deck' ? <DeckTab /> : <LoadoutTab />}</div>
+      <div className="flex-1">{tab === 'deck' ? <DeckTab onTest={onTest} /> : <LoadoutTab />}</div>
     </div>
   );
 }

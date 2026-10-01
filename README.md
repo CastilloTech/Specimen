@@ -794,6 +794,51 @@ The story is never explained. It lives in fragments, each from a biased source, 
   - The tutorials' stacked decks silently dropped a card when a listed card was no longer in the starter deck.
   - Tests get a 30-second default timeout, since many play whole matches.
 
+### Flow and coming back: one-tap next, adaptive Quick match, goals, the daily on the menu, dispatches
+
+- **One tap to the next match.** The result box offers **Next match ▶** (Quick match), **Floor N ▶** or **Climb again ▶** (Tower), and **Next wave ▶** (Breach), beside **Results**. It books the match exactly as the mode's screen would, then starts the next one (`settle` and `nextFor` in `App.tsx`). Lineage always returns to its screen, since there is a mutation to choose.
+- **Unlocks on the result.** The result box also shows achievements and Mastery cards unlocked by the match, since one-tap play can skip the post-match report.
+- **A shorter briefing.** After three matches on a device, the pre-match briefing becomes one panel: the opponent, its line, any special rule and your goal. The full loadouts are one tap away.
+- **Quick match adapts.** Three wins in a row step the bot up a tier; three losses step it down. It never moves more than one tier from the difficulty you picked (`quickTier` and `recordQuickResult` in `picks.ts`). The menu says when it has adjusted.
+- **A brisker bot.** Its pauses are shorter after round 1, and **Hurry ›** skips them until it's your decision again. A close finish is called out on the result ("Survived on 2 HP", "Decided in the final round").
+- **A goal each match** (`objectives.ts`). Half the time it is firing your deck's main engine 3 times; otherwise one of seven general goals, such as winning without passing 5 Strain or blocking 15 damage. It shows in the briefing and as a live chip in the header, and completing it pays 15 biomass when you have Game Modes. There are no goals in tutorials.
+- **The daily challenge is on the main menu**, with its twist, your streak and what a win pays. Streaks forgive one missed day a week (`DailyStreak.grace`); a second missed day within the week resets the streak.
+- **Daily dispatches.** Every daily-challenge first win recovers the next of 21 numbered **Dispatches** in the Archive: short field reports that thread the story forward a day at a time. The Archive shows the ones you have, plus the next one still to come.
+
+### Flow, part 2: previews, no pauses, chains, music that follows the match, and a reason for one more
+
+- **Clash preview.** During the actions phase the board shows **Clash now: deal X · take Y**: the coming exchange as things stand, worked out by running the Clash on a copy of the match (`previewClash` in `rules.ts`, `clashPreview` in `src/ui/preview.ts`).
+- **Play preview.** Selecting a card shows **If played:** Strain before → after (and the zone it lands in), Energy, the Clash after it with the change, and any graft it would destroy or cost you. It comes from playing the card on a copy with any reaction declined (`playPreview`).
+- **No pointless taps.** A card with exactly one way to play it (a plain instant, one free slot, one target) gets a **Play to Limb A** / **Play on their Head** button, and double-tap plays it.
+- **Evolution no longer pauses the match** (`config.evolution.deferredChoice`). A met condition is offered at the Strain check and the round goes on:
+  - you choose from a **✦ Evolution ready** banner (desktop) or a **✦ Evolve** button (phone), or hold off;
+  - the offer stands until the next Strain check re-reads the conditions;
+  - bots take theirs at their next decision.
+
+  The rule tests keep the old blocking phase (pinned in `tests/kit.ts`). Bot evolution rates and Build balance are unchanged in the sim.
+- **Music that follows the match** (`setMusicIntensity` in `music.ts`). The heartbeat quickens, bubbles come faster and the pad brightens as tension rises (your Strain past half the limit, Meltdown, either Specimen low on HP), and the result releases it.
+- **Chains.** Two or more engine payoffs going off from one play pop **CHAIN ×N** in the middle of the board, bigger for longer chains. The opponent's chains show too, quieter.
+- **A reason for one more.** The result names the next one or two things you are closest to (`nextGoals.ts`): a Build or World Faction mastery feat with its progress, the cheapest Game Modes unlock and how much biomass it needs, or the wins left before Quick match steps up a tier.
+- **One lesson from a loss.** After a defeat, the result also gives the one moment that decided it: the heaviest turning point against you, in a line.
+
+### Flow outside matches: Continue, play from the hub, test a deck, remembered places, undo
+
+- **Continue** on the main menu picks up your Lineage run, then a Breach run, then your next Tower floor, and starts the match directly when nothing needs doing first (`continueTarget` in `src/ui/resume.ts`).
+- **Play from the Game Modes hub.** The Tower, Lineage and Breach cards carry a **▶ Floor N / Match N / Wave N** button that skips the mode's own screen.
+- **Test this deck.** **Test ▶** in the deck builder plays a Quick match with the deck on the bench, against a bot at your Quick match level. The result offers **Test again ▶**, and leaving or finishing returns to the builder with the deck as you left it.
+- **Remembered places.** The deck builder keeps its work in progress, tab, pool and engine filter, and the Archive keeps its source filter and scroll position, for the session (`src/ui/session.ts`).
+- **Keys.**
+  - Esc goes back on every screen that has a header.
+  - Enter presses the screen's main button (`data-primary`): Continue, Climb, Fight, Hold the line.
+- **Undo instead of "are you sure?"** In the deck builder, switching Build or World Faction, resetting to the starter, building around an engine, loading and deleting decks all happen at once, with a 6-second **Undo**. Deleting a whole save keeps its confirmation.
+- **Preloading.** While the menu is idle, the screens most often opened next (Game Modes, the deck builder, the Tower, the Archive, the post-match report, the daily) load in the background, so none flashes a spinner.
+- **Unlocks lead straight to using them.**
+  - Unlocking a Build or World Faction offers **Switch my deck to it**. The Game Modes deck keeps the cards that still fit and fills up from your collection (`applyUnlock` in `modes.ts`).
+  - Unlocking a Chip offers **Equip it**.
+  - Crafting a card offers **Add to deck**.
+  - A newly unlocked Mastery card offers **Build a deck with it**, which opens the deck builder with a deck around it.
+- **Screen changes fade** in over 0.18 s (opacity only, off with reduced motion).
+
 ### UI pass: containment-lab look and quality of life
 
 - **Art direction.** A dim containment-lab look: culture-plate grid background, bioluminescent accent, Chakra Petch display type (Google Fonts; falls back to system fonts offline), hazard tape for Meltdown. Every card has procedural "specimen plate" art (`src/ui/components/CardArt.tsx`), drawn from its type (and a graft's slot), tinted by faction and seeded by card id, so there are no image assets to maintain. Each Specimen is the bio-engineered creature from `src/assets/specimen.jpg` (cropped from the provided concept card art) in a containment tank, mirrored on the left-hand side so the two face each other, with graft sockets placed on its anatomy (helmet, neck cables, chest, resting hand, far forearm, hip; see `POS` in `Specimen.tsx`) and grafts shown as mini plates.
