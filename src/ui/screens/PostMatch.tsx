@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { turningPoints } from '../turningPoints';
 import { CARD_MAP, findNode } from '../../engine';
-import type { EngineId, GameState, MatchSetup } from '../../engine';
+import type { EngineId, GameState, MatchSetup, PlayerId } from '../../engine';
 import { Emblem } from '../components/Emblem';
 import { LineChart } from '../components/LineChart';
 import { Collapsible } from '../components/Collapsible';
@@ -25,6 +25,8 @@ interface Props {
   onReplay?: (step?: number) => void;
   /** Open the deck builder with a deck built around this card. */
   onBuildWith?: (cardId: string) => void;
+  /** Your seat (online, you may be player 2). */
+  me?: PlayerId;
 }
 
 export function exportMatchJson(state: GameState, setup: MatchSetup): string {
@@ -55,7 +57,7 @@ function download(name: string, text: string) {
   URL.revokeObjectURL(url);
 }
 
-export function PostMatch({ state, setup, onRematch, onNext, onMenu, onReplay, onBuildWith }: Props) {
+export function PostMatch({ state, setup, onRematch, onNext, onMenu, onReplay, onBuildWith, me = 0 }: Props) {
   const [a, b] = state.players;
   const names: [string, string] = [a.name, b.name];
   const rounds = state.snapshots.map((s) => s.round);
@@ -69,10 +71,9 @@ export function PostMatch({ state, setup, onRematch, onNext, onMenu, onReplay, o
   const unlocked = activeSave() ? newlyUnlocked(loadMatches()) : [];
   const newCards = activeSave() ? newlyUnlockedMastery(loadMatches()) : [];
   const [viewCard, setViewCard] = useState<string | null>(null);
-  const points = useMemo(() => turningPoints(setup, state, 0), [setup, state]);
+  const points = useMemo(() => turningPoints(setup, state, me), [setup, state, me]);
 
   const [chart, setChart] = useState<'hp' | 'strain'>('hp');
-  const me = 0;
   const outcome = w === null ? 'Draw' : w === me ? 'Victory' : 'Defeat';
   const outcomeColor = w === null ? 'var(--color-accent)' : w === me ? '#6ee7b7' : '#f87171';
   const evoName = (p: (typeof state.players)[number]) => (p.evolution ? (state.config.evolutions as Record<string, { id: string; name: string }[]>)[p.faction].find((d) => d.id === p.evolution)?.name : null);

@@ -9,6 +9,11 @@ export const defaultConfig: Config = configJson as Config;
 export const CARDS: CardDef[] = cardsJson as unknown as CardDef[];
 export const CARD_MAP: Record<string, CardDef> = Object.fromEntries(CARDS.map((c) => [c.id, c]));
 
+/** Stands in for a card a player isn't allowed to see in an online match (the opponent's hand, either deck's
+ * order). In CARD_MAP so a stray lookup is harmless; never in CARDS, so it is never in a pool or a deck. */
+export const HIDDEN_CARD_ID = 'hidden';
+CARD_MAP[HIDDEN_CARD_ID] = { id: HIDDEN_CARD_ID, name: 'Hidden card', faction: 'tech', type: 'serum', cost: 0, strain: 0, attack: 0, armor: 0, text: '', signature: false, effect: {} } as unknown as CardDef;
+
 export function cardOf(id: string): CardDef {
   const c = CARD_MAP[id];
   if (!c) throw new Error(`Unknown card id: ${id}`);

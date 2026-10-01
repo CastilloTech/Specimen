@@ -25,12 +25,14 @@ export const appLink = (fragment = '') => `${location.origin}${location.pathname
 
 export const replayLink = async (r: SavedReplay) => appLink(`replay=${await replayCode(r)}`);
 
-/** What a link opened the game with: a shared replay, or the daily challenge. */
-export type Incoming = { kind: 'replay'; code: string } | { kind: 'daily' } | null;
+/** What a link opened the game with: a shared replay, the daily challenge, or an online room invite. */
+export type Incoming = { kind: 'replay'; code: string } | { kind: 'daily' } | { kind: 'room'; code: string } | null;
 export function readIncoming(hash = location.hash): Incoming {
   const h = decodeURIComponent(hash.replace(/^#/, ''));
   if (h.startsWith('replay=')) return { kind: 'replay', code: h.slice('replay='.length) };
   if (h === 'daily') return { kind: 'daily' };
+  // An online room invite: #room=ABCDE
+  if (/^room=[A-Za-z]{5}$/.test(h)) return { kind: 'room', code: h.slice(5).toUpperCase() };
   return null;
 }
 export const clearIncoming = () => history.replaceState(null, '', location.pathname + location.search);

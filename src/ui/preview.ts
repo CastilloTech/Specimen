@@ -14,9 +14,14 @@ export interface ClashPreview {
 
 export function clashPreview(s: GameState, me: PlayerId): ClashPreview | null {
   if (s.phase !== 'actions' || s.players.some((p) => !p.stance)) return null;
-  const [lost0, lost1] = previewClash(s);
-  const lost = [lost0, lost1];
-  return { deal: lost[other(me)], take: lost[me] };
+  // Online, cards you can't see are placeholders: if the preview trips on one, there is simply no preview.
+  try {
+    const [lost0, lost1] = previewClash(s);
+    const lost = [lost0, lost1];
+    return { deal: lost[other(me)], take: lost[me] };
+  } catch {
+    return null;
+  }
 }
 
 export interface PlayPreview {
@@ -32,6 +37,13 @@ export interface PlayPreview {
 
 /** The match right after this play, with any reaction declined (it is a guess: they may answer it). */
 export function simulatePlay(s: GameState, action: Action): GameState | null {
+  try {
+    return simulate(s, action);
+  } catch {
+    return null;
+  }
+}
+function simulate(s: GameState, action: Action): GameState | null {
   let n = reduce(s, action);
   if (n.lastError) return null;
   for (let guard = 0; n.window && guard < 4; guard++) {

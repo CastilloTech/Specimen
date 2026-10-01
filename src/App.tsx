@@ -1,7 +1,8 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { play } from './ui/sfx';
 import { UpdateToast } from './ui/components/AppPrompts';
-import type { GameState, MatchSetup } from './engine';
+import type { GameState, MatchSetup, PlayerId } from './engine';
+import type { OnlineConn } from './ui/online';
 import type { TowerOutcome } from './ui/screens/TowerScreen';
 import { deckProblems, floorInfo, floorMatch, loadProgress, replayResult, saveProgress, TOWER_FLOORS, towerResult } from './ui/modes';
 import { applyLineageMatch } from './ui/lineage';
@@ -36,7 +37,9 @@ type Screen =
   | { name: 'modes' }
   | { name: 'collection' }
   | { name: 'tower'; last?: TowerOutcome | null }
-  | { name: 'post'; setup: MatchSetup; state: GameState; label?: string }
+  | { name: 'post'; setup: MatchSetup; state: GameState; label?: string; me?: PlayerId; online?: boolean }
+  | { name: 'online'; code?: string }
+  | { name: 'onlineMatch'; conn: OnlineConn }
   | { name: 'saves' }
   | { name: 'guide' }
   | { name: 'archive' }
@@ -55,6 +58,8 @@ const LineageScreen = lazy(() => import('./ui/screens/LineageScreen').then((m) =
 const BreachScreen = lazy(() => import('./ui/screens/BreachScreen').then((m) => ({ default: m.BreachScreen })));
 const GuideScreen = lazy(() => import('./ui/screens/GuideScreen').then((m) => ({ default: m.GuideScreen })));
 const MatchScreen = lazy(() => import('./ui/screens/Match').then((m) => ({ default: m.MatchScreen })));
+const OnlineMatchScreen = lazy(() => import('./ui/screens/Match').then((m) => ({ default: m.OnlineMatchScreen })));
+const OnlineScreen = lazy(() => import('./ui/screens/OnlineScreen').then((m) => ({ default: m.OnlineScreen })));
 const PostMatch = lazy(() => import('./ui/screens/PostMatch').then((m) => ({ default: m.PostMatch })));
 const SavesScreen = lazy(() => import('./ui/screens/SavesScreen').then((m) => ({ default: m.SavesScreen })));
 const ReplayScreen = lazy(() => import('./ui/screens/ReplayScreen').then((m) => ({ default: m.ReplayScreen })));
@@ -62,10 +67,10 @@ const DailyScreen = lazy(() => import('./ui/screens/DailyScreen').then((m) => ({
 const TutorialDone = lazy(() => import('./ui/screens/TutorialDone').then((m) => ({ default: m.TutorialDone })));
 const Setup = lazy(() => import('./ui/screens/Setup').then((m) => ({ default: m.Setup })));
 
-/** A replay of a match that just ended (also kept in the save's Replays list). */
-function replayOf(setup: MatchSetup, state: GameState, label?: string): SavedReplay {
+/** A replay of a match that just ended (also kept in the save's Replays list). `me`: your seat. */
+function replayOf(setup: MatchSetup, state: GameState, label?: string, me: PlayerId = 0): SavedReplay {
   const w = state.result?.winner;
-  return { id: `post-${setup.seed}`, at: Date.now(), me: 0, names: [state.players[0].name, state.players[1].name], result: w === 0 ? 'win' : w == null ? 'draw' : 'loss', rounds: state.round, label, setup, actions: state.history };
+  return { id: `post-${setup.seed}`, at: Date.now(), me, names: [state.players[0].name, state.players[1].name], result: w === me ? 'win' : w == null ? 'draw' : 'loss', rounds: state.round, label, setup, actions: state.history };
 }
 
 export default function App() {
@@ -87,7 +92,7 @@ function Loading() {
   );
 }
 
-const SCREEN_DEPTH: Record<Screen['name'], number> = { menu: 0, setup: 1, modes: 1, decks: 1, guide: 1, archive: 1, saves: 1, tower: 2, lineage: 2, breach: 2, daily: 2, collection: 2, match: 3, post: 4, tutorialDone: 4, replay: 4 };
+const SCREEN_DEPTH: Record<Screen['name'], number> = { menu: 0, setup: 1, modes: 1, decks: 1, guide: 1, archive: 1, saves: 1, online: 1, tower: 2, lineage: 2, breach: 2, daily: 2, collection: 2, match: 3, onlineMatch: 3, post: 4, tutorialDone: 4, replay: 4 };
 
 function Screens() {
   useEffect(() => {
@@ -127,6 +132,7 @@ function Screens() {
     if (!incoming) return;
     clearIncoming();
     if (incoming.kind === 'daily') return setScreen(loadProgress() ? { name: 'daily' } : { name: 'modes' });
+    if (incoming.kind === 'room') return setScreen({ name: 'online', code: incoming.code });
     replayFromCode(incoming.code)
       .then((replay) => setScreen({ name: 'replay', replay, back: { name: 'menu' }, shared: true }))
       .catch((e: Error) => setLinkError(e.message));
@@ -235,13 +241,13 @@ function Screens() {
     };
   };
 
-  const key = screen.name === 'match' ? `match-${screen.run}-${screen.setup.seed}` : screen.name;
+  const key = screen.name === 'match' ? `match-${screen.run}-${screen.setup.seed}` : screen.name === 'onlineMatch' ? `online-${screen.conn.code}` : screen.name;
   // Screens have a depth (menu, hubs, modes, a match, its results): going deeper slides in from the right,
   // going back from the left. A match only fades (its layout is fixed to the viewport).
   if (transition.current.key !== key) {
     const depth = SCREEN_DEPTH[screen.name];
     const was = transition.current.depth;
-    transition.current = { key, depth, cls: screen.name === 'match' ? 'screen-in' : depth > was ? 'screen-fwd' : depth < was ? 'screen-back' : 'screen-in' };
+    transition.current = { key, depth, cls: screen.name === 'match' || screen.name === 'onlineMatch' ? 'screen-in' : depth > was ? 'screen-fwd' : depth < was ? 'screen-back' : 'screen-in' };
   }
   return (
     <div key={key} className={transition.current.cls}>
@@ -262,7 +268,7 @@ function Screens() {
                 </button>
               </div>
             )}
-            <Menu onQuick={quick} onModes={() => setScreen({ name: 'modes' })} onBot={() => setScreen({ name: 'setup' })} onSaves={() => setScreen({ name: 'saves' })} onGuide={() => setScreen({ name: 'guide' })} onDecks={() => setScreen({ name: 'decks' })} onTutorial={() => tutorial('basics')} onArchive={() => setScreen({ name: 'archive' })} onDaily={() => setScreen({ name: 'daily' })} onContinue={(kind) => playMode(kind)} />
+            <Menu onQuick={quick} onModes={() => setScreen({ name: 'modes' })} onBot={() => setScreen({ name: 'setup' })} onSaves={() => setScreen({ name: 'saves' })} onGuide={() => setScreen({ name: 'guide' })} onDecks={() => setScreen({ name: 'decks' })} onTutorial={() => tutorial('basics')} onArchive={() => setScreen({ name: 'archive' })} onDaily={() => setScreen({ name: 'daily' })} onContinue={(kind) => playMode(kind)} onOnline={() => setScreen({ name: 'online' })} />
           </>
         );
       case 'setup':
@@ -311,20 +317,40 @@ function Screens() {
           <PostMatch
             state={screen.state}
             setup={screen.setup}
+            me={screen.me}
             onMenu={menu}
-            onNext={quick}
+            onNext={screen.online ? () => setScreen({ name: 'online' }) : quick}
             onBuildWith={(cardId) => {
               startDraftWith(cardId);
               setScreen({ name: 'decks' });
             }}
-            onRematch={() => setScreen({ name: 'match', setup: { ...screen.setup, seed: Math.floor(Math.random() * 2 ** 31) }, run: Date.now(), label: screen.label })}
-            onReplay={(startAt) => setScreen({ name: 'replay', back: screen, replay: replayOf(screen.setup, screen.state, screen.label), startAt })}
+            onRematch={screen.online ? () => setScreen({ name: 'online' }) : () => setScreen({ name: 'match', setup: { ...screen.setup, seed: Math.floor(Math.random() * 2 ** 31) }, run: Date.now(), label: screen.label })}
+            onReplay={(startAt) => setScreen({ name: 'replay', back: screen, replay: replayOf(screen.setup, screen.state, screen.label, screen.me), startAt })}
           />
         );
       case 'saves':
         return <SavesScreen onBack={menu} onWatch={(replay) => setScreen({ name: 'replay', replay, back: { name: 'saves' } })} />;
       case 'replay':
         return <ReplayScreen replay={screen.replay} shared={screen.shared} startAt={screen.startAt} onBack={() => setScreen(screen.back)} />;
+      case 'online':
+        return <OnlineScreen initialCode={screen.code} onBack={menu} onStart={(conn) => setScreen({ name: 'onlineMatch', conn })} />;
+      case 'onlineMatch': {
+        const conn = screen.conn;
+        return (
+          <OnlineMatchScreen
+            conn={conn}
+            settings={settings}
+            onExit={() => {
+              conn.close();
+              menu();
+            }}
+            onFinish={(state, setup) => {
+              conn.close();
+              setScreen({ name: 'post', setup, state, label: 'Online match', me: conn.seat ?? 0, online: true });
+            }}
+          />
+        );
+      }
       case 'archive':
         return <ArchiveScreen onBack={menu} />;
       case 'guide':

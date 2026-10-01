@@ -387,3 +387,19 @@ function apply(s: GameState, a: Action): void {
     }
   }
 }
+
+/** What happens when a player runs out of time. Logged like any other action, so replays stay exact. */
+export function timeoutAction(s: GameState, p: PlayerId): Action {
+  switch (s.phase) {
+    case 'mulligan':
+      return { type: 'MULLIGAN', player: p, mulligan: false };
+    case 'stance':
+      return { type: 'AUTO_STANCE', player: p };
+    case 'feint':
+      return { type: 'FEINT', player: p, stance: null };
+    case 'evolve':
+      return { type: 'CHOOSE_EVOLUTION', player: p, id: s.players[p].evolutionOptions[0] };
+    default:
+      return s.window ? { type: 'DECLINE_REACTION', player: p } : { type: 'PASS', player: p };
+  }
+}

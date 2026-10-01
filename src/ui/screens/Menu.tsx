@@ -24,11 +24,12 @@ interface Props {
   onArchive: () => void;
   onDaily: () => void;
   onContinue: (kind: ModeKind) => void;
+  onOnline: () => void;
 }
 
 // Portrait / desktop: one centered column. Phone landscape (`phone:`): art and title on the left,
 // compact buttons on the right, so the whole menu fits a short screen without scrolling.
-export function Menu({ onQuick, onModes, onBot, onSaves, onGuide, onDecks, onTutorial, onArchive, onDaily, onContinue }: Props) {
+export function Menu({ onQuick, onModes, onBot, onSaves, onGuide, onDecks, onTutorial, onArchive, onDaily, onContinue, onOnline }: Props) {
   const [progress] = useState(loadProgress);
   // Straight back to what you were doing: a Lineage run, a Breach run, or the next Tower floor.
   const [resume] = useState(() => continueTarget(progress, activeSave()?.meta.name ?? 'You'));
@@ -123,13 +124,16 @@ export function Menu({ onQuick, onModes, onBot, onSaves, onGuide, onDecks, onTut
               )}
             </div>
           </button>
-          <button onClick={onBot} className="mt-1.5 flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm text-ink2 transition hover:bg-white/5 hover:text-ink phone:mt-1 phone:py-1">
-            <span>
+          <div className="mt-1.5 grid grid-cols-2 gap-1 phone:mt-1">
+            <button onClick={onBot} className="flex items-center justify-between rounded-lg px-3 py-2 text-left text-sm text-ink2 transition hover:bg-white/5 hover:text-ink phone:py-1" title="Difficulty, both Specimens, decks and Chips">
               <b className="font-display text-ink">Custom match</b>
-              <span className="phone:hidden"> · difficulty, both Specimens, decks and Chips</span>
-            </span>
-            <span aria-hidden>›</span>
-          </button>
+              <span aria-hidden>›</span>
+            </button>
+            <button onClick={onOnline} className="flex items-center justify-between rounded-lg px-3 py-2 text-left text-sm text-ink2 transition hover:bg-white/5 hover:text-ink phone:py-1" title="Play a friend online with a room code">
+              <b className="font-display text-ink">Play online</b>
+              <span aria-hidden>›</span>
+            </button>
+          </div>
         </section>
         <InstallCard />
         {resume && (

@@ -891,6 +891,31 @@ From the menu, a new player is now one tap from the tutorial match and five more
 - Tapping the notification opens the Daily screen.
 - The page keeps the worker's copy of that state current in a small cache (`src/ui/reminders.ts`).
 
+### Online play (server-authoritative, on Cloudflare's free plan)
+
+Play a friend online with a 5-letter room code or an invite link (`#room=ABCDE`). From the menu: **Play online**, then **Create a room** or type a code.
+
+- **The server runs the match** (`server/`): a Cloudflare Worker, plus one **Durable Object per room** (SQLite-backed, as the free plan requires).
+  - The room runs the same engine (`reduce`) on every move, after checking it is that player's and legal.
+  - It sends each player only their own view (`redactFor` in `src/engine/view.ts`). Hidden from you: the opponent's hand and cycled cards, both decks' order, the opponent's face-down grafts, their stance until both are picked, and the random-number state.
+  - At the end, both players get the whole match and its setup, for the replay.
+  - Rooms use WebSocket hibernation, so they cost nothing while players think, and clear themselves after a day.
+- **The room's rules** are in `server/room.ts`, testable without a server (`tests/online.test.ts`):
+  - joining checks the deck, Chip and loadout;
+  - a seat token lets a dropped player reconnect to their seat;
+  - a decision left 2 minutes gets the same timeout move the offline timer makes;
+  - a player gone 3 minutes forfeits.
+- **The client** (`src/ui/online.ts`, `useOnlineMatch.ts`, `OnlineScreen.tsx`).
+  - The match screen is now a view fed either by the local engine or by the room, and your seat may be player 2 (`MatchView`, `OnlineMatchScreen`).
+  - Connections reconnect on their own.
+  - Unknown cards are a harmless placeholder (`HIDDEN_CARD_ID`), and the previews quietly stand down if one gets in the way.
+- **Running it:**
+  - `npm run server:dev`: a local server on port 8787, which the game uses automatically on localhost.
+  - `npm run server:check`: typechecks the server.
+  - `npm run server:deploy`: publishes it (needs `wrangler login`).
+  - The deployed address is in `SERVER_URL` (`src/ui/online.ts`), or set by `VITE_MATCH_SERVER`.
+- **Free-plan budget** (per day): 100,000 requests, 13,000 GB-s of compute, 5 GB stored. A match is about 150 messages, and the largest view is about 35 KB. Hitting a limit makes requests fail for the rest of the day; it never bills.
+
 ### UI pass: containment-lab look and quality of life
 
 - **Art direction.** A dim containment-lab look: culture-plate grid background, bioluminescent accent, Chakra Petch display type (Google Fonts; falls back to system fonts offline), hazard tape for Meltdown. Every card has procedural "specimen plate" art (`src/ui/components/CardArt.tsx`), drawn from its type (and a graft's slot), tinted by faction and seeded by card id, so there are no image assets to maintain. Each Specimen is the bio-engineered creature from `src/assets/specimen.jpg` (cropped from the provided concept card art) in a containment tank, mirrored on the left-hand side so the two face each other, with graft sockets placed on its anatomy (helmet, neck cables, chest, resting hand, far forearm, hip; see `POS` in `Specimen.tsx`) and grafts shown as mini plates.

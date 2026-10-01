@@ -16,7 +16,10 @@
     "audit": "tsx scripts/audit.ts",
     "energy": "tsx scripts/energy.ts",
     "signatures": "tsx scripts/signatures.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "server:dev": "wrangler dev --config server/wrangler.jsonc",
+    "server:deploy": "wrangler deploy --config server/wrangler.jsonc",
+    "server:check": "tsc -p server"
   },
   "dependencies": {
     "immer": "^11.1.18",
@@ -24,6 +27,7 @@
     "react-dom": "^19.3.0"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261001.1",
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^26.6.2",
     "@types/react": "^19.3.0",
@@ -33,6 +37,7 @@
     "tsx": "^4.23.13",
     "typescript": "^7.0.2",
     "vite": "^8.3.0",
-    "vitest": "^5.0.1"
+    "vitest": "^5.0.1",
+    "wrangler": "^4.145.0"
   }
 }

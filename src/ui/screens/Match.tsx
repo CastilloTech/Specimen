@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { ReactNode } from 'react';
+import type { MutableRefObject, ReactNode } from 'react';
 import { play, useMatchSounds } from '../sfx';
 import { SoundToggle } from '../components/AudioMenu';
 import { setMusicIntensity, setMusicMood } from '../music';
@@ -40,6 +40,8 @@ import { tiltHandlers, tiltStyle, useHandDrag } from '../components/HandDrag';
 import { clashPreview, playPreview } from '../preview';
 import type { ClashPreview, PlayPreview } from '../preview';
 import { useMatch } from '../useMatch';
+import { useOnlineMatch } from '../useOnlineMatch';
+import type { OnlineConn, OnlineStatus } from '../online';
 import type { TimerView } from '../useMatch';
 import { Flavor } from '../components/Flavor';
 import { IconText } from '../components/EngineIcon';
@@ -67,9 +69,33 @@ interface Detail {
 
 const PHASE_LABEL = { mulligan: 'Mulligan', stance: 'Choose stance', feint: 'Feint', actions: 'Actions', evolve: 'Evolution', over: 'Match over' } as const;
 
-export function MatchScreen({ setup, settings, onExit, onFinish, label, tutorial, next }: Props) {
+/** What drives the board: the local engine (vs a bot) or an online room. */
+interface Game {
+  state: GameState;
+  dispatch: (a: Action) => void;
+  error: string | null;
+  actor: PlayerId | undefined;
+  timer: TimerView | null;
+  hurry: () => void;
+  botActing: boolean;
+}
+
+/** A match against the bot (or the tutorial), run here on this device. You are player 1. */
+export function MatchScreen(props: Props) {
   const pausedRef = useRef(false);
-  const { state, dispatch, error, actor, timer, hurry, botActing } = useMatch(setup, defaultConfig.timers.enabled && !tutorial, pausedRef);
+  const game = useMatch(props.setup, defaultConfig.timers.enabled && !props.tutorial, pausedRef);
+  return <MatchView {...props} game={game} me={0} pausedRef={pausedRef} />;
+}
+
+/** An online match: the server runs it and sends this player's view; your seat may be player 2. */
+export function OnlineMatchScreen({ conn, settings, onExit, onFinish }: { conn: OnlineConn; settings: Settings; onExit: () => void; onFinish: (s: GameState, setup: MatchSetup) => void }) {
+  const pausedRef = useRef(false);
+  const game = useOnlineMatch(conn);
+  return <MatchView setup={game.setup} settings={settings} onExit={onExit} onFinish={onFinish} label="Online match" game={game} me={game.me} pausedRef={pausedRef} online={{ status: game.status, opponentConnected: game.opponentConnected }} />;
+}
+
+function MatchView({ setup, settings, onExit, onFinish, label, tutorial, next, game, me, pausedRef, online }: Props & { game: Game; me: PlayerId; pausedRef: MutableRefObject<boolean>; online?: { status: OnlineStatus; opponentConnected: boolean } }) {
+  const { state, dispatch, error, actor, timer, hurry, botActing } = game;
   const [coaching, setCoaching] = useState(!!tutorial);
   const [introSeen, setIntroSeen] = useState(() => !!tutorial); // tutorials skip the pre-match briefing
   const [selected, setSelected] = useState<string | null>(null);
@@ -88,7 +114,7 @@ export function MatchScreen({ setup, settings, onExit, onFinish, label, tutorial
   const [viewCard, setViewCard] = useState<string | null>(null); // a card open in the full view
   const [evoEvents, dismissEvo] = useEvolutionEvents(state);
   const clash = useClashEvent(state);
-  useMatchSounds(state, 0, introSeen);
+  useMatchSounds(state, me, introSeen);
   // The music turns tense for the match and calms again after.
   useEffect(() => {
     setMusicMood('match');
@@ -97,7 +123,7 @@ export function MatchScreen({ setup, settings, onExit, onFinish, label, tutorial
       setMusicMood('calm');
     };
   }, []);
-  const arrivals = useArrivals(state.players[0].hand.map((c) => c.uid), introSeen);
+  const arrivals = useArrivals(state.players[me].hand.map((c) => c.uid), introSeen);
   const phone = useMediaQuery(PHONE_LANDSCAPE);
   const portrait = useMediaQuery(PHONE_PORTRAIT);
   // Upright on a phone: the board works, so a dismissible tip suggests landscape instead of a wall.
@@ -122,13 +148,12 @@ export function MatchScreen({ setup, settings, onExit, onFinish, label, tutorial
   pausedRef.current = !introSeen || !!detail || !!playSheet || showHistory || showHelp || confirmExit || evoSheet || evoPick || !!viewCard;
 
   // You are always Player 1; the bot is Player 2.
-  const me: PlayerId = 0;
   const opp = other(me);
 
   // A finished match goes into the loaded save's history (once), for the stats and tips on the Save screen.
   const recorded = useRef(false);
   // A named opponent (Z, the Unregistered Handler) speaks before and after; the lines depend on how often you've met.
-  const [encounter] = useState<EncounterLines | null>(() => encounterLines(state.players[1].name, metBefore(loadMatches(), state.players[1].name), state.players[1].worldFaction));
+  const [encounter] = useState<EncounterLines | null>(() => encounterLines(state.players[other(me)].name, metBefore(loadMatches(), state.players[other(me)].name), state.players[other(me)].worldFaction));
   const [newLore, setNewLore] = useState(0);
   // A side goal for this match (none in tutorials), and what the match unlocked, shown on the result.
   const [objective] = useState<Objective | null>(() => (tutorial ? null : pickObjective(state, me, setup.seed)));
@@ -554,6 +579,13 @@ export function MatchScreen({ setup, settings, onExit, onFinish, label, tutorial
       <RoundBanner state={state} />
       <MatchEndOverlay state={state} me={me} />
       <ChainFx state={state} me={me} />
+      {online && !over && (online.status === 'reconnecting' || !online.opponentConnected) && (
+        <div className="pointer-events-none fixed inset-x-0 top-12 z-[55] flex justify-center" role="status">
+          <span className="rounded-full border border-amber-400/60 bg-black/85 px-3 py-1 text-xs font-semibold text-amber-200 shadow-lg">
+            {online.status === 'reconnecting' ? 'Connection lost: reconnecting…' : 'Your opponent disconnected. They have 3 minutes to come back, or they forfeit.'}
+          </span>
+        </div>
+      )}
       {handDrag.ghost}
       {evoPick && evoOffer && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-2 sm:items-center" onClick={() => setEvoPick(false)}>
@@ -773,6 +805,7 @@ export function MatchScreen({ setup, settings, onExit, onFinish, label, tutorial
       <Intro
         state={state}
         encounter={encounter}
+        me={me}
         objective={objective}
         onGo={() => {
           tryLandscapeFullscreen();
@@ -1274,7 +1307,8 @@ function DetailSheet({ detail, state, me, myTurn, onClose, onReveal }: { detail:
   );
 }
 
-function Intro({ state, encounter, objective, onGo, onExit }: { state: GameState; encounter: EncounterLines | null; objective: Objective | null; onGo: () => void; onExit: () => void }) {
+function Intro({ state, encounter, objective, onGo, onExit, me = 0 }: { state: GameState; encounter: EncounterLines | null; objective: Objective | null; onGo: () => void; onExit: () => void; me?: PlayerId }) {
+  const them = state.players[other(me)];
   // After a few matches the full briefing is a wall to click through: show who you face, what's special and
   // your goal, with the loadouts one tap away.
   const [full, setFull] = useState(false);
@@ -1283,16 +1317,16 @@ function Intro({ state, encounter, objective, onGo, onExit }: { state: GameState
       <div className="mx-auto flex min-h-dvh max-w-xl flex-col justify-center gap-3 p-4 phone:h-dvh phone:min-h-0 phone:gap-2 phone:p-2">
         <div className="lab-label">Next opponent</div>
         <div className="flex items-center gap-3">
-          <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: PLAYER_COLORS[1] }} />
-          <span className="min-w-0 flex-1 truncate font-display text-2xl font-bold phone:text-lg">{state.players[1].name}</span>
-          {[state.players[1].faction, state.players[1].worldFaction].map((id) => (
+          <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: PLAYER_COLORS[them.id] }} />
+          <span className="min-w-0 flex-1 truncate font-display text-2xl font-bold phone:text-lg">{them.name}</span>
+          {[them.faction, them.worldFaction].map((id) => (
             <ChipArt key={id} id={id} size={40} className="phone:h-8! phone:w-8!" />
           ))}
         </div>
         <div className="text-xs text-ink2">
-          <span style={{ color: FACTION_META[state.players[1].faction].color }}>{FACTION_META[state.players[1].faction].name}</span> /{' '}
-          <span style={{ color: WORLD_FACTION_META[state.players[1].worldFaction].color }}>{WORLD_FACTION_META[state.players[1].worldFaction].name}</span>
-          {state.players[1].evolution && <span className="text-violet-300"> · starts evolved</span>}
+          <span style={{ color: FACTION_META[them.faction].color }}>{FACTION_META[them.faction].name}</span> /{' '}
+          <span style={{ color: WORLD_FACTION_META[them.worldFaction].color }}>{WORLD_FACTION_META[them.worldFaction].name}</span>
+          {them.evolution && <span className="text-violet-300"> · starts evolved</span>}
         </div>
         {encounter && (
           <p className="lab-panel rounded-xl border border-amber-400/40 px-3 py-2 font-serif text-[14px] italic leading-snug text-ink phone:py-1.5 phone:text-[12px]">

@@ -1,29 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { MutableRefObject } from 'react';
-import { botAction, createMatch, makeRng, pendingPlayers, reduce } from '../engine';
-import type { Action, GameState, MatchSetup, PlayerId } from '../engine';
+import { botAction, createMatch, makeRng, pendingPlayers, reduce, timeoutAction } from '../engine';
+export { timeoutAction } from '../engine';
+import type { Action, GameState, MatchSetup } from '../engine';
 
 export interface TimerView {
   left: number;
   limit: number;
   reserve: [number, number];
   usingReserve: boolean;
-}
-
-/** What happens when a player runs out of time. Logged like any other action, so replays stay exact. */
-export function timeoutAction(s: GameState, p: PlayerId): Action {
-  switch (s.phase) {
-    case 'mulligan':
-      return { type: 'MULLIGAN', player: p, mulligan: false };
-    case 'stance':
-      return { type: 'AUTO_STANCE', player: p };
-    case 'feint':
-      return { type: 'FEINT', player: p, stance: null };
-    case 'evolve':
-      return { type: 'CHOOSE_EVOLUTION', player: p, id: s.players[p].evolutionOptions[0] };
-    default:
-      return s.window ? { type: 'DECLINE_REACTION', player: p } : { type: 'PASS', player: p };
-  }
 }
 
 export function useMatch(setup: MatchSetup, timersOn: boolean, pausedRef: MutableRefObject<boolean>) {
