@@ -190,6 +190,18 @@ function stop() {
   fadeTo(0, 1.2);
 }
 
+/** Dip the music for a moment that should stand alone (an evolution, the end of a match), then bring it back. */
+export function duckMusic(ms: number) {
+  const c = audio();
+  if (!c || !bus || !running) return;
+  const v = level();
+  bus.gain.cancelScheduledValues(c.currentTime);
+  bus.gain.setValueAtTime(bus.gain.value, c.currentTime);
+  bus.gain.linearRampToValueAtTime(v * 0.25, c.currentTime + 0.15);
+  bus.gain.setValueAtTime(v * 0.25, c.currentTime + ms / 1000);
+  bus.gain.linearRampToValueAtTime(v, c.currentTime + ms / 1000 + 1.2);
+}
+
 /** How tense the match is right now (0 calm .. 1 on the edge). Eased in, so the music swells rather than jumps. */
 export function setMusicIntensity(x: number) {
   const v = Math.max(0, Math.min(1, x));

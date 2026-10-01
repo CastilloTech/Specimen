@@ -95,7 +95,7 @@ export function LineChart({ title, names, rounds, values, yMax, yStep, refLine }
             {hover !== null && <line x1={x(hover)} x2={x(hover)} y1={M.t} y2={H - M.b} stroke="#8a948f" strokeWidth={1} />}
             {[0, 1].map((k) => (
               <g key={k}>
-                <path d={path(values[k])} fill="none" stroke={PLAYER_COLORS[k]} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+                <path d={path(values[k])} pathLength={1} className="draw-line" fill="none" stroke={PLAYER_COLORS[k]} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
                 {values[k].map((v, i) => (
                   <circle key={i} cx={x(i)} cy={y(v)} r={hover === i ? 5 : 4} fill={PLAYER_COLORS[k]} stroke={SURFACE} strokeWidth={2} />
                 ))}

@@ -198,12 +198,15 @@ interface Props {
 }
 
 /** The bio-engineered creature in its tank, behind the graft sockets. */
-export function Creature({ flip, surge, className = '' }: { flip?: boolean; surge?: boolean; className?: string }) {
+export function Creature({ flip, surge, className = '', strain = 0, tint }: { flip?: boolean; surge?: boolean; className?: string; strain?: number; tint?: string }) {
+  // Strain shows on the body: it breathes faster as it climbs, and trembles near the rejection line.
+  const breath = `${(4.5 - 2.6 * Math.min(1, Math.max(0, strain))).toFixed(2)}s`;
   return (
-    <div className={`absolute inset-0 overflow-hidden rounded-[inherit] ${surge ? 'evo-surge' : ''} ${className}`} aria-hidden>
+    <div className={`absolute inset-0 overflow-hidden rounded-[inherit] ${surge ? 'evo-surge' : ''} ${strain > 0.85 ? 'specimen-tremor' : ''} ${className}`} aria-hidden>
       <div className="h-full w-full" style={flip ? { transform: 'scaleX(-1)' } : undefined}>
-        <img src={specimenArt} alt="" draggable={false} className="specimen-breathe h-full w-full select-none object-cover" />
+        <img src={specimenArt} alt="" draggable={false} className="specimen-breathe h-full w-full select-none object-cover" style={{ animationDuration: breath }} />
       </div>
+      {tint && <div className="evolved-tint pointer-events-none absolute inset-0" style={{ background: `radial-gradient(ellipse 60% 70% at 50% 50%, ${tint}, transparent 75%)` }} />}
       {/* Blend the painting into the tank: a dark vignette and a little tank-glass sheen. */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_75%_70%_at_50%_45%,transparent_55%,rgba(4,8,7,0.85))]" />
     </div>
@@ -231,7 +234,7 @@ export function Specimen({ state, player, viewer, flip, highlight, onSlot, color
       style={{ borderColor: `${color}66`, boxShadow: `0 0 22px -6px ${color}88, inset 0 0 0 1px rgba(255,255,255,0.05)` }}
       aria-label={`${p.name}'s Specimen`}
     >
-      <Creature flip={flip} surge={evolving} className={`rounded-[26px] ${lost ? 'specimen-dead' : ''}`} />
+      <Creature flip={flip} surge={evolving} strain={p.strain / state.config.strain.threshold} tint={p.evolution ? color : undefined} className={`rounded-[26px] ${lost ? 'specimen-dead' : ''}`} />
       {won && <div className="evo-aura pointer-events-none absolute inset-0 rounded-[26px] mix-blend-screen" style={{ background: `radial-gradient(ellipse 60% 65% at 50% 50%, ${color}66, transparent 72%)` }} />}
       <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-[26px]" style={{ background: `linear-gradient(180deg, ${color}14, transparent 30%, transparent 75%, ${color}1f)` }}>
         {BUBBLES.map((b, i) => (
@@ -269,6 +272,8 @@ export function Specimen({ state, player, viewer, flip, highlight, onSlot, color
           f?.kind === 'reveal' ? <RevealBurst key={`reveal-${f.key}`} x={x} y={pos.y} color={accent} /> : null,
           <button
             key={slot}
+            data-slot={slot}
+            data-owner={player}
             type="button"
             onClick={() => onSlot?.(slot)}
             className={`absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-stretch overflow-visible border text-center leading-[1.05] transition ${

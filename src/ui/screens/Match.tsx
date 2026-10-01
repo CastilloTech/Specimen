@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { useMatchSounds } from '../sfx';
+import { play, useMatchSounds } from '../sfx';
 import { SoundToggle } from '../components/AudioMenu';
 import { setMusicIntensity, setMusicMood } from '../music';
 import { Coach } from '../components/Coach';
@@ -16,7 +16,7 @@ import { ChipArt } from '../components/Emblem';
 import { HelpSheet } from '../components/HelpSheet';
 import { LogPanel } from '../components/LogPanel';
 import { PlayHistory, PlaySheet, PlaysStrip, PlayToast } from '../components/Plays';
-import { ClashBurst, ClashDamage, clashClasses, useClashEvent } from '../components/ClashFx';
+import { ClashBurst, clashClasses, ClashDamage, clashStyle, useClashEvent, useHitStop } from '../components/ClashFx';
 import { PhoneEvolve, PhoneFeint, PhoneMulligan, PhoneReaction, PhoneStance } from '../components/PhonePrompts';
 import { PlayerPanel, PlayerPanelCompact } from '../components/PlayerPanel';
 import { incomingInfo, protocolVerdict, VERDICT_CLASS } from '../components/Reaction';
@@ -36,6 +36,7 @@ import { LoreText } from '../components/Flavor';
 import { nextGoals } from '../nextGoals';
 import { turningPoints } from '../turningPoints';
 import { ChainFx } from '../components/ChainFx';
+import { tiltHandlers, tiltStyle, useHandDrag } from '../components/HandDrag';
 import { clashPreview, playPreview } from '../preview';
 import type { ClashPreview, PlayPreview } from '../preview';
 import { useMatch } from '../useMatch';
@@ -129,6 +130,7 @@ export function MatchScreen({ setup, settings, onExit, onFinish, label, tutorial
       const p = loadProgress();
       if (p) saveProgress({ ...p, biomass: p.biomass + OBJECTIVE_REWARD, earned: p.earned + OBJECTIVE_REWARD });
       setObjectivePaid(p ? OBJECTIVE_REWARD : 0);
+      setTimeout(() => play('objective'), 1700);
     }
     const rs = loadMatches();
     setUnlocks([...newlyUnlocked(rs).map((a) => `${a.icon} ${a.name}`), ...newlyUnlockedMastery(rs).map((c) => `★ ${c.name} unlocked`)]);
@@ -143,7 +145,9 @@ export function MatchScreen({ setup, settings, onExit, onFinish, label, tutorial
       }
     }
     const lore1 = unlockedFragments(loadMatches(), loadProgress());
-    setNewLore([...lore1].filter((id) => !lore0.has(id)).length);
+    const recovered = [...lore1].filter((id) => !lore0.has(id)).length;
+    setNewLore(recovered);
+    if (recovered) setTimeout(() => play('record'), 2300);
     const w = state.result?.winner;
     saveReplay({ id: `${Date.now()}-${setup.seed}`, at: Date.now(), me, names: [state.players[0].name, state.players[1].name], result: w === me ? 'win' : w == null ? 'draw' : 'loss', rounds: state.round, label, setup, actions: state.history });
   }, [over, state, me, setup, label]);
@@ -203,6 +207,26 @@ export function MatchScreen({ setup, settings, onExit, onFinish, label, tutorial
     const g = theirs.grafts.find((x) => x.slot === slot);
     if (g) setDetail({ cardId: g.faceDown ? undefined : g.cardId, slot, owner: opp, faceDown: g.faceDown, strain: g.strain });
   };
+  // Drag a card onto the board to play it: onto one of your slots (graft), an enemy graft (Sabotage), or
+  // anywhere above the hand (an instant). Released anywhere else, it just stays selected.
+  const dropCard = (uid: string, el: Element | null) => {
+    const acts = legal.filter((a): a is Extract<Action, { type: 'PLAY_CARD' }> => a.type === 'PLAY_CARD' && a.uid === uid && !a.faceDown);
+    const slotEl = el?.closest<HTMLElement>('[data-slot]');
+    if (slotEl) {
+      const slot = slotEl.dataset.slot;
+      const mineSlot = Number(slotEl.dataset.owner) === me;
+      const a = acts.find((x) => (mineSlot ? x.slot === slot : x.target === slot));
+      if (a) return send(faceDown && a.slot ? { ...a, faceDown: true } : a);
+    }
+    if (el && !el.closest('[data-coach-id="hand"]')) {
+      const plain = acts.find((x) => !x.slot && !x.target);
+      if (plain) send(plain);
+    }
+  };
+  const handDrag = useHandDrag(myTurn && !cycleMode, (uid) => {
+    setSelected(uid);
+    setFaceDown(false);
+  }, dropCard);
   const onHandClick = (uid: string) => {
     if (selected === uid) return clearSel();
     setSelected(uid);
@@ -300,6 +324,7 @@ export function MatchScreen({ setup, settings, onExit, onFinish, label, tutorial
 
   const lastStanceLine = [...state.log].reverse().find((l) => l.kind === 'stance' && l.round === state.round)?.text;
   // The Clash as things stand, and what the selected card would change.
+  useHitStop(state);
   const clashNow = useMemo(() => clashPreview(state, me), [state, me]);
   // The music follows the match: Strain near the line, Meltdown, and low HP on either side raise the tension;
   // the result releases it.
@@ -506,6 +531,7 @@ export function MatchScreen({ setup, settings, onExit, onFinish, label, tutorial
       <RoundBanner state={state} />
       <MatchEndOverlay state={state} me={me} />
       <ChainFx state={state} me={me} />
+      {handDrag.ghost}
       {evoPick && evoOffer && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-2 sm:items-center" onClick={() => setEvoPick(false)}>
           <div className="pop w-full max-w-xl phone:max-h-[94dvh] phone:overflow-y-auto" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Choose your evolution">
@@ -597,7 +623,14 @@ export function MatchScreen({ setup, settings, onExit, onFinish, label, tutorial
                 const dim = !cycleMode && !playable.has(c.uid);
                 const combo = dim || arrivals.has(c.uid) ? null : comboEngine(d, mine);
                 return (
-                  <div key={c.uid} className={`${i > 0 ? (fan ? '-ml-3' : 'ml-1') : ''} ${arrivals.has(c.uid) ? 'card-draw' : ''} ${combo ? 'combo-glow rounded-lg' : ''}`} style={{ ...(arrivals.has(c.uid) ? { '--i': `${arrivals.get(c.uid)! * 90}ms` } : {}), ...(combo ? { '--eng': engineColor(combo) } : {}) } as React.CSSProperties} title={combo ? `Combo: sets off your ${ENGINE_META[combo].name} payoff` : undefined}>
+                  <div
+                    key={c.uid}
+                    {...handDrag.bind(c.uid, <CardView def={d} size="xs" />, !dim)}
+                    {...tiltHandlers}
+                    className={`${i > 0 ? (fan ? '-ml-3' : 'ml-1') : ''} ${arrivals.has(c.uid) ? 'card-draw' : 'hand-tilt'} ${combo ? 'combo-glow rounded-lg' : ''}`}
+                    style={{ ...tiltStyle, ...(arrivals.has(c.uid) ? { '--i': `${arrivals.get(c.uid)! * 90}ms` } : {}), ...(combo ? { '--eng': engineColor(combo) } : {}) } as React.CSSProperties}
+                    title={combo ? `Combo: sets off your ${ENGINE_META[combo].name} payoff` : undefined}
+                  >
                     <CardView def={d} cost={cardCost(state, mine, d)} size="xs" dim={dim} reason={dim ? (whyNot(c.uid) ?? undefined) : undefined} onClick={() => onHandClick(c.uid)} onDoubleClick={() => onHandDoubleClick(c.uid)} onInspect={() => setViewCard(c.cardId)} />
                   </div>
                 );
@@ -609,7 +642,7 @@ export function MatchScreen({ setup, settings, onExit, onFinish, label, tutorial
       </section>
     );
     const tank = (p: PlayerId, side: 'left' | 'right') => (
-      <div className={`relative h-full ${clashClasses(clash, p, side)}`}>
+      <div className={`relative h-full ${clashClasses(clash, p, side)}`} style={clashStyle(clash, p)}>
         <Specimen state={state} player={p} viewer={me} flip={side === 'left'} fill color={PLAYER_COLORS[p]} highlight={p === me ? mineHi : oppHi} onSlot={p === me ? onMySlot : onOppSlot} />
         <ClashDamage ev={clash} player={p} />
         {stancesRevealed && state.players[p].stance && (
@@ -815,7 +848,7 @@ export function MatchScreen({ setup, settings, onExit, onFinish, label, tutorial
             </div>
             <PlayToast state={state} viewer={me} recs={toastRecs} onDismiss={() => setSeenPlays(playCount)} onOpen={setPlaySheet} />
             <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-1">
-              <div className={clashClasses(clash, me, 'left')}>
+              <div className={clashClasses(clash, me, 'left')} style={clashStyle(clash, me)}>
                 {/* The artwork's creature looks to its left, so the left-hand (your) tank is mirrored: both face the middle. */}
                 <div className="relative">
                   <Specimen state={state} player={me} viewer={me} flip color={PLAYER_COLORS[me]} highlight={mineHi} onSlot={onMySlot} />
@@ -829,7 +862,7 @@ export function MatchScreen({ setup, settings, onExit, onFinish, label, tutorial
                 <span className="h-10 w-px bg-linear-to-t from-transparent to-line" />
                 <ClashBurst ev={clash} />
               </div>
-              <div className={clashClasses(clash, opp, 'right')}>
+              <div className={clashClasses(clash, opp, 'right')} style={clashStyle(clash, opp)}>
                 <div className="relative">
                   <Specimen state={state} player={opp} viewer={me} color={PLAYER_COLORS[opp]} highlight={oppHi} onSlot={onOppSlot} />
                   <ClashDamage ev={clash} player={opp} />
@@ -901,7 +934,14 @@ export function MatchScreen({ setup, settings, onExit, onFinish, label, tutorial
                   const dim = !cycleMode && !playable.has(c.uid);
                   const combo = dim || arrivals.has(c.uid) ? null : comboEngine(d, mine);
                   return (
-                    <div key={c.uid} className={`${arrivals.has(c.uid) ? 'card-draw' : ''} ${combo ? 'combo-glow rounded-xl' : ''}`} style={{ ...(arrivals.has(c.uid) ? { '--i': `${arrivals.get(c.uid)! * 90}ms` } : {}), ...(combo ? { '--eng': engineColor(combo) } : {}) } as React.CSSProperties} title={combo ? `Combo: sets off your ${ENGINE_META[combo].name} payoff` : undefined}>
+                    <div
+                      key={c.uid}
+                      {...handDrag.bind(c.uid, <CardView def={d} size="sm" />, !dim)}
+                      {...tiltHandlers}
+                      className={`${arrivals.has(c.uid) ? 'card-draw' : 'hand-tilt'} ${combo ? 'combo-glow rounded-xl' : ''}`}
+                      style={{ ...tiltStyle, ...(arrivals.has(c.uid) ? { '--i': `${arrivals.get(c.uid)! * 90}ms` } : {}), ...(combo ? { '--eng': engineColor(combo) } : {}) } as React.CSSProperties}
+                      title={combo ? `Combo: sets off your ${ENGINE_META[combo].name} payoff` : undefined}
+                    >
                     <CardView
                       def={d}
                       cost={cardCost(state, mine, d)}

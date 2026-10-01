@@ -1,7 +1,7 @@
 import biomassArt from '../../assets/biomass.webp';
 import { play } from '../sfx';
 import { ScreenHeader } from '../components/ScreenHeader';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { chipsFor, FACTIONS, WORLD_FACTIONS } from '../../engine';
 import type { Faction, WorldFactionId } from '../../engine';
 import { ChipPicker } from '../components/ChipPicker';
@@ -22,11 +22,52 @@ export function BiomassIcon({ className = 'h-4 w-4' }: { className?: string }) {
   return <img src={biomassArt} alt="" aria-hidden draggable={false} className={`inline-block shrink-0 select-none rounded-full align-[-3px] ${className}`} />;
 }
 
+const SHOWN_KEY = 'specimen.biomassShown';
+/** The biomass counter: when it has grown since you last saw it, it ticks up to the new total with a "+N". */
 export function BiomassBadge({ n }: { n: number }) {
+  const [from] = useState(() => {
+    try {
+      const v = Number(sessionStorage.getItem(SHOWN_KEY));
+      return Number.isFinite(v) && sessionStorage.getItem(SHOWN_KEY) !== null ? v : n;
+    } catch {
+      return n;
+    }
+  });
+  const [shown, setShown] = useState(from < n ? from : n);
+  const gain = n - from;
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(SHOWN_KEY, String(n));
+    } catch {
+      /* not remembered */
+    }
+    if (from >= n || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return setShown(n);
+    const start = performance.now();
+    const dur = Math.min(1100, 400 + (n - from) * 6);
+    let ticks = 0;
+    let raf = 0;
+    const step = (t: number) => {
+      const k = Math.min(1, (t - start) / dur);
+      const eased = 1 - (1 - k) ** 3;
+      setShown(Math.round(from + (n - from) * eased));
+      if (k * 8 >= ticks + 1 && ticks < 8) {
+        ticks++;
+        play('biomass', { pitch: 1 + ticks * 0.04 });
+      }
+      if (k < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [n, from]);
   return (
-    <span className="inline-flex items-center gap-1 rounded-full border border-emerald-400/50 bg-emerald-950/40 px-2.5 py-0.5 font-display text-sm font-bold text-emerald-200" title="Biomass: earned by winning, spent on crafting and unlocks">
+    <span className="relative inline-flex items-center gap-1 rounded-full border border-emerald-400/50 bg-emerald-950/40 px-2.5 py-0.5 font-display text-sm font-bold text-emerald-200" title="Biomass: earned by winning, spent on crafting and unlocks">
       <BiomassIcon className="h-5 w-5" />
-      {n}
+      <span className="tabular-nums">{shown}</span>
+      {gain > 0 && (
+        <span className="wear-float pointer-events-none absolute -top-5 right-1 whitespace-nowrap text-xs font-bold text-emerald-300" aria-hidden>
+          +{gain}
+        </span>
+      )}
     </span>
   );
 }
@@ -67,7 +108,7 @@ function Unlocks({ p, onChange }: { p: Progress; onChange: (p: Progress) => void
     const r = unlock(p, kind, id);
     if (typeof r === 'string') setMsg(r);
     else {
-      play('craft');
+      play('unlock');
       setMsg(null);
       setFresh({ kind, id });
       onChange(r);
@@ -83,7 +124,7 @@ function Unlocks({ p, onChange }: { p: Progress; onChange: (p: Progress) => void
   const freshName = fresh ? (fresh.kind === 'build' ? FACTION_META[fresh.id as Faction].name : fresh.kind === 'world' ? WORLD_FACTION_META[fresh.id as WorldFactionId].name : (chipsFor(p.deck.worldFaction).find((c) => c.id === fresh.id)?.name ?? 'the Chip')) : '';
   const canUse = !!fresh && (fresh.kind !== 'chip' || chipsFor(p.deck.worldFaction).some((c) => c.id === fresh.id));
   const tile = (id: string, name: string, color: string, owned: boolean, cost: number, onBuy: () => void, art?: string) => (
-    <div key={id} className={`flex min-w-0 flex-col items-center gap-1 rounded-lg border p-2 text-center sm:flex-row sm:text-left ${owned ? 'border-accent/40 bg-accent/5' : 'border-line bg-black/20'}`}>
+    <div key={id} className={`flex min-w-0 flex-col items-center gap-1 rounded-lg border p-2 text-center sm:flex-row sm:text-left ${owned ? 'border-accent/40 bg-accent/5' : 'border-line bg-black/20'} ${fresh?.id === id ? 'achievement-pop shadow-[0_0_18px_rgba(123,224,176,0.55)]' : ''}`}>
       {art && <ChipArt id={art as Faction} size={30} className={owned ? '' : 'opacity-50 saturate-50'} />}
       <span className="w-full min-w-0 truncate text-[13px] font-semibold sm:w-auto sm:flex-1" style={{ color }}>
         {name}

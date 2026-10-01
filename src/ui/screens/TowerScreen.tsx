@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ScreenHeader } from '../components/ScreenHeader';
 import type { MatchSetup } from '../../engine';
-import { deckProblems, floorMatch, loadProgress, replayableUpTo, TOWER_FLOORS } from '../modes';
+import { deckProblems, floorInfo, floorMatch, loadProgress, replayableUpTo, TOWER_FLOORS } from '../modes';
 import { activeSave } from '../storage';
 import { BiomassBadge, BiomassIcon } from './GameModes';
+import { play } from '../sfx';
 
 export interface TowerOutcome {
   floor: number;
@@ -19,7 +20,8 @@ const WINDOW_ABOVE = 2;
 const WINDOW_BELOW = 2;
 
 /** One storey of the tower: a stone block with its number and reward, lit windows once cleared. */
-function Storey({ floor, state, selected, onClick }: { floor: number; state: 'cleared' | 'current' | 'locked'; selected: boolean; onClick?: () => void }) {
+type StoreyFx = 'cleared' | 'checkpoint' | 'arrive' | 'fall';
+function Storey({ floor, state, selected, onClick, fx, boss }: { floor: number; state: 'cleared' | 'current' | 'locked'; selected: boolean; onClick?: () => void; fx?: StoreyFx; boss?: boolean }) {
   return (
     <button
       type="button"
@@ -33,7 +35,7 @@ function Storey({ floor, state, selected, onClick }: { floor: number; state: 'cl
           : state === 'cleared'
             ? 'border-stone-600/70 bg-[linear-gradient(90deg,#1a1f1d,#222a26,#1a1f1d)] hover:brightness-125'
             : 'border-stone-700/60 bg-[linear-gradient(90deg,#121614,#171c1a,#121614)]'
-      } ${selected ? 'ring-2 ring-inset ring-accent' : ''}`}
+      } ${selected ? 'ring-2 ring-inset ring-accent' : ''} ${fx === 'fall' ? 'floor-fall' : fx === 'arrive' ? 'floor-arrive' : boss && state !== 'cleared' ? 'boss-pulse' : ''}`}
     >
       {/* Masonry lines. */}
       <span aria-hidden className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(0deg,transparent_0_15px,rgba(0,0,0,0.35)_15px_16px),repeating-linear-gradient(90deg,transparent_0_31px,rgba(0,0,0,0.25)_31px_32px)] opacity-60" />
@@ -48,6 +50,11 @@ function Storey({ floor, state, selected, onClick }: { floor: number; state: 'cl
         <span className="mt-0.5 block text-[11px] text-ink2">{state === 'cleared' ? 'Cleared · replay' : state === 'current' ? 'Next' : 'Sealed'}</span>
       </span>
       {state === 'current' && <span aria-hidden className="turn-glow pointer-events-none absolute inset-0" />}
+      {(fx === 'cleared' || fx === 'checkpoint') && (
+        <span aria-hidden className={`stamp-in absolute right-3 top-1/2 -translate-y-1/2 rounded border-2 bg-black/60 px-1.5 font-display text-xs font-extrabold tracking-widest ${fx === 'checkpoint' ? 'border-amber-300 text-amber-200' : 'border-emerald-400 text-emerald-300'}`}>
+          {fx === 'checkpoint' ? 'CHECKPOINT' : 'CLEARED'}
+        </span>
+      )}
     </button>
   );
 }
@@ -58,6 +65,12 @@ export function TowerScreen({ onBack, onCollection, onFight, last }: { onBack: (
   const t = p.tower;
   const maxReplay = replayableUpTo(t);
   const [pick, setPick] = useState(t.floor); // the floor to fight: the next one, or a cleared one to replay
+  // The stamp lands with a thud.
+  useEffect(() => {
+    if (!last || last.replay) return;
+    const id = setTimeout(() => play(last.won ? 'land' : 'hit', last.won ? {} : { gain: 0.5 }), 300);
+    return () => clearTimeout(id);
+  }, [last]);
   const replay = pick < t.floor;
   const setup = useMemo(() => floorMatch(pick, t.runSeed, p.deck, activeSave()?.meta.name ?? 'You'), [pick, t.runSeed, p.deck]);
   const problems = deckProblems(p);
@@ -102,7 +115,9 @@ export function TowerScreen({ onBack, onCollection, onFight, last }: { onBack: (
         <div className="w-[88%] overflow-hidden rounded-sm shadow-[0_0_40px_-10px_rgba(123,224,176,0.25)]">
           {floors.map((f) => {
             const state = f < t.floor ? 'cleared' : f === t.floor ? 'current' : 'locked';
-            return <Storey key={f} floor={f} state={state} selected={pick === f} onClick={state === 'locked' ? undefined : () => setPick(f)} />;
+            // Just back from a floor: stamp it, then light the next one (or shake it and light the checkpoint).
+            const fx: StoreyFx | undefined = last && !last.replay ? (f === last.floor ? (last.won ? (last.checkpoint ? 'checkpoint' : 'cleared') : 'fall') : f === t.floor && !last.cleared ? 'arrive' : undefined) : undefined;
+            return <Storey key={f} floor={f} state={state} selected={pick === f} onClick={state === 'locked' ? undefined : () => setPick(f)} fx={fx} boss={!!floorInfo(f).boss} />;
           })}
         </div>
         {lo === 1 ? (

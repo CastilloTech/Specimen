@@ -4,7 +4,7 @@ import { ScreenHeader } from '../components/ScreenHeader';
 import { CARD_MAP, CARDS, chipRows, chipsFor, defaultConfig, FACTIONS, findNode, WORLD_FACTIONS } from '../../engine';
 import type { CardDef, Faction, WorldFactionId } from '../../engine';
 import { CardDetail } from '../components/CardDetail';
-import { CardView } from '../components/CardView';
+import { accentFor, CardView } from '../components/CardView';
 import { Collapsible } from '../components/Collapsible';
 import { ChipArt, Emblem } from '../components/Emblem';
 import { LoadoutPicker } from '../components/LoadoutPicker';
@@ -17,6 +17,7 @@ import type { Progress } from '../modes';
 import { useMediaQuery } from '../useMediaQuery';
 import { BiomassBadge, BiomassIcon } from './GameModes';
 import { plainText } from '../components/EngineIcon';
+import { deckTarget, flyTo } from '../fly';
 
 const D = defaultConfig.deck;
 const ORDER = ['graft', 'serum', 'toxin', 'sabotage', 'protocol'];
@@ -151,8 +152,8 @@ export function CollectionScreen({ onBack }: { onBack: () => void }) {
           const n = counts[c.id] ?? 0;
           const canCraft = craftable(p, c) && own < maxOwned(c);
           return (
-            <div key={c.id} className="flex flex-col items-center gap-1">
-              <div className={own ? '' : 'opacity-50 grayscale'}>
+            <div key={c.id} data-card className="flex flex-col items-center gap-1">
+              <div key={crafted === c.id ? `crafted-${own}` : 'card'} className={`${own ? '' : 'opacity-50 grayscale'} ${crafted === c.id ? 'craft-reveal rounded-xl' : ''}`}>
                 <CardView def={c} size={wide ? 'md' : 'sm'} count={n || undefined} dim={n === 0} onClick={() => setViewing(c.id)} />
               </div>
               <div className="flex items-center gap-1">
@@ -160,7 +161,15 @@ export function CollectionScreen({ onBack }: { onBack: () => void }) {
                   −
                 </button>
                 <span className="w-6 text-center text-[11px] text-ink2">{n}</span>
-                <button onClick={() => change(c.id, 1)} disabled={n >= own || d.cards.length >= D.size} className="h-7 w-8 rounded-md bg-panel2 text-sm font-bold disabled:opacity-30" aria-label={`Add ${c.name}`}>
+                <button
+                  onClick={(e) => {
+                    flyTo(e.currentTarget.closest('[data-card]'), deckTarget(), c.name, accentFor(c.faction));
+                    change(c.id, 1);
+                  }}
+                  disabled={n >= own || d.cards.length >= D.size}
+                  className="h-7 w-8 rounded-md bg-panel2 text-sm font-bold disabled:opacity-30"
+                  aria-label={`Add ${c.name}`}
+                >
                   +
                 </button>
               </div>
@@ -182,7 +191,7 @@ export function CollectionScreen({ onBack }: { onBack: () => void }) {
         <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${problems.length ? 'bg-amber-400' : 'bg-emerald-400'}`} />
         <span className="min-w-0 flex-1">
           <span className="block font-display text-sm font-bold">
-            Deck {d.cards.length}/{D.size}
+            Deck <span data-deck-target>{d.cards.length}</span>/{D.size}
           </span>
           <span className="block truncate text-[10px] text-mute">{problems[0] ?? 'Ready for the Tower'}</span>
         </span>

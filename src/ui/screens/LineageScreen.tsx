@@ -111,7 +111,9 @@ export function LineageScreen({ onBack, onCollection, onFight, report }: { onBac
       <ScreenHeader title="Lineage" sub={`One Specimen · ${LINEAGE_MATCHES} matches · scars are permanent`} onBack={onBack} backLabel="Back to Game Modes" right={<BiomassBadge n={p.biomass} />} />
 
       {report && (
-        <section className={`pop rounded-xl border-2 p-3 ${report.won ? 'border-emerald-400 bg-emerald-950/30' : 'border-red-500/70 bg-red-950/25'}`} aria-live="polite">
+        <section className={`pop relative overflow-hidden rounded-xl border-2 p-3 ${report.won ? 'border-emerald-400 bg-emerald-950/30' : 'border-red-500/70 bg-red-950/25'}`} aria-live="polite">
+          {/* A new scar slashes across the report as it opens. */}
+          {report.scars.length > 0 && <div aria-hidden className="scar-slash pointer-events-none absolute inset-0" />}
           <div className="text-center font-display text-lg font-bold">{report.ended === 'complete' ? 'Lineage complete!' : report.ended === 'dead' ? 'Your Specimen has died' : report.won ? 'Victory' : 'Defeat'}</div>
           {report.reward > 0 && (
             <div className="text-center text-sm text-ink2">
@@ -201,8 +203,11 @@ export function LineageScreen({ onBack, onCollection, onFight, report }: { onBac
             <section className="lab-panel space-y-2 rounded-xl border-2 border-fuchsia-400/60 p-3" aria-label="Choose a mutation">
               <div className="font-display text-base font-bold text-fuchsia-200">Choose a permanent mutation</div>
               <div className="grid gap-1.5">
-                {l.offer.map((id) => (
-                  <MutationTile key={id} id={id} onPick={() => update({ ...p, lineage: chooseMutation(l, id) })} />
+                {/* Dealt face-down, then turned over one by one. */}
+                {l.offer.map((id, i) => (
+                  <div key={id} className="deal-flip" style={{ ['--i' as string]: i } as React.CSSProperties}>
+                    <MutationTile id={id} onPick={() => update({ ...p, lineage: chooseMutation(l, id) })} />
+                  </div>
                 ))}
               </div>
             </section>

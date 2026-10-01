@@ -155,7 +155,11 @@ export function DailyScreen({ onBack, onFight, onWatch, last }: { onBack: () => 
             <div className="mb-2 text-center">
               <div className="text-[10px] uppercase tracking-wider text-mute">Your best win, round by round</div>
               <div className="mt-0.5 text-xl tracking-[0.15em]" aria-label="Rounds: green won, red lost, white even">
-                {rec.bestGrid}
+                {Array.from(rec.bestGrid).map((sq, i) => (
+                  <span key={i} className="grid-pop" style={{ ['--i' as string]: i } as React.CSSProperties}>
+                    {sq}
+                  </span>
+                ))}
               </div>
             </div>
           )}

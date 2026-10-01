@@ -25,7 +25,7 @@ export function DeckStatsPanel({ deck }: { deck: string[] }) {
             {s.curve.map((n, i) => (
               <div key={i} className="flex h-full min-w-0 flex-1 flex-col items-center justify-end" title={`${n} card${n === 1 ? '' : 's'} costing ${COSTS[i]}`}>
                 <span className="text-[9px] leading-none text-ink2">{n || ''}</span>
-                <div className="mt-0.5 w-full rounded-t bg-sky-500/80" style={{ height: `${(n / peak) * 70}%`, minHeight: n ? 3 : 0 }} />
+                <div className="mt-0.5 w-full rounded-t bg-sky-500/80 transition-[height] duration-300 ease-out" style={{ height: `${(n / peak) * 70}%`, minHeight: n ? 3 : 0 }} />
               </div>
             ))}
           </div>
@@ -65,7 +65,10 @@ export function DeckStatsPanel({ deck }: { deck: string[] }) {
           <span className="text-mute">Engines</span>
           {(Object.entries(s.engines) as [EngineId, { enablers: number; payoffs: number }][]).map(([id, e]) => (
             <span key={id} style={{ color: engineColor(id) }} title={`${ENGINE_META[id].name}: ${e.enablers} enabler${e.enablers === 1 ? '' : 's'}, ${e.payoffs} payoff${e.payoffs === 1 ? '' : 's'}. ${ENGINE_META[id].text}`}>
-              <EngineIcon /> {ENGINE_META[id].name} <b>{e.enablers}</b>/<b>{e.payoffs}</b>
+              <EngineIcon /> {ENGINE_META[id].name}{' '}
+              <b key={`${id}-${e.enablers}-${e.payoffs}`} className="count-pop">
+                {e.enablers}/{e.payoffs}
+              </b>
             </span>
           ))}
         </div>

@@ -7,7 +7,7 @@ import { ENERGY_BADGE } from '../components/EnergyIcon';
 import { CARD_MAP, CARDS, chipRows, chipsFor, defaultConfig, FACTIONS, starterDeck, validateDeck, validateLoadout, WORLD_FACTIONS } from '../../engine';
 import type { CardDef, EngineId, Faction, WorldFactionId } from '../../engine';
 import { CardDetail } from '../components/CardDetail';
-import { CardView } from '../components/CardView';
+import { accentFor, CardView } from '../components/CardView';
 import { ChipPicker } from '../components/ChipPicker';
 import { ChipArt, Emblem } from '../components/Emblem';
 import { LoadoutPicker } from '../components/LoadoutPicker';
@@ -21,6 +21,8 @@ import { factionName } from '../components/CardView';
 type FactionId = Faction | WorldFactionId;
 import { useMediaQuery } from '../useMediaQuery';
 import { EngineIcon } from '../components/EngineIcon';
+import { deckTarget, flyTo } from '../fly';
+import { play } from '../sfx';
 
 const D = defaultConfig.deck;
 const TYPE_ORDER = ['graft', 'serum', 'toxin', 'sabotage', 'protocol'] as const;
@@ -77,6 +79,20 @@ function DeckTab({ onTest }: { onTest?: (d: DeckTest) => void }) {
   const worldCount = countOf(worldFaction);
   const techCount = countOf('tech');
   const dirty = !sameDeck(counts, clean);
+  // The deck reaching a full, valid 20: the panel glows and a chime plays (once each time it gets there).
+  const complete = total === D.size && errors.length === 0;
+  const wasComplete = useRef(complete);
+  const [completeGlow, setCompleteGlow] = useState(false);
+  useEffect(() => {
+    if (complete && !wasComplete.current) {
+      setCompleteGlow(true);
+      play('objective');
+      const t = setTimeout(() => setCompleteGlow(false), 1500);
+      wasComplete.current = complete;
+      return () => clearTimeout(t);
+    }
+    wasComplete.current = complete;
+  }, [complete]);
 
   const poolFaction = pool === 'build' ? faction : pool === 'world' ? worldFaction : 'tech';
   const engines = (Object.keys(ENGINE_META) as EngineId[]).filter((e) => ENGINE_META[e].owner === faction || ENGINE_META[e].owner === worldFaction);
@@ -168,7 +184,7 @@ function DeckTab({ onTest }: { onTest?: (d: DeckTest) => void }) {
         )}
       </div>
       {errors.length > 0 ? (
-        <ul className="rounded-lg border border-amber-500/40 bg-amber-950/25 p-2 text-[11px] text-amber-200" role="alert">
+        <ul key={errors.join('|')} className="shake-soft rounded-lg border border-amber-500/40 bg-amber-950/25 p-2 text-[11px] text-amber-200" role="alert">
           {errors.map((e) => (
             <li key={e}>• {e}</li>
           ))}
@@ -313,7 +329,7 @@ function DeckTab({ onTest }: { onTest?: (d: DeckTest) => void }) {
             const lock = locked(c);
             const full = n >= max || total >= D.size || lock;
             return (
-              <div key={c.id} className="relative flex flex-col items-center gap-1">
+              <div key={c.id} data-card className="relative flex flex-col items-center gap-1">
                 <CardView def={c} size={wide ? 'md' : 'sm'} count={n || undefined} dim={n === 0} onClick={() => setViewing(c.id)} />
                 {c.mastery && (
                   <span className={`pointer-events-none absolute left-1/2 top-[38%] -translate-x-1/2 whitespace-nowrap rounded-md border px-1.5 py-0.5 font-display text-[9px] font-bold tracking-wider shadow-lg ${lock ? 'border-mute bg-black/85 text-ink2' : 'border-amber-300 bg-amber-500 text-black'}`}>
@@ -327,7 +343,15 @@ function DeckTab({ onTest }: { onTest?: (d: DeckTest) => void }) {
                   <span className="w-8 text-center text-[11px] text-ink2">
                     {n}/{max}
                   </span>
-                  <button onClick={() => change(c.id, 1)} disabled={full} className="h-7 w-8 rounded-md bg-panel2 text-sm font-bold disabled:opacity-30" aria-label={`Add ${c.name}`}>
+                  <button
+                    onClick={(e) => {
+                      flyTo(e.currentTarget.closest('[data-card]'), deckTarget(), c.name, accentFor(c.faction));
+                      change(c.id, 1);
+                    }}
+                    disabled={full}
+                    className="h-7 w-8 rounded-md bg-panel2 text-sm font-bold disabled:opacity-30"
+                    aria-label={`Add ${c.name}`}
+                  >
                     +
                   </button>
                 </div>
@@ -339,10 +363,10 @@ function DeckTab({ onTest }: { onTest?: (d: DeckTest) => void }) {
 
       {/* Desktop: the deck is always visible on the right. */}
       {wide && (
-        <aside className="lab-panel sticky top-2 h-fit max-h-[calc(100dvh-1rem)] overflow-y-auto rounded-xl border border-line p-3">
+        <aside className={`lab-panel sticky top-2 h-fit max-h-[calc(100dvh-1rem)] overflow-y-auto rounded-xl border border-line p-3 ${completeGlow ? 'deck-complete' : ''}`}>
           <div className="mb-3 flex items-center gap-2">
             <span className="font-display text-base font-bold">
-              Deck · {total}/{D.size}
+              Deck · <span data-deck-target>{total}</span>/{D.size}
             </span>
             <button onClick={save} disabled={errors.length > 0 || !name.trim()} className="ml-auto rounded-lg bg-accent px-4 py-1.5 text-sm font-bold text-black disabled:opacity-40">
               Save
@@ -355,11 +379,11 @@ function DeckTab({ onTest }: { onTest?: (d: DeckTest) => void }) {
       {/* Phone / tablet: a sticky bar with the count and Save; the deck opens as a sheet. */}
       {!wide && (
         <div className="sticky bottom-0 z-20 -mx-3 flex items-center gap-2 border-t border-line bg-bg/95 px-3 pt-2 backdrop-blur" style={{ paddingBottom: 'max(8px, env(safe-area-inset-bottom))' }}>
-          <button onClick={() => setSheet(true)} className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-line px-3 py-2 text-left phone:py-1" aria-label="Show deck list">
+          <button onClick={() => setSheet(true)} className={`flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-line px-3 py-2 text-left phone:py-1 ${completeGlow ? 'deck-complete' : ''}`} aria-label="Show deck list">
             <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${errors.length ? 'bg-amber-400' : 'bg-emerald-400'}`} />
             <span className="min-w-0 flex-1">
               <span className="block font-display text-sm font-bold">
-                {total}/{D.size} cards
+                <span data-deck-target>{total}</span>/{D.size} cards
               </span>
               <span className="block truncate text-[10px] text-mute">{errors.length ? errors[0] : dirty ? 'Valid · unsaved changes' : 'Valid'}</span>
             </span>

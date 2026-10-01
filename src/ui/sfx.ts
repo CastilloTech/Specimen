@@ -1,12 +1,20 @@
 import { useEffect, useRef, useState } from 'react';
 import { CARD_MAP } from '../engine';
 import type { GameState, PlayerId } from '../engine';
+import { duckMusic } from './music';
 
 // Sound effects, synthesized with Web Audio (no audio files). Every sound is a few short oscillator or
 // filtered-noise envelopes. The preferences (effects, music, vibration) are per device, in localStorage.
 // The ambient music lives in music.ts and shares this audio context.
 
-export type Sfx = 'click' | 'card' | 'graft' | 'toxin' | 'react' | 'hit' | 'bigHit' | 'strain' | 'reject' | 'evolve' | 'heal' | 'stance' | 'round' | 'win' | 'lose' | 'draw' | 'craft' | 'wake';
+export type Sfx = 'click' | 'card' | 'graft' | 'toxin' | 'react' | 'hit' | 'bigHit' | 'strain' | 'reject' | 'evolve' | 'heal' | 'stance' | 'round' | 'win' | 'lose' | 'draw' | 'craft' | 'wake' | 'engine' | 'chain' | 'objective' | 'record' | 'biomass' | 'unlock' | 'land';
+
+/** How one play of a sound differs: pitch and loudness multipliers, and a voice (a faction's) where it has one. */
+export interface SfxOpts {
+  pitch?: number;
+  gain?: number;
+  voice?: string;
+}
 
 export interface Pref {
   volume: number; // 0..1
@@ -70,15 +78,20 @@ export function audio(): AudioContext | null {
   return ctx;
 }
 
+// The current play's pitch and loudness (set by play(): a little random variation, plus any scaling asked
+// for), applied by tone() and noise() so the same sound never plays exactly the same way twice.
+let pitchMul = 1;
+let gainMul = 1;
+
 /** One tone: frequency glides from f0 to f1 over `dur`, with a quick attack and exponential decay. */
 function tone(c: AudioContext, t: number, f0: number, f1: number, dur: number, type: OscillatorType, gain: number) {
   const o = c.createOscillator();
   const g = c.createGain();
   o.type = type;
-  o.frequency.setValueAtTime(f0, t);
-  o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur);
+  o.frequency.setValueAtTime(f0 * pitchMul, t);
+  o.frequency.exponentialRampToValueAtTime(Math.max(20, f1 * pitchMul), t + dur);
   g.gain.setValueAtTime(0.0001, t);
-  g.gain.exponentialRampToValueAtTime(gain, t + 0.01);
+  g.gain.exponentialRampToValueAtTime(Math.max(0.0002, gain * gainMul), t + 0.01);
   g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
   o.connect(g).connect(master!);
   o.start(t);
@@ -95,16 +108,52 @@ function noise(c: AudioContext, t: number, dur: number, freq: number, q: number,
   src.buffer = buf;
   const f = c.createBiquadFilter();
   f.type = type;
-  f.frequency.value = freq;
+  f.frequency.value = freq * pitchMul;
   f.Q.value = q;
   const g = c.createGain();
-  g.gain.value = gain;
+  g.gain.value = gain * gainMul;
   src.connect(f).connect(g).connect(master!);
   src.start(t);
 }
 
+/** A faction's voice laid over a graft landing: the creature, metal, wet tissue, acid, light, spores, bone. */
+function voice(c: AudioContext, t: number, v: string) {
+  switch (v) {
+    case 'predator': // a wet snarl
+      tone(c, t, 95, 62, 0.28, 'sawtooth', 0.12);
+      noise(c, t, 0.22, 420, 1.5, 0.25, 'lowpass');
+      break;
+    case 'parasite': // a squelch
+      tone(c, t, 320, 140, 0.16, 'sine', 0.2);
+      noise(c, t + 0.03, 0.14, 520, 5, 0.3);
+      break;
+    case 'bastion': // a metal clank with a ring
+      tone(c, t, 1250, 1180, 0.06, 'square', 0.08);
+      tone(c, t, 1870, 1860, 0.45, 'triangle', 0.05);
+      noise(c, t, 0.05, 3200, 2, 0.25);
+      break;
+    case 'corrosion': // an acid sizzle
+      noise(c, t + 0.02, 0.4, 4200, 0.6, 0.18, 'highpass');
+      break;
+    case 'aegis': // a clean chime
+      tone(c, t, 1568, 1568, 0.45, 'sine', 0.07);
+      tone(c, t + 0.04, 2093, 2093, 0.4, 'sine', 0.05);
+      break;
+    case 'miasma': // a spore hiss
+      noise(c, t, 0.38, 2600, 0.8, 0.2);
+      tone(c, t, 210, 190, 0.35, 'sine', 0.06);
+      break;
+    case 'hollow': // a hollow knock, twice
+      tone(c, t, 125, 112, 0.12, 'sine', 0.3);
+      tone(c, t + 0.14, 118, 105, 0.14, 'sine', 0.22);
+      break;
+    default: // tech: a blip
+      tone(c, t, 1320, 1760, 0.06, 'square', 0.05);
+  }
+}
+
 let lastAt: Partial<Record<Sfx, number>> = {};
-export function play(s: Sfx) {
+export function play(s: Sfx, opts: SfxOpts = {}) {
   if (pref.muted || pref.volume <= 0) return;
   const c = audio();
   if (!c || !master) return;
@@ -113,6 +162,10 @@ export function play(s: Sfx) {
   lastAt = { ...lastAt, [s]: now };
   master.gain.value = pref.volume * 0.5;
   const t = now + 0.005;
+  // ±4% pitch and ±10% loudness every time (not on UI clicks, which should feel exact).
+  const jitter = s === 'click' ? 0 : 1;
+  pitchMul = (opts.pitch ?? 1) * (1 + jitter * (Math.random() - 0.5) * 0.08);
+  gainMul = (opts.gain ?? 1) * (1 + jitter * (Math.random() - 0.5) * 0.2);
   switch (s) {
     case 'click':
       tone(c, t, 1400, 900, 0.04, 'square', 0.05);
@@ -125,6 +178,34 @@ export function play(s: Sfx) {
       tone(c, t, 180, 90, 0.22, 'sine', 0.45);
       noise(c, t, 0.15, 600, 2, 0.4);
       tone(c, t + 0.05, 660, 990, 0.12, 'triangle', 0.1);
+      if (opts.voice) voice(c, t + 0.04, opts.voice);
+      break;
+    case 'land': // a graft settling into its socket (a soft thud)
+      tone(c, t, 150, 70, 0.14, 'sine', 0.35);
+      break;
+    case 'engine': // a payoff firing: a quick turning chime
+      tone(c, t, 740, 1110, 0.09, 'triangle', 0.14);
+      tone(c, t + 0.06, 1110, 1480, 0.12, 'triangle', 0.1);
+      noise(c, t, 0.05, 5000, 2, 0.08, 'highpass');
+      break;
+    case 'chain': // each step of a chain a little higher (opts.pitch)
+      tone(c, t, 880, 1320, 0.16, 'square', 0.07);
+      tone(c, t + 0.07, 1320, 1760, 0.2, 'triangle', 0.1);
+      break;
+    case 'objective':
+      tone(c, t, 784, 784, 0.16, 'triangle', 0.14);
+      tone(c, t + 0.1, 1175, 1175, 0.3, 'triangle', 0.14);
+      break;
+    case 'record': // a recovered record: an uneasy, slightly detuned pair
+      tone(c, t, 659, 652, 0.9, 'sine', 0.08);
+      tone(c, t + 0.05, 698, 705, 0.9, 'sine', 0.06);
+      break;
+    case 'biomass': // a tick per step of the counter
+      tone(c, t, 1760, 2093, 0.05, 'triangle', 0.05);
+      break;
+    case 'unlock':
+      [0, 0.07, 0.14, 0.21].forEach((d, i) => tone(c, t + d, [523, 659, 784, 1047][i], [523, 659, 784, 1047][i] * 1.005, 0.32, 'triangle', 0.12));
+      noise(c, t + 0.2, 0.3, 7000, 0.7, 0.08, 'highpass');
       break;
     case 'toxin':
       tone(c, t, 300, 140, 0.35, 'sawtooth', 0.12);
@@ -189,7 +270,9 @@ export function play(s: Sfx) {
 // ---------- Match sounds (read from the log and the play list) ----------
 
 // The loudest thing in a batch wins; a batch plays at most three sounds, staggered.
-const PRIORITY: Sfx[] = ['win', 'lose', 'draw', 'evolve', 'reject', 'bigHit', 'round', 'hit', 'heal', 'graft', 'toxin', 'react', 'card', 'stance', 'strain', 'wake'];
+const PRIORITY: Sfx[] = ['win', 'lose', 'draw', 'evolve', 'reject', 'bigHit', 'round', 'hit', 'engine', 'heal', 'graft', 'toxin', 'react', 'card', 'stance', 'strain', 'wake'];
+/** The opponent's routine sounds sit a little behind yours. */
+const THEIRS = 0.6;
 
 /** Plays the sounds for whatever just happened in a match. `me` hears their own win or loss. */
 export function useMatchSounds(state: GameState, me: PlayerId, enabled = true, haptics = true) {
@@ -206,27 +289,42 @@ export function useMatchSounds(state: GameState, me: PlayerId, enabled = true, h
     seenLog.current = state.log.length;
     seenPlays.current = state.plays.length;
     if (!enabled) return;
-    const out = new Set<Sfx>();
+    // Each sound once per batch, with how it should play: a faction's voice on a graft, hits scaled by the
+    // biggest hit in the batch, and the opponent's routine plays a little quieter than yours.
+    const out = new Map<Sfx, SfxOpts>();
+    const add = (s: Sfx, o: SfxOpts = {}) => {
+      if (!out.has(s)) out.set(s, o);
+    };
     for (const r of plays) {
-      if (r.kind === 'react') out.add('react');
+      const theirs = r.player !== me ? { gain: THEIRS } : {};
+      if (r.kind === 'react') add('react', theirs);
       else if (r.kind === 'play') {
-        const t = r.cardId ? CARD_MAP[r.cardId]?.type : 'graft';
-        out.add(r.faceDown || t === 'graft' ? 'graft' : t === 'toxin' || t === 'sabotage' ? 'toxin' : 'card');
-      } else out.add('card');
+        const def = r.cardId ? CARD_MAP[r.cardId] : undefined;
+        const t = def?.type ?? 'graft';
+        if (r.faceDown || t === 'graft') add('graft', { ...theirs, voice: r.faceDown && r.player !== me ? undefined : def?.faction });
+        else add(t === 'toxin' || t === 'sabotage' ? 'toxin' : 'card', theirs);
+      } else add('card', theirs);
     }
+    let biggest = 0;
     for (const l of log) {
-      // Big Clash hits are logged as 'hit', the rest as 'damage'.
-      if ((l.kind === 'damage' || l.kind === 'hit') && (l.amount ?? 0) > 0) out.add(l.kind === 'hit' || (l.amount ?? 0) >= 8 ? 'bigHit' : 'hit');
-      else if (l.kind === 'heal' && (l.amount ?? 0) > 0) out.add('heal');
-      else if (l.kind === 'reject') out.add('reject');
-      else if (l.kind === 'evolve') out.add('evolve');
-      else if (l.kind === 'round') out.add('round');
-      else if (l.kind === 'stance' && l.player === null) out.add('stance');
-      else if (l.kind === 'strain' && (l.amount ?? 0) > 0) out.add('strain');
-      else if (l.kind === 'end') out.add(state.result?.winner === me ? 'win' : state.result?.winner == null ? 'draw' : 'lose');
+      // Big Clash hits are logged as 'hit', the rest as 'damage'. The weight of a hit follows its size.
+      if ((l.kind === 'damage' || l.kind === 'hit') && (l.amount ?? 0) > 0) {
+        biggest = Math.max(biggest, l.amount ?? 0);
+        add(l.kind === 'hit' || (l.amount ?? 0) >= 8 ? 'bigHit' : 'hit');
+      } else if (l.kind === 'heal' && (l.amount ?? 0) > 0) add('heal');
+      else if (l.kind === 'engine') add('engine', l.player !== me ? { gain: THEIRS } : {});
+      else if (l.kind === 'reject') add('reject');
+      else if (l.kind === 'evolve') add('evolve');
+      else if (l.kind === 'round') add('round');
+      else if (l.kind === 'stance' && l.player === null) add('stance');
+      else if (l.kind === 'strain' && (l.amount ?? 0) > 0) add('strain');
+      else if (l.kind === 'end') add(state.result?.winner === me ? 'win' : state.result?.winner == null ? 'draw' : 'lose');
     }
+    for (const h of ['hit', 'bigHit'] as const) if (out.has(h)) out.set(h, { pitch: 1.1 - Math.min(0.35, biggest / 30), gain: 0.75 + Math.min(0.6, biggest / 20) });
+    // The music steps back for the moments that matter most.
+    if (log.some((l) => l.kind === 'end' || (l.kind === 'evolve' && l.text.startsWith('EVOLUTION:')))) duckMusic(log.some((l) => l.kind === 'end') ? 2500 : 1600);
     // Vibrate for what happens to you: a hit you take, your rejection or evolution, the result.
-    let feel: keyof typeof BUZZ | null = null;
+    let feel: keyof typeof BUZZ | null = null as keyof typeof BUZZ | null;
     for (const l of log) {
       if (l.kind === 'end') feel = state.result?.winner === me ? 'win' : state.result?.winner == null ? null : 'lose';
       else if (l.player !== me) continue;
@@ -234,10 +332,12 @@ export function useMatchSounds(state: GameState, me: PlayerId, enabled = true, h
       else if (l.kind === 'reject' && feel !== 'evolve') feel = 'reject';
       else if ((l.kind === 'damage' || l.kind === 'hit') && (l.amount ?? 0) > 0 && (!feel || feel === 'hit')) feel = l.kind === 'hit' || (l.amount ?? 0) >= 8 ? 'bigHit' : 'hit';
     }
+    // A light tap when your own card lands, if nothing bigger happened.
+    if (!feel && plays.some((r) => r.player === me && r.kind === 'play')) feel = 'play';
     if (feel && haptics) buzz(BUZZ[feel] as number | number[]);
     PRIORITY.filter((s) => out.has(s))
       .slice(0, 3)
-      .forEach((s, i) => (i ? setTimeout(() => play(s), i * 120) : play(s)));
+      .forEach((s, i) => (i ? setTimeout(() => play(s, out.get(s)), i * 120) : play(s, out.get(s))));
   }, [state.log, state.plays, state.result, me, enabled, haptics]);
 }
 
@@ -256,4 +356,4 @@ export function buzz(pattern: number | number[]) {
   }
 }
 
-const BUZZ = { hit: 25, bigHit: [70], reject: [40, 60, 40], evolve: [30, 40, 30, 40, 90], win: [50, 60, 140], lose: [220] } as const;
+const BUZZ = { play: 10, hit: 25, bigHit: [70], reject: [40, 60, 40], evolve: [30, 40, 30, 40, 90], win: [50, 60, 140], lose: [220] } as const;

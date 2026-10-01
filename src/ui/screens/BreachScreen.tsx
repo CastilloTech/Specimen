@@ -55,11 +55,19 @@ export function BreachScreen({ onBack, onCollection, onFight, last }: { onBack: 
       {/* The breach: an alarm-lit containment status board. */}
       <section className="lab-panel relative overflow-hidden rounded-xl border-2 border-red-500/50 p-4" aria-label="Containment status">
         <div aria-hidden className="hazard hazard-scroll absolute inset-x-0 top-0 h-2 opacity-80" />
+        {/* Back from a wave: the alarm sweeps across the panel. */}
+        {last && <div aria-hidden className="alarm-sweep pointer-events-none absolute inset-0" />}
         <div className="mt-1 flex items-baseline justify-between">
           <span className="lab-label text-red-300">{active ? 'Breach in progress' : 'Containment holding'}</span>
           {active && <span className="font-display text-sm text-ink2">Survived: {wavesSurvived(run!)}</span>}
         </div>
-        <div className="mt-1 text-center font-display text-5xl font-extrabold tracking-wider text-red-300 drop-shadow-[0_0_14px_rgba(248,113,113,0.5)]">{active ? `WAVE ${run!.wave}` : 'STANDBY'}</div>
+        <div className="mt-1 text-center font-display text-5xl font-extrabold tracking-wider text-red-300 drop-shadow-[0_0_14px_rgba(248,113,113,0.5)]">{active ? (
+            <>
+              WAVE <span key={run!.wave} className="wave-roll">{run!.wave}</span>
+            </>
+          ) : (
+            'STANDBY'
+          )}</div>
         {active && (
           <div className="mt-3 space-y-2">
             <div>
@@ -70,7 +78,7 @@ export function BreachScreen({ onBack, onCollection, onFight, last }: { onBack: 
                 </span>
               </div>
               <div className="h-3 overflow-hidden rounded bg-black/50">
-                <div className={`h-full ${run!.hp > HP / 2 ? 'bg-emerald-500' : run!.hp > HP / 4 ? 'bg-amber-500' : 'bg-red-600'}`} style={{ width: `${(run!.hp / HP) * 100}%` }} />
+                <div className={`bar-fill h-full ${run!.hp > HP / 2 ? 'bg-emerald-500' : run!.hp > HP / 4 ? 'bg-amber-500' : 'bg-red-600'}`} style={{ width: `${(run!.hp / HP) * 100}%` }} />
               </div>
             </div>
             <div>
@@ -82,7 +90,7 @@ export function BreachScreen({ onBack, onCollection, onFight, last }: { onBack: 
               </div>
               <div className="flex gap-[2px]">
                 {Array.from({ length: T + 2 }, (_, k) => k + 1).map((i) => (
-                  <div key={i} className={`h-3 flex-1 rounded-[2px] ${i <= STABLE ? 'bg-stable' : i <= T ? 'bg-oc' : 'bg-rej'} ${i <= run!.strain ? '' : 'opacity-20'}`} />
+                  <div key={i} className={`h-3 flex-1 rounded-[2px] ${i <= STABLE ? 'bg-stable' : i <= T ? 'bg-oc' : 'bg-rej'} ${i <= run!.strain ? 'grid-pop' : 'opacity-20'}`} style={{ ['--i' as string]: i } as React.CSSProperties} />
                 ))}
               </div>
             </div>

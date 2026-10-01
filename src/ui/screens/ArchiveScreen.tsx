@@ -73,7 +73,7 @@ export function ArchiveScreen({ onBack }: { onBack: () => void }) {
               <button
                 onClick={() => has && read(f)}
                 disabled={!has}
-                className={`lab-panel flex h-full w-full flex-col gap-1.5 rounded-xl border p-3 text-left transition ${has ? 'border-line hover:border-accent' : 'cursor-default border-line/50 opacity-70'}`}
+                className={`lab-panel flex h-full w-full flex-col gap-1.5 rounded-xl border p-3 text-left transition ${has ? 'border-line hover:border-accent' : 'cursor-default border-line/50 opacity-70'} ${fresh ? 'shimmer' : ''}`}
                 aria-label={has ? f.title : `Missing record. ${f.where}`}
               >
                 <span className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider" style={{ color: has ? meta.color : 'var(--color-mute)' }}>
@@ -113,9 +113,11 @@ export function ArchiveScreen({ onBack }: { onBack: () => void }) {
             </div>
             <h2 className="font-display text-lg font-bold">{open.title}</h2>
             <div className="mt-3 space-y-3 font-serif text-[15px] leading-relaxed text-ink">
+              {/* The redaction peels off each paragraph in turn as the record opens. */}
               {fragmentText(open, recruiter).split('\n\n').map((para, i) => (
-                <p key={i} className="whitespace-pre-line">
+                <p key={`${open.id}-${i}`} className="relative whitespace-pre-line">
                   <LoreText text={para} />
+                  <span aria-hidden className="redact-peel pointer-events-none absolute inset-0 rounded-sm bg-[#0b0f0d]" style={{ ['--i' as string]: i } as React.CSSProperties} />
                 </p>
               ))}
             </div>

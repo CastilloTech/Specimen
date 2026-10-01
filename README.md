@@ -839,6 +839,43 @@ The story is never explained. It lives in fragments, each from a biased source, 
   - A newly unlocked Mastery card offers **Build a deck with it**, which opens the deck builder with a deck around it.
 - **Screen changes fade** in over 0.18 s (opacity only, off with reduced motion).
 
+### Game feel: weight, sound, cards in the hand, a living Specimen, rewards
+
+- **Weight on impact** (`ClashFx.tsx`).
+  - The shake scales with the damage (`--mag`), and so do the damage numbers.
+  - **Hit-stop** (`useHitStop`): every animation pauses for 70–130 ms at the moment of a heavy impact, meaning a big Clash hit as the lunge lands, a destroyed graft, or the KO.
+  - A knockout drains the colour toward the edges before the result word lands, and the music ducks under it.
+- **Sound** (`sfx.ts`).
+  - Every play varies by ±4% pitch and ±10% loudness, and hits get deeper and louder with their size.
+  - A graft landing gets its faction's voice: Predator snarl, Parasite squelch, Bastion clank, Corrosion sizzle, Aegis chime, Miasma hiss, Hollow knock, Tech blip.
+  - New sounds: engine payoffs, chains climbing a step per link, goal complete, record recovered, biomass ticks, unlocks.
+  - The opponent's routine sounds play at 60%, and the music ducks for evolutions and the end of a match (`duckMusic`).
+- **Cards in the hand** (`HandDrag.tsx`).
+  - Cards tilt toward the cursor, lift on hover and press down under a finger.
+  - Playable cards can be dragged: onto your slot (graft), onto an enemy graft (Sabotage), or anywhere above the hand (an instant). Tapping works as before.
+  - Your own plays give a light haptic tap.
+- **A living Specimen.** It breathes faster as Strain climbs, trembles near the rejection line, and keeps a slow pulsing tint in its player colour once evolved.
+- **Rewards.** The biomass counter ticks up with a "+N" since you last saw it. A new unlock pops and glows with a fanfare, as does a crafted card, and the daily streak flares when it grows.
+- **Restraint.** Hit-stop is only for heavy moments, the opponent's routine sounds sit behind yours, and every new motion is off with reduced motion.
+
+### Game feel outside matches
+
+- **Deck builder and Collection.**
+  - Adding a card sends a chip with its name flying into the deck counter, which pops when it lands (`flyTo` in `src/ui/fly.ts`).
+  - Reaching a full, valid 20 makes the deck panel glow and plays a chime.
+  - Rule warnings give a small shake when they change.
+  - The Energy curve bars slide to their new heights, and engine counts pop when they change.
+  - A crafted card turns over and catches the light.
+- **Tower.** The floor you just beat is stamped **CLEARED** (or **CHECKPOINT**) with a thud, and the next floor lights up. A loss shakes the floor red and lights the checkpoint you fall back to. Boss floors pulse while they wait.
+- **Lineage.** A new scar slashes across the report as it opens, and the three mutation choices are dealt face-down and turned over one by one.
+- **Breach.** The wave number rolls over under an alarm sweep, and the carried HP and Strain bars fill in.
+- **Post-match.** The comparison fills in row by row with each number counting up (`CountUp`), and the HP chart draws itself.
+- **Archive.** Opening a record peels the redaction off paragraph by paragraph, and new records shimmer in the list.
+- **Daily.** The share grid pops in square by square.
+- **Navigation.** Screens have a depth (menu, hubs, modes, match, results): going deeper slides in from the right, going back from the left. A match only fades.
+- **Menu.** The Specimen's eyes catch the light under the cursor, and it flinches, with a sound and a buzz, when tapped.
+- **Reduced motion.** Every one of these is off when the system's reduce-motion setting is on.
+
 ### UI pass: containment-lab look and quality of life
 
 - **Art direction.** A dim containment-lab look: culture-plate grid background, bioluminescent accent, Chakra Petch display type (Google Fonts; falls back to system fonts offline), hazard tape for Meltdown. Every card has procedural "specimen plate" art (`src/ui/components/CardArt.tsx`), drawn from its type (and a graft's slot), tinted by faction and seeded by card id, so there are no image assets to maintain. Each Specimen is the bio-engineered creature from `src/assets/specimen.jpg` (cropped from the provided concept card art) in a containment tank, mirrored on the left-hand side so the two face each other, with graft sockets placed on its anatomy (helmet, neck cables, chest, resting hand, far forearm, hip; see `POS` in `Specimen.tsx`) and grafts shown as mini plates.

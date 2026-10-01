@@ -12,6 +12,7 @@ import { ENGINE_META, engineColor, FACTION_META, PLAYER_COLORS, WORLD_FACTION_ME
 import { activeSave, loadMatches } from '../storage';
 import { EngineIcon } from '../components/EngineIcon';
 import { IconText } from '../components/EngineIcon';
+import { CountUp } from '../components/CountUp';
 
 interface Props {
   state: GameState;
@@ -143,11 +144,16 @@ export function PostMatch({ state, setup, onRematch, onNext, onMenu, onReplay, o
             </div>
             <table className="mt-2 w-full text-xs">
               <tbody>
-                {rows.map((r) => (
-                  <tr key={r.label} className="border-t border-line/50">
-                    <td className={`w-16 py-1 text-right font-display font-bold tabular-nums ${best(r, 0) ? 'text-emerald-300' : 'text-ink2'}`}>{r.v[0]}</td>
+                {/* The report fills in row by row, each number counting up. */}
+                {rows.map((r, i) => (
+                  <tr key={r.label} className="row-in border-t border-line/50" style={{ animationDelay: `${i * 80}ms` }}>
+                    <td className={`w-16 py-1 text-right font-display font-bold tabular-nums ${best(r, 0) ? 'text-emerald-300' : 'text-ink2'}`}>
+                      <CountUp value={r.v[0]} delay={i * 80} />
+                    </td>
                     <td className="py-1 text-center text-[10px] uppercase tracking-wider text-mute">{r.label}</td>
-                    <td className={`w-16 py-1 text-left font-display font-bold tabular-nums ${best(r, 1) ? 'text-emerald-300' : 'text-ink2'}`}>{r.v[1]}</td>
+                    <td className={`w-16 py-1 text-left font-display font-bold tabular-nums ${best(r, 1) ? 'text-emerald-300' : 'text-ink2'}`}>
+                      <CountUp value={r.v[1]} delay={i * 80} />
+                    </td>
                   </tr>
                 ))}
               </tbody>

@@ -11,6 +11,7 @@ import { continueTarget } from '../resume';
 import type { ModeKind } from '../resume';
 import { DailyCard } from '../components/DailyCard';
 import { loadProgress } from '../modes';
+import { buzz, play } from '../sfx';
 
 interface Props {
   onQuick: () => void;
@@ -33,6 +34,7 @@ export function Menu({ onQuick, onModes, onBot, onSaves, onGuide, onDecks, onTut
   const [resume] = useState(() => continueTarget(progress, activeSave()?.meta.name ?? 'You'));
   const [unread] = useState(() => unreadLore(loadMatches(), loadProgress()));
   const [newcomer, setNewcomer] = useState(() => !tutorialDone());
+  const [flinch, setFlinch] = useState(0);
   const save = activeSave();
   const last = loadLastSetup()?.[0];
   const tier = DIFFICULTY.find((d) => d.id === quickTier())!;
@@ -45,8 +47,21 @@ export function Menu({ onQuick, onModes, onBot, onSaves, onGuide, onDecks, onTut
       style={{ paddingLeft: 'max(1rem, env(safe-area-inset-left))', paddingRight: 'max(1rem, env(safe-area-inset-right))' }}
     >
       <div className="mb-2 flex flex-col items-center text-center phone:mb-0 phone:w-[42%] phone:shrink-0">
-        <div className="relative h-52 w-52 overflow-hidden rounded-[28px] border border-accent/30 phone:h-[42dvh] phone:w-[42dvh]" style={{ boxShadow: '0 0 44px -8px rgba(80,220,230,0.45)' }}>
-          <Creature />
+        {/* The Specimen in its tank: its eyes catch the light under the cursor, and it flinches when tapped. */}
+        <div
+          className="group relative h-52 w-52 cursor-pointer overflow-hidden rounded-[28px] border border-accent/30 phone:h-[42dvh] phone:w-[42dvh]"
+          style={{ boxShadow: '0 0 44px -8px rgba(80,220,230,0.45)' }}
+          onClick={() => {
+            setFlinch((k) => k + 1);
+            play('hit', { gain: 0.3, pitch: 1.5 });
+            buzz(15);
+          }}
+          aria-hidden
+        >
+          <div key={flinch} className={`absolute inset-0 ${flinch ? 'menu-flinch' : ''}`}>
+            <Creature />
+          </div>
+          <div className="pointer-events-none absolute left-1/2 top-[24%] h-16 w-24 -translate-x-1/2 rounded-full bg-[radial-gradient(ellipse,rgba(120,240,255,0.55),transparent_70%)] opacity-0 mix-blend-screen transition-opacity duration-500 group-hover:opacity-100" />
           <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(123,224,176,0.08),transparent_40%)]" />
           {[18, 44, 76].map((l, i) => (
             <span key={l} className="tank-bubble absolute bottom-1 h-1 w-1 rounded-full border border-white/50" style={{ left: `${l}%`, animationDelay: `${i * 1.4}s` }} />

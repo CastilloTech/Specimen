@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { GameState, PlayerId } from '../../engine';
 import { EngineIcon } from './EngineIcon';
+import { play } from '../sfx';
 
 /**
  * Several engine payoffs going off from one play is the moment combos are built for: count it up in the
@@ -17,6 +18,8 @@ export function ChainFx({ state, me }: { state: GameState; me: PlayerId }) {
       if (n >= 2) {
         const key = Date.now();
         setChain({ key, n, mine: p === me });
+        // Each chain a little higher than the last: ×2, ×3, ×4 climb.
+        play('chain', { pitch: 1 + 0.12 * (n - 2), gain: p === me ? 1 : 0.6 });
         setTimeout(() => setChain((c) => (c?.key === key ? null : c)), 1600);
         return;
       }

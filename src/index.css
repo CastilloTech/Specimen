@@ -232,19 +232,19 @@ button:disabled {
     translate: 0 0;
   }
   15% {
-    translate: -6px 2px;
+    translate: calc(-6px * var(--mag, 1)) calc(2px * var(--mag, 1));
   }
   30% {
-    translate: 5px -3px;
+    translate: calc(5px * var(--mag, 1)) calc(-3px * var(--mag, 1));
   }
   45% {
-    translate: -4px 1px;
+    translate: calc(-4px * var(--mag, 1)) calc(1px * var(--mag, 1));
   }
   60% {
-    translate: 3px 2px;
+    translate: calc(3px * var(--mag, 1)) calc(2px * var(--mag, 1));
   }
   80% {
-    translate: -1px -1px;
+    translate: calc(-1px * var(--mag, 1)) calc(-1px * var(--mag, 1));
   }
 }
 .clash-lunge-r.clash-shake {
@@ -1943,6 +1943,405 @@ body[data-coach='mulligan'] [data-coach-id='mulligan'] {
   animation: coach-pulse 1.3s ease-in-out infinite;
 }
 
+/* Hit-stop: everything holds for a beat on a heavy impact (see useHitStop). */
+.hitstop * {
+  animation-play-state: paused !important;
+}
+/* The knockout: the colour drains toward the edges while the final blow lands, before the result. */
+@keyframes ko-vignette {
+  0% {
+    opacity: 0;
+  }
+  35% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.85;
+  }
+}
+.ko-vignette {
+  animation: ko-vignette 1.1s ease-out both;
+  background: radial-gradient(ellipse 70% 65% at 50% 45%, transparent 35%, rgba(0, 0, 0, 0.75));
+  backdrop-filter: saturate(0.35);
+}
+/* A Specimen near rejection trembles; an evolved one keeps a living tint of its new form. */
+@keyframes specimen-tremor {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  25% {
+    translate: 0.6px -0.4px;
+  }
+  50% {
+    translate: -0.5px 0.5px;
+  }
+  75% {
+    translate: 0.4px 0.3px;
+  }
+}
+.specimen-tremor {
+  animation: specimen-tremor 0.18s linear infinite;
+}
+@keyframes evolved-tint {
+  0%,
+  100% {
+    opacity: 0.18;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+.evolved-tint {
+  animation: evolved-tint 3.2s ease-in-out infinite;
+  mix-blend-mode: screen;
+}
+
+/* Cards in the hand: tilt toward the cursor, lift on hover, press down under a finger, fade while dragged. */
+.hand-tilt {
+  transform: perspective(700px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+  transition:
+    transform 0.12s ease-out,
+    translate 0.15s ease-out,
+    scale 0.08s ease-out,
+    opacity 0.15s;
+}
+.hand-tilt:hover {
+  translate: 0 -6px;
+}
+.hand-tilt:active {
+  scale: 0.96;
+}
+[data-dragging='true'] {
+  opacity: 0.35;
+}
+
+/* ---------- Game feel outside matches ---------- */
+/* A card flying into the deck, and the counter it lands on. */
+.fly-chip {
+  position: fixed;
+  z-index: 80;
+  pointer-events: none;
+  white-space: nowrap;
+  border: 1px solid;
+  border-radius: 999px;
+  background: rgba(8, 14, 12, 0.92);
+  color: #e6f4ee;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.6);
+}
+@keyframes count-pop {
+  0% {
+    scale: 1;
+  }
+  40% {
+    scale: 1.3;
+    color: #7be0b0;
+  }
+  100% {
+    scale: 1;
+  }
+}
+.count-pop {
+  display: inline-block;
+  animation: count-pop 0.35s ease-out;
+}
+/* The deck complete and valid: the panel glows twice. */
+@keyframes deck-complete {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(123, 224, 176, 0);
+  }
+  30%,
+  70% {
+    box-shadow: 0 0 0 2px rgba(123, 224, 176, 0.9), 0 0 26px 4px rgba(123, 224, 176, 0.45);
+  }
+}
+.deck-complete {
+  animation: deck-complete 1.4s ease-in-out;
+}
+@keyframes shake-soft {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  25% {
+    translate: -4px 0;
+  }
+  50% {
+    translate: 3px 0;
+  }
+  75% {
+    translate: -2px 0;
+  }
+}
+.shake-soft {
+  animation: shake-soft 0.35s ease-out;
+}
+/* A crafted card turns over and catches the light. */
+@keyframes craft-reveal {
+  0% {
+    transform: perspective(600px) rotateY(90deg);
+    filter: brightness(2.2);
+  }
+  60% {
+    transform: perspective(600px) rotateY(-8deg);
+    filter: brightness(1.4);
+  }
+  100% {
+    transform: perspective(600px) rotateY(0deg);
+    filter: brightness(1);
+  }
+}
+.craft-reveal {
+  animation: craft-reveal 0.6s ease-out backwards;
+  box-shadow: 0 0 22px rgba(123, 224, 176, 0.6);
+}
+/* Tower: a stamp on the floor just cleared, the next floor lighting up, a fall back, and bosses waiting. */
+@keyframes stamp-in {
+  0% {
+    opacity: 0;
+    scale: 2.2;
+    rotate: -14deg;
+  }
+  60% {
+    opacity: 1;
+    scale: 0.92;
+    rotate: -8deg;
+  }
+  100% {
+    opacity: 1;
+    scale: 1;
+    rotate: -8deg;
+  }
+}
+.stamp-in {
+  animation: stamp-in 0.45s cubic-bezier(0.2, 0.8, 0.3, 1.2) 0.25s backwards;
+  rotate: -8deg;
+}
+@keyframes floor-arrive {
+  0%,
+  100% {
+    box-shadow: inset 0 0 0 0 rgba(123, 224, 176, 0);
+  }
+  50% {
+    box-shadow: inset 0 0 0 3px rgba(123, 224, 176, 0.9), inset 0 0 30px rgba(123, 224, 176, 0.45);
+  }
+}
+.floor-arrive {
+  animation: floor-arrive 0.8s ease-in-out 0.8s 2 backwards;
+}
+@keyframes floor-fall {
+  0%,
+  100% {
+    translate: 0 0;
+    background-color: transparent;
+  }
+  20% {
+    translate: -5px 0;
+    background-color: rgba(220, 38, 38, 0.35);
+  }
+  40% {
+    translate: 4px 0;
+  }
+  60% {
+    translate: -3px 0;
+    background-color: rgba(220, 38, 38, 0.25);
+  }
+}
+.floor-fall {
+  animation: floor-fall 0.6s ease-out;
+}
+@keyframes boss-pulse {
+  0%,
+  100% {
+    box-shadow: inset 0 0 0 0 rgba(232, 121, 249, 0);
+  }
+  50% {
+    box-shadow: inset 0 0 22px 2px rgba(232, 121, 249, 0.35);
+  }
+}
+.boss-pulse {
+  animation: boss-pulse 2.6s ease-in-out infinite;
+}
+/* Lineage: a scar slashes across, mutation choices are dealt face-down and turned over. */
+@keyframes scar-slash {
+  0% {
+    clip-path: inset(0 100% 0 0);
+    opacity: 1;
+  }
+  45% {
+    clip-path: inset(0 0 0 0);
+    opacity: 1;
+  }
+  100% {
+    clip-path: inset(0 0 0 0);
+    opacity: 0;
+  }
+}
+.scar-slash {
+  background: linear-gradient(160deg, transparent 46%, rgba(248, 113, 113, 0.95) 49%, rgba(255, 220, 220, 1) 50%, rgba(248, 113, 113, 0.95) 51%, transparent 54%);
+  animation: scar-slash 0.9s ease-out forwards;
+}
+@keyframes deal-flip {
+  0% {
+    transform: perspective(700px) translateY(-14px) rotateY(180deg);
+    opacity: 0;
+    filter: brightness(0.3);
+  }
+  40% {
+    opacity: 1;
+  }
+  100% {
+    transform: perspective(700px) translateY(0) rotateY(0deg);
+    filter: brightness(1);
+  }
+}
+.deal-flip {
+  animation: deal-flip 0.55s cubic-bezier(0.2, 0.8, 0.3, 1) calc(var(--i, 0) * 160ms + 150ms) backwards;
+}
+/* Breach: the wave number rolls over under an alarm sweep; carried bars fill. */
+@keyframes wave-roll {
+  0% {
+    translate: 0 70%;
+    opacity: 0;
+  }
+  100% {
+    translate: 0 0;
+    opacity: 1;
+  }
+}
+.wave-roll {
+  display: inline-block;
+  animation: wave-roll 0.45s cubic-bezier(0.2, 0.8, 0.3, 1.1) backwards;
+}
+@keyframes alarm-sweep {
+  0% {
+    translate: -100% 0;
+  }
+  100% {
+    translate: 100% 0;
+  }
+}
+.alarm-sweep {
+  background: linear-gradient(90deg, transparent, rgba(239, 68, 68, 0.35), transparent);
+  animation: alarm-sweep 0.9s ease-in-out 2 forwards;
+}
+@keyframes bar-fill {
+  from {
+    scale: 0 1;
+  }
+}
+.bar-fill {
+  transform-origin: left;
+  animation: bar-fill 0.7s cubic-bezier(0.2, 0.8, 0.3, 1) 0.15s backwards;
+}
+/* Post-match: rows come in one by one; the HP chart draws itself. */
+@keyframes row-in {
+  from {
+    opacity: 0;
+    translate: 0 6px;
+  }
+}
+.row-in {
+  animation: row-in 0.35s ease-out backwards;
+}
+@keyframes draw-line {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.draw-line {
+  stroke-dasharray: 1;
+  animation: draw-line 1.1s ease-out 0.2s backwards;
+}
+/* Archive: the redaction peels off a record as it opens; new records shimmer. */
+@keyframes redact-peel {
+  0% {
+    scale: 1 1;
+  }
+  100% {
+    scale: 0 1;
+  }
+}
+.redact-peel {
+  transform-origin: right;
+  animation: redact-peel 0.45s cubic-bezier(0.6, 0, 0.3, 1) calc(var(--i, 0) * 140ms + 120ms) forwards;
+}
+@keyframes shimmer {
+  from {
+    background-position: -150% 0;
+  }
+  to {
+    background-position: 250% 0;
+  }
+}
+.shimmer {
+  background-image: linear-gradient(100deg, transparent 30%, rgba(252, 211, 77, 0.12) 50%, transparent 70%);
+  background-size: 60% 100%;
+  background-repeat: no-repeat;
+  animation: shimmer 2.4s ease-in-out infinite;
+}
+/* The daily grid pops in square by square. */
+@keyframes grid-pop {
+  0% {
+    opacity: 0;
+    scale: 0.3;
+  }
+  70% {
+    scale: 1.25;
+  }
+  100% {
+    opacity: 1;
+    scale: 1;
+  }
+}
+.grid-pop {
+  display: inline-block;
+  animation: grid-pop 0.3s ease-out calc(var(--i, 0) * 90ms) backwards;
+}
+/* Going deeper slides in from the right, going back from the left (fill "backwards" only: no transform is
+   left on the screen afterwards, so fixed elements inside behave). */
+@keyframes screen-fwd {
+  from {
+    opacity: 0;
+    transform: translateX(28px);
+  }
+}
+@keyframes screen-back {
+  from {
+    opacity: 0;
+    transform: translateX(-28px);
+  }
+}
+.screen-fwd {
+  animation: screen-fwd 0.22s ease-out backwards;
+}
+.screen-back {
+  animation: screen-back 0.22s ease-out backwards;
+}
+/* The menu Specimen: eyes catch the light on hover, it flinches when tapped. */
+@keyframes menu-flinch {
+  0%,
+  100% {
+    transform: scale(1) rotate(0);
+  }
+  25% {
+    transform: scale(0.96) rotate(-1.5deg);
+  }
+  55% {
+    transform: scale(1.02) rotate(1deg);
+  }
+}
+.menu-flinch {
+  animation: menu-flinch 0.45s ease-out;
+}
+
 /* Screen changes fade in (opacity only: a transform would make the match's fixed layouts move with it). */
 @keyframes screen-in {
   from {
@@ -1957,7 +2356,41 @@ body[data-coach='mulligan'] [data-coach-id='mulligan'] {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .screen-in {
+  .count-pop,
+  .deck-complete,
+  .shake-soft,
+  .craft-reveal,
+  .stamp-in,
+  .floor-arrive,
+  .floor-fall,
+  .boss-pulse,
+  .deal-flip,
+  .wave-roll,
+  .alarm-sweep,
+  .bar-fill,
+  .row-in,
+  .draw-line,
+  .shimmer,
+  .grid-pop,
+  .screen-fwd,
+  .screen-back,
+  .menu-flinch {
+    animation: none;
+  }
+  .scar-slash {
+    display: none;
+  }
+  .redact-peel {
+    animation-duration: 0.01s;
+  }
+  .hand-tilt {
+    transform: none;
+    translate: none;
+  }
+  .screen-in,
+  .specimen-tremor,
+  .evolved-tint,
+  .ko-vignette {
     animation: none;
   }
   .evo-banner,

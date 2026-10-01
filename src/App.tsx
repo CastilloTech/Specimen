@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { play } from './ui/sfx';
 import { UpdateToast } from './ui/components/AppPrompts';
 import type { GameState, MatchSetup } from './engine';
@@ -86,6 +86,8 @@ function Loading() {
   );
 }
 
+const SCREEN_DEPTH: Record<Screen['name'], number> = { menu: 0, setup: 1, modes: 1, decks: 1, guide: 1, archive: 1, saves: 1, tower: 2, lineage: 2, breach: 2, daily: 2, collection: 2, match: 3, post: 4, tutorialDone: 4, replay: 4 };
+
 function Screens() {
   useEffect(() => {
     // The match first (Quick match), then the screens most often opened from the menu, so none flashes a spinner.
@@ -98,6 +100,7 @@ function Screens() {
     else setTimeout(warm, 1500);
   }, []);
   const [screen, setScreen] = useState<Screen>({ name: 'menu' });
+  const transition = useRef({ key: 'menu', depth: 0, cls: 'screen-in' });
   // Enter presses the screen's main button (marked data-primary) when nothing else has the focus.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -230,8 +233,15 @@ function Screens() {
   };
 
   const key = screen.name === 'match' ? `match-${screen.run}-${screen.setup.seed}` : screen.name;
+  // Screens have a depth (menu, hubs, modes, a match, its results): going deeper slides in from the right,
+  // going back from the left. A match only fades (its layout is fixed to the viewport).
+  if (transition.current.key !== key) {
+    const depth = SCREEN_DEPTH[screen.name];
+    const was = transition.current.depth;
+    transition.current = { key, depth, cls: screen.name === 'match' ? 'screen-in' : depth > was ? 'screen-fwd' : depth < was ? 'screen-back' : 'screen-in' };
+  }
   return (
-    <div key={key} className="screen-in">
+    <div key={key} className={transition.current.cls}>
       {renderScreen()}
     </div>
   );

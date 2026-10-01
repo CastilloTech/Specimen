@@ -124,19 +124,26 @@ export function MatchEndOverlay({ state, me }: { state: GameState; me: PlayerId 
   const over = state.phase === 'over';
   const was = useRef(over);
   const [show, setShow] = useState(false);
+  const [koMoment, setKoMoment] = useState(false);
   useEffect(() => {
     const before = was.current;
     was.current = over;
     if (!over || before) return;
+    setKoMoment(true);
     // Let the final Clash play out first, then slam the result in.
     const on = setTimeout(() => setShow(true), 1100);
-    const off = setTimeout(() => setShow(false), 1100 + 3400);
+    const off = setTimeout(() => {
+      setShow(false);
+      setKoMoment(false);
+    }, 1100 + 3400);
     return () => {
       clearTimeout(on);
       clearTimeout(off);
     };
   }, [over]);
-  if (!show || !state.result) return null;
+  if (!state.result) return null;
+  // A knockout gets its moment first: the colour drains while the final blow lands.
+  if (!show) return over && state.players.some((p) => p.hp <= 0) && koMoment ? <div className="ko-vignette pointer-events-none fixed inset-0 z-[44]" aria-hidden /> : null;
   const w = state.result.winner;
   const [word, color] = w === null ? ['DRAW', '#e5e7eb'] : w === me ? ['VICTORY', '#7be0b0'] : ['DEFEAT', '#f87171'];
   // A close finish, called out as it happens.
