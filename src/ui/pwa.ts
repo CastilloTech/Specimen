@@ -62,9 +62,13 @@ export function startPwa() {
         setInterval(() => void reg.update().catch(() => {}), 60 * 60 * 1000);
       })
       .catch(() => {});
+    // Reload only when a new version takes over from an old one (the player tapped "Reload"). On a first visit
+    // the worker taking control of the page is not an update, and reloading then would throw a brand-new
+    // player out of whatever they just started (the tutorial, an online room).
+    const hadController = !!navigator.serviceWorker.controller;
     let reloaded = false;
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (reloaded) return;
+      if (reloaded || !hadController) return;
       reloaded = true;
       window.location.reload();
     });
