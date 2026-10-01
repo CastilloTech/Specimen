@@ -8,6 +8,7 @@
 import { createMatch, pendingPlayers, reduce, redactFor, timeoutAction, validateChipChoice, validateDeck, validateLoadout } from '../src/engine';
 import type { Action, Faction, GameState, MatchSetup, PlayerId, PlayerSetup, WorldFactionId } from '../src/engine';
 import { FACTIONS, WORLD_FACTIONS } from '../src/engine';
+import { checkName } from './names';
 
 /** What a player brings to the table. */
 export interface Seat {
@@ -17,6 +18,8 @@ export interface Seat {
   goneAt: number | null;
   /** The player left on purpose (tapped Leave): no waiting for them to come back. */
   left?: boolean;
+  /** The player's public id (a hash of their device id): what a block or report points at. */
+  pub?: string;
 }
 
 /** One finished game of the series. */
@@ -56,6 +59,14 @@ export interface RoomData {
   nextAt: number | null;
   /** When each seat last sent an emote (ms), to keep them from being spammed. */
   lastEmote?: [number, number];
+  /** A room the matchmaking queue made: only these two players (public ids) may sit, under checked names. */
+  queue?: string[] | null;
+  /** Queue rooms: if both haven't joined by then (ms), the room gives up (the one who came goes back to the queue). */
+  joinBy?: number | null;
+  /** Queue rooms that gave up waiting. */
+  expired?: boolean;
+  /** Public ids of players who walked out of a queue series, for the lobby's cooldown (drained by the server). */
+  penalties?: string[];
 }
 
 /** The series view each player is sent. */
@@ -78,7 +89,7 @@ export type EmoteId = (typeof EMOTES)[number];
 
 // Client → server.
 export type ClientMsg =
-  | { t: 'join'; token?: string; player?: Omit<PlayerSetup, 'isBot' | 'ai'> }
+  | { t: 'join'; token?: string; player?: Omit<PlayerSetup, 'isBot' | 'ai'>; device?: string }
   | { t: 'act'; action: Action }
   | { t: 'ready' }
   | { t: 'leave' }
@@ -98,7 +109,11 @@ export type ServerMsg =
       series: SeriesView;
       /** ms until the server makes the timeout move for whoever must decide now. */
       deadlineIn: number | null;
+      /** The opponent's public id (for Block / Report), and whether this is a stranger from the queue. */
+      opponentId: string | null;
+      queue: boolean;
     }
+  | { t: 'noshow' }
   | { t: 'emote'; seat: PlayerId; id: EmoteId }
   | { t: 'error'; message: string }
   | { t: 'pong' };
@@ -114,12 +129,25 @@ export const WINS_NEEDED = Math.ceil(BEST_OF / 2);
 export const MAX_GAMES = 5;
 /** Between games, the next one starts by itself after this long. */
 export const NEXT_GAME_MS = 30_000;
+/** Queue rooms: how long the two matched players have to both arrive. */
+export const QUEUE_JOIN_MS = 30_000;
 /** At most one emote per player this often. */
 export const EMOTE_GAP_MS = 2_500;
 
 export const freshSeries = (n: number): Series => ({ n, game: 1, games: [], wins: [0, 0], done: false, winner: null, forfeit: null, ready: [false, false] });
 
-export const newRoom = (code: string, now: number): RoomData => ({ code, seats: [null, null], setup: null, state: null, deadline: null, createdAt: now, series: freshSeries(1), nextAt: null });
+/** `queue`: the two players' public ids, for a room the matchmaking queue made. */
+export const newRoom = (code: string, now: number, queue?: string[]): RoomData => ({
+  code,
+  seats: [null, null],
+  setup: null,
+  state: null,
+  deadline: null,
+  createdAt: now,
+  series: freshSeries(1),
+  nextAt: null,
+  ...(queue ? { queue, joinBy: now + QUEUE_JOIN_MS } : {}),
+});
 
 const clean = (s: unknown, max: number) => (typeof s === 'string' ? s.replace(/[\u0000-\u001f]/g, '').trim().slice(0, max) : '');
 
@@ -140,6 +168,7 @@ export function seriesView(r: RoomData, now: number): SeriesView {
 
 /** The message each seat gets after any change: its own view, or the whole game once it is over. */
 export function viewFor(r: RoomData, seat: PlayerId, now = 0): ServerMsg | null {
+  if (r.expired) return { t: 'noshow' };
   if (!r.state) return { t: 'waiting', code: r.code };
   const over = r.state.phase === 'over';
   const opp = r.seats[1 - seat];
@@ -152,6 +181,8 @@ export function viewFor(r: RoomData, seat: PlayerId, now = 0): ServerMsg | null 
     opponentLeft: !!opp?.left,
     series: seriesView(r, now),
     deadlineIn: r.deadline === null ? null : Math.max(0, r.deadline - now),
+    opponentId: opp?.pub ?? null,
+    queue: !!r.queue,
   };
 }
 
@@ -205,13 +236,19 @@ function forfeit(r: RoomData, gone: PlayerId, now: number): void {
   s.done = true;
   s.winner = winner;
   s.forfeit = gone;
+  const pub = r.seats[gone]?.pub;
+  if (r.queue && pub) (r.penalties ??= []).push(pub);
   s.ready = [false, false];
   r.deadline = null;
   r.nextAt = null;
 }
 
-/** A player joins (or rejoins with their token). The first game starts when both seats are filled. */
-export function join(r: RoomData, msg: Extract<ClientMsg, { t: 'join' }>, now: number, rand: () => number, newToken: () => string): Outcome {
+/**
+ * A player joins (or rejoins with their token). The first game starts when both seats are filled. `pub` is the
+ * joining player's public id (worked out by the server from their device id).
+ */
+export function join(r: RoomData, msg: Extract<ClientMsg, { t: 'join' }>, now: number, rand: () => number, newToken: () => string, pub?: string): Outcome {
+  if (r.expired) return { reply: { t: 'noshow' } };
   // Rejoining: the token says which seat.
   if (msg.token) {
     const i = r.seats.findIndex((s) => s?.token === msg.token);
@@ -222,11 +259,21 @@ export function join(r: RoomData, msg: Extract<ClientMsg, { t: 'join' }>, now: n
   }
   const free = r.seats.findIndex((s) => s === null);
   if (free < 0) return { reply: { t: 'error', message: 'This room is full.' } };
+  // A queue room seats only the two players it was made for, each once, under a name fit for strangers.
+  if (r.queue && (!pub || !r.queue.includes(pub) || r.seats.some((x) => x?.pub === pub))) return { reply: { t: 'error', message: 'This room is for another match.' } };
   const player = checkPlayer(msg.player);
   if (typeof player === 'string') return { reply: { t: 'error', message: player } };
+  if (r.queue) {
+    const n = checkName(msg.player?.name);
+    if (!n.ok) return { reply: { t: 'error', message: n.reason } };
+    player.name = n.name;
+  }
   const token = newToken();
-  r.seats[free] = { token, player, goneAt: null };
-  if (r.seats[0] && r.seats[1]) startGame(r, now, rand);
+  r.seats[free] = { token, player, goneAt: null, ...(pub ? { pub } : {}) };
+  if (r.seats[0] && r.seats[1]) {
+    r.joinBy = null;
+    startGame(r, now, rand);
+  }
   return { seat: free as PlayerId, reply: { t: 'joined', seat: free as PlayerId, token, code: r.code }, broadcast: true };
 }
 
@@ -277,6 +324,13 @@ export function emote(r: RoomData, seat: PlayerId, id: EmoteId, now: number): Ou
   return { relay: { t: 'emote', seat, id } };
 }
 
+/** A matched player turned the match down before it began: the room is called off (the other goes back to the queue). */
+export function decline(r: RoomData, pub: string): boolean {
+  if (r.state || r.expired || !r.queue?.includes(pub)) return false;
+  r.expired = true;
+  return true;
+}
+
 export function disconnected(r: RoomData, seat: PlayerId, now: number): void {
   const s = r.seats[seat];
   if (s) s.goneAt = now;
@@ -288,6 +342,10 @@ export function disconnected(r: RoomData, seat: PlayerId, now: number): void {
  * is up. Returns whether anything changed.
  */
 export function tick(r: RoomData, now: number, rand: () => number = Math.random): boolean {
+  if (!r.state && r.joinBy && !r.expired && now >= r.joinBy) {
+    r.expired = true;
+    return true;
+  }
   if (!r.state || r.series.done) return false;
   const gone = r.seats.findIndex((s) => s && s.goneAt !== null && now - s.goneAt >= ABANDON_MS);
   if (gone >= 0) {
@@ -318,7 +376,7 @@ export function tick(r: RoomData, now: number, rand: () => number = Math.random)
 /** When the room next needs to wake: the decision deadline, the next game's start, or a dropped player's forfeit time. */
 export function nextWake(r: RoomData): number | null {
   const forfeits = r.series.done ? [] : r.seats.map((s) => (s && s.goneAt !== null ? s.goneAt + ABANDON_MS : null));
-  const times = [r.deadline, r.nextAt, ...forfeits].filter((t): t is number => t !== null);
+  const times = [r.deadline, r.nextAt, r.state || r.expired ? null : (r.joinBy ?? null), ...forfeits].filter((t): t is number => t !== null);
   return times.length ? Math.min(...times) : null;
 }
 

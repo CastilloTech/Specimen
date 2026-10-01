@@ -7,6 +7,8 @@ import { rivalLine } from '../multiplayer';
 import type { EmoteEvent, EmoteId, OnlineStatus, SeriesView } from '../online';
 import { buzz, play } from '../sfx';
 import { loadSeries } from '../storage';
+import { block, deviceId, isBlocked } from '../device';
+import { SERVER_URL } from '../online';
 
 /**
  * The end of a best-of-3: who took it, game by game, where you stand against this person overall, and a
@@ -25,6 +27,7 @@ export function SeriesScreen({
   onEmote,
   onNewRoom,
   onMenu,
+  stranger,
 }: {
   series: SeriesView;
   state: GameState;
@@ -39,6 +42,8 @@ export function SeriesScreen({
   onEmote: (id: EmoteId) => void;
   onNewRoom: () => void;
   onMenu: () => void;
+  /** A stranger from the queue: Block and Report are offered. */
+  stranger?: { id: string; code: string } | null;
 }) {
   const opp = (1 - me) as PlayerId;
   const names: [string, string] = [state.players[0].name, state.players[1].name];
@@ -131,7 +136,7 @@ export function SeriesScreen({
             Menu
           </button>
           <button onClick={onNewRoom} className="rounded-xl border border-line px-3 py-3 text-sm text-ink2">
-            New room
+            {stranger ? 'New opponent' : 'New room'}
           </button>
           {canRematch && (
             <button
@@ -149,7 +154,57 @@ export function SeriesScreen({
           )}
         </div>
       </section>
+      {stranger && <StrangerTools id={stranger.id} code={stranger.code} name={oppName} onBlocked={onNewRoom} />}
       {canRematch && <EmoteBar me={me} latest={emote} onSend={onEmote} names={names} place="top" />}
     </div>
+  );
+}
+
+const REASONS = ['Offensive name', 'Left or stalled on purpose', 'Something else'] as const;
+
+/** After a series with a stranger: never be matched with them again, or report them for review. */
+function StrangerTools({ id, code, name, onBlocked }: { id: string; code: string; name: string; onBlocked: () => void }) {
+  const [blocked, setBlocked] = useState(() => isBlocked(id));
+  const [reporting, setReporting] = useState(false);
+  const [reported, setReported] = useState(false);
+  const report = async (reason: string) => {
+    setReporting(false);
+    setReported(true);
+    await fetch(`${SERVER_URL}/report`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ device: deviceId(), target: id, code, reason, name }) }).catch(() => {});
+  };
+  return (
+    <section className="flex flex-col items-center gap-1.5 text-xs">
+      <div className="flex gap-3 text-mute">
+        {blocked ? (
+          <span>{name} is blocked: you won't be matched again.</span>
+        ) : (
+          <button
+            onClick={() => {
+              if (!window.confirm(`Block ${name}? You'll never be matched with them again, and this series ends here.`)) return;
+              block(id, name);
+              setBlocked(true);
+              onBlocked();
+            }}
+            className="underline hover:text-ink2"
+          >
+            Block {name}
+          </button>
+        )}
+        {reported ? <span>Report sent. Thank you.</span> : (
+          <button onClick={() => setReporting((r) => !r)} className="underline hover:text-ink2" aria-expanded={reporting}>
+            Report
+          </button>
+        )}
+      </div>
+      {reporting && (
+        <div className="pop flex flex-wrap justify-center gap-1.5" role="group" aria-label={`Report ${name} for`}>
+          {REASONS.map((r) => (
+            <button key={r} onClick={() => void report(r)} className="rounded-lg border border-line px-2.5 py-1 text-ink2 hover:border-red-400/60 hover:text-red-200">
+              {r}
+            </button>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }

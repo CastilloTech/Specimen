@@ -32,6 +32,8 @@ export function useOnlineMatch(conn: OnlineConn) {
     status: conn.status,
     opponentConnected: view.opponentConnected,
     opponentLeft: view.opponentLeft,
+    opponentId: view.opponentId,
+    queue: view.queue,
     series: view.series,
     deadlineAt: view.deadlineAt,
     nextAt: view.nextAt,

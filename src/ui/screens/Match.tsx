@@ -99,6 +99,8 @@ interface OnlineInfo {
   deadlineAt: number | null;
   nextAt: number | null;
   emote: EmoteEvent | null;
+  /** A stranger from the matchmaking queue. */
+  queue: boolean;
   onReady: () => void;
   onEmote: (id: EmoteId) => void;
   /** Open the series result now (instead of after the end-of-game moment). */
@@ -148,6 +150,7 @@ export function OnlineMatchScreen({ conn, settings, onExit, onNewRoom }: { conn:
           onNewRoom();
         }}
         onMenu={leave}
+        stranger={game.queue && game.opponentId ? { id: game.opponentId, code: conn.code } : null}
       />
     );
   return (
@@ -169,6 +172,7 @@ export function OnlineMatchScreen({ conn, settings, onExit, onNewRoom }: { conn:
         deadlineAt: game.deadlineAt,
         nextAt: game.nextAt,
         emote: game.emote,
+        queue: game.queue,
         onReady: () => conn.ready(),
         onEmote: (id) => conn.sendEmote(id),
         onSeries: () => setSeriesOpen(true),
@@ -230,7 +234,7 @@ function MatchView({ setup, settings, onExit, onFinish, label, tutorial, next, g
   const over = state.phase === 'over';
   // Leaving a finished game is free, unless it's online and the series is still on (leaving forfeits it).
   const exitNeedsConfirm = !over || (!!online && !online.series.done);
-  const leaveText = online && !online.series.done ? 'You forfeit the series, and your opponent wins it.' : "The match is abandoned and can't be resumed.";
+  const leaveText = online && !online.series.done ? `You forfeit the series, and your opponent wins it.${online.queue ? ' Leaving strangers often means a short wait before you can search again.' : ''}` : "The match is abandoned and can't be resumed.";
   const decisionRef = useRef<HTMLDivElement | null>(null);
   pausedRef.current = !introSeen || !!detail || !!playSheet || showHistory || showHelp || confirmExit || evoSheet || evoPick || !!viewCard;
 

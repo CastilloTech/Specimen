@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { play } from './ui/sfx';
 import { UpdateToast } from './ui/components/AppPrompts';
+import { QueueBeacon } from './ui/components/QueueBeacon';
 import type { GameState, MatchSetup, PlayerId } from './engine';
 import type { OnlineConn } from './ui/online';
 import type { TowerOutcome } from './ui/screens/TowerScreen';
@@ -250,9 +251,12 @@ function Screens() {
     transition.current = { key, depth, cls: screen.name === 'match' || screen.name === 'onlineMatch' ? 'screen-in' : depth > was ? 'screen-fwd' : depth < was ? 'screen-back' : 'screen-in' };
   }
   return (
-    <div key={key} className={transition.current.cls}>
-      {renderScreen()}
-    </div>
+    <>
+      <div key={key} className={transition.current.cls}>
+        {renderScreen()}
+      </div>
+      <QueueBeacon show={screen.name !== 'online' && screen.name !== 'onlineMatch'} onJoin={() => setScreen({ name: 'online' })} />
+    </>
   );
 
   function renderScreen() {
@@ -333,7 +337,7 @@ function Screens() {
       case 'replay':
         return <ReplayScreen replay={screen.replay} shared={screen.shared} startAt={screen.startAt} onBack={() => setScreen(screen.back)} />;
       case 'online':
-        return <OnlineScreen initialCode={screen.code} onBack={menu} onStart={(conn) => setScreen({ name: 'onlineMatch', conn })} />;
+        return <OnlineScreen initialCode={screen.code} onBack={menu} onStart={(conn) => setScreen({ name: 'onlineMatch', conn })} onBotWait={quick} />;
       case 'onlineMatch':
         return <OnlineMatchScreen conn={screen.conn} settings={settings} onExit={menu} onNewRoom={() => setScreen({ name: 'online' })} />;
       case 'archive':

@@ -1,5 +1,6 @@
 import type { Action, GameState, MatchSetup, PlayerId, PlayerSetup } from '../engine';
 import type { EmoteId, SeriesView } from '../../server/room';
+import { deviceId } from './device';
 
 export type { EmoteId, GameResult, SeriesView } from '../../server/room';
 export { BEST_OF, EMOTES, WINS_NEEDED } from '../../server/room';
@@ -26,7 +27,8 @@ export async function createRoom(): Promise<string> {
   return code;
 }
 
-export type OnlineStatus = 'connecting' | 'waiting' | 'playing' | 'reconnecting' | 'closed';
+/** `noshow`: a room the queue made, given up because the other player never arrived. */
+export type OnlineStatus = 'connecting' | 'waiting' | 'playing' | 'reconnecting' | 'closed' | 'noshow';
 
 export interface OnlineView {
   state: GameState;
@@ -36,6 +38,9 @@ export interface OnlineView {
   opponentConnected: boolean;
   /** The opponent left the room on purpose (no rematch with them). */
   opponentLeft: boolean;
+  /** The opponent's public id (for Block / Report), and whether they're a stranger from the queue. */
+  opponentId: string | null;
+  queue: boolean;
   series: SeriesView;
   /** When the current decision times out, on this device's clock (ms), or null. */
   deadlineAt: number | null;
@@ -53,7 +58,8 @@ export interface EmoteEvent {
 type ServerMsg =
   | { t: 'joined'; seat: PlayerId; token: string; code: string }
   | { t: 'waiting'; code: string }
-  | { t: 'state'; state: GameState; seat: PlayerId; setup?: MatchSetup; opponentConnected: boolean; opponentLeft: boolean; series: SeriesView; deadlineIn: number | null }
+  | { t: 'state'; state: GameState; seat: PlayerId; setup?: MatchSetup; opponentConnected: boolean; opponentLeft: boolean; series: SeriesView; deadlineIn: number | null; opponentId?: string | null; queue?: boolean }
+  | { t: 'noshow' }
   | { t: 'emote'; seat: PlayerId; id: EmoteId }
   | { t: 'error'; message: string }
   | { t: 'pong' };
@@ -122,7 +128,7 @@ export class OnlineConn {
       } catch {
         /* no session storage */
       }
-      ws.send(JSON.stringify(token ? { t: 'join', token, player: this.player } : { t: 'join', player: this.player }));
+      ws.send(JSON.stringify(token ? { t: 'join', token, player: this.player } : { t: 'join', player: this.player, device: deviceId() }));
       // Keep the connection alive through proxies that drop idle sockets.
       if (this.ping) clearInterval(this.ping);
       this.ping = setInterval(() => ws.readyState === WebSocket.OPEN && ws.send(JSON.stringify({ t: 'ping' })), 25_000);
@@ -138,6 +144,11 @@ export class OnlineConn {
           /* reconnecting to the same seat won't work this time */
         }
       } else if (m.t === 'waiting') this.status = 'waiting';
+      else if (m.t === 'noshow') {
+        this.status = 'noshow';
+        this.closedByUs = true;
+        ws.close();
+      }
       else if (m.t === 'state') {
         const now = Date.now();
         // A server from before series existed: treat the room as a single game.
@@ -150,6 +161,8 @@ export class OnlineConn {
           setup: m.setup,
           opponentConnected: m.opponentConnected,
           opponentLeft: m.opponentLeft,
+          opponentId: m.opponentId ?? null,
+          queue: !!m.queue,
           series: m.series,
           deadlineAt: m.deadlineIn === null ? null : now + m.deadlineIn,
           nextAt: m.series.nextIn === null ? null : now + m.series.nextIn,
@@ -164,7 +177,7 @@ export class OnlineConn {
       if (this.ping) clearInterval(this.ping);
       // Between games and after the series the room stays open (the next game, a rematch), so reconnect then too.
       if (this.closedByUs) {
-        this.status = 'closed';
+        if (this.status !== 'noshow') this.status = 'closed';
         return this.emit();
       }
       // Try again, waiting a little longer each time (up to ~10 s).

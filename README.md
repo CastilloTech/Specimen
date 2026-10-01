@@ -915,6 +915,17 @@ Play a friend online with a 5-letter room code or an invite link (`#room=ABCDE`)
     - "Ana wants a rematch!" when they ask first;
     - one-tap Rematch, New room or Menu.
   - **Rejoin:** after a reload, the menu's online button becomes "Rejoin ABCDE".
+- **Strangers: the casual queue** (no ranks yet). Online screen → **Against a stranger** → **Find an opponent**.
+  - **Lobby** (`server/lobby.ts`, the `Lobby` Durable Object in `server/worker.ts`): one lobby for everyone. Whoever has waited longest is matched first, never with someone either player blocked. It makes a room only those two can join and sends each of them its code; the series then plays exactly like a friend room. The queue lives on the sockets themselves, so it survives the lobby sleeping.
+  - **No accounts.** Each device makes a random private id once (`src/ui/device.ts`). The server only ever shows others a hash of it (`pubOf`), which is what Block and Report point at.
+  - **Names** (`server/names.ts`, shared by the game for instant feedback). Friend rooms keep the save's name as it is. Strangers see a separate online name, picked once (suggested from the save's name, changeable). The server checks it:
+    - 3–16 characters: letters (accents allowed), numbers, spaces and `_ . ' -`;
+    - no links or social handles;
+    - reserved names (Z, the Handler, Admin, Moderator, Specimen…);
+    - a word filter that reads through spacing, repeats, accents and look-alikes ("f u c k", "sh1t"), with short words matched only whole so names like Classy, Peacock, Torpedo or Shinigami pass. Scunthorpe does not.
+  - **Waiting:** a radar with the time, how many others are searching, and matches made in the last hour. After 30 s: **Play a bot while you wait**. You stay queued; a pill shows the search goes on, and when someone is found a call-up offers **Join** (25 s) or **Not now**. Turning a match down calls the room off at once, and the other player goes back to the queue, keeping their place.
+  - **Block / Report** on a stranger series' result. Blocks are kept on the device and sent with each search. Reports go to the server's logs (Workers observability) for review.
+  - **Walking out of strangers' series:** 2 a day are free, then each adds 5 minutes before you can search again (up to 30). Friend rooms are never affected.
 - **Multiplayer stats** (Saves → Multiplayer, `MultiplayerStats.tsx`, `src/ui/multiplayer.ts`):
   - **Records:** each finished series is recorded in the loaded save (`SeriesRecord`, once per room and series). Online games are also tagged in the match records (`online: true`).
   - **Totals:** series and game records, the current and best streak, and deciding games won, plus sweeps and comebacks.
