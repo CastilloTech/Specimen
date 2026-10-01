@@ -876,6 +876,21 @@ The story is never explained. It lives in fragments, each from a biased source, 
 - **Menu.** The Specimen's eyes catch the light under the cursor, and it flinches, with a sound and a buzz, when tapped.
 - **Reduced motion.** Every one of these is off when the system's reduce-motion setting is on.
 
+### The first five minutes, and an opt-in daily reminder
+
+**First five minutes.** A brand-new player on a phone held upright was walked through from first launch to their first decision. It hit three walls, now gone:
+- **The tutorial opened on the full pre-match briefing,** a screen of Chip loadouts and evolution boosts full of jargon. Tutorials now start straight in the match, and every match's briefing is the short one (opponent, line, special rule, goal), with **Loadouts** a tap away.
+- **A full-screen "Turn your phone sideways" wall blocked play.** The board works upright, so it is now a small tip above your hand, dismissed for good with ✕.
+- **Upright, the decision sat below the fold.** The opening hand and Keep button were off-screen while the coach talked about them. When a decision becomes yours, the hand or prompt now scrolls into view.
+
+From the menu, a new player is now one tap from the tutorial match and five more from their first card.
+
+**Daily reminder (opt-in, off by default).** A web app can't schedule a notification on its own clock; without a push server, the closest thing is Periodic Background Sync, which Chrome and Edge offer to the installed app.
+- The Daily screen has a **Daily reminder** switch. Where the browser can't remind, it says so instead: install the app, or use a browser that can.
+- The service worker (`sw-plugin.ts`) wakes now and then. It shows at most one notification a day, between 9:00 and 22:00, only if today's challenge isn't won, with the streak and the next dispatch.
+- Tapping the notification opens the Daily screen.
+- The page keeps the worker's copy of that state current in a small cache (`src/ui/reminders.ts`).
+
 ### UI pass: containment-lab look and quality of life
 
 - **Art direction.** A dim containment-lab look: culture-plate grid background, bioluminescent accent, Chakra Petch display type (Google Fonts; falls back to system fonts offline), hazard tape for Meltdown. Every card has procedural "specimen plate" art (`src/ui/components/CardArt.tsx`), drawn from its type (and a graft's slot), tinted by faction and seeded by card id, so there are no image assets to maintain. Each Specimen is the bio-engineered creature from `src/assets/specimen.jpg` (cropped from the provided concept card art) in a containment tank, mirrored on the left-hand side so the two face each other, with graft sockets placed on its anatomy (helmet, neck cables, chest, resting hand, far forearm, hip; see `POS` in `Specimen.tsx`) and grafts shown as mini plates.

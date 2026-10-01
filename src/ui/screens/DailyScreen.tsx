@@ -16,6 +16,8 @@ import type { Progress } from '../modes';
 import { activeSave } from '../storage';
 import { BiomassBadge, BiomassIcon } from './GameModes';
 import { DIFFICULTY } from '../picks';
+import { ReminderToggle } from '../components/ReminderToggle';
+import { syncReminderState } from '../reminders';
 
 /** Time until the next local midnight, as "5h 12m". */
 function untilTomorrow(now: Date): string {
@@ -50,6 +52,7 @@ function SpecimenCard({ s, who, color }: { s: PlayerSetup; who: string; color: s
 /** The daily challenge: today's fixed match, your attempts, and your streak. */
 export function DailyScreen({ onBack, onFight, onWatch, last }: { onBack: () => void; onFight: (setup: MatchSetup, key: string) => void; onWatch: (r: SavedReplay) => void; last?: DailyOutcome | null }) {
   const [p] = useState<Progress>(() => loadProgress()!);
+  useEffect(() => void syncReminderState(p), [p]);
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 30000);
@@ -185,6 +188,7 @@ export function DailyScreen({ onBack, onFight, onWatch, last }: { onBack: () => 
           )}
         </section>
       )}
+      <ReminderToggle p={p} />
 
       <p className="text-center text-xs text-ink2">
         {rec.won ? (

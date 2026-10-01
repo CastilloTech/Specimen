@@ -12,6 +12,52 @@ const CACHE = 'specimen-${version}';
 const FONTS = 'specimen-fonts';
 const FILES = ${JSON.stringify(files)};
 
+// ---------- Daily reminder (opt-in) ----------
+// Periodic Background Sync (Chrome / Edge, installed app) wakes the worker now and then; if today's daily
+// challenge isn't won yet and no reminder went out today, it shows one notification between 9:00 and 22:00.
+// The page leaves what the worker needs (on/off, the last day won, the streak, the next dispatch) in a cache.
+const STATE = 'specimen-state';
+const pad = (n) => String(n).padStart(2, '0');
+const dayKey = (d = new Date()) => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+async function readState() {
+  const r = await (await caches.open(STATE)).match('./__reminder');
+  return r ? r.json() : null;
+}
+async function writeState(st) {
+  await (await caches.open(STATE)).put('./__reminder', new Response(JSON.stringify(st)));
+}
+self.addEventListener('periodicsync', (e) => {
+  if (e.tag !== 'specimen-daily') return;
+  e.waitUntil(
+    (async () => {
+      const st = await readState();
+      if (!st || !st.on) return;
+      const today = dayKey();
+      const hour = new Date().getHours();
+      if (st.wonDay === today || st.notifiedDay === today || hour < 9 || hour >= 22) return;
+      const body = st.streak > 0 ? 'Keep your ' + st.streak + '-day streak going. Dispatch ' + st.dispatch + ' is waiting.' : "Today's twist and Dispatch " + st.dispatch + ' are waiting.';
+      await self.registration.showNotification('A new Specimen challenge is ready', { body, tag: 'specimen-daily', icon: './icon-192.png', badge: './icon-192.png', data: { url: './#daily' } });
+      await writeState({ ...st, notifiedDay: today });
+    })(),
+  );
+});
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  const url = (e.notification.data && e.notification.data.url) || './';
+  e.waitUntil(
+    (async () => {
+      const open = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      for (const c of open) {
+        if ('focus' in c) {
+          if ('navigate' in c) await c.navigate(url).catch(() => {});
+          return c.focus();
+        }
+      }
+      return self.clients.openWindow(url);
+    })(),
+  );
+});
+
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)));
 });
@@ -25,7 +71,7 @@ self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches
       .keys()
-      .then((keys) => Promise.all(keys.filter((k) => k.startsWith('specimen-') && k !== CACHE && k !== FONTS).map((k) => caches.delete(k))))
+      .then((keys) => Promise.all(keys.filter((k) => k.startsWith('specimen-') && k !== CACHE && k !== FONTS && k !== STATE).map((k) => caches.delete(k))))
       .then(() => self.clients.claim()),
   );
 });

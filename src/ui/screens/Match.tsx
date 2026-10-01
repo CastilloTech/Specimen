@@ -71,7 +71,7 @@ export function MatchScreen({ setup, settings, onExit, onFinish, label, tutorial
   const pausedRef = useRef(false);
   const { state, dispatch, error, actor, timer, hurry, botActing } = useMatch(setup, defaultConfig.timers.enabled && !tutorial, pausedRef);
   const [coaching, setCoaching] = useState(!!tutorial);
-  const [introSeen, setIntroSeen] = useState(false);
+  const [introSeen, setIntroSeen] = useState(() => !!tutorial); // tutorials skip the pre-match briefing
   const [selected, setSelected] = useState<string | null>(null);
   const [faceDown, setFaceDown] = useState(false);
   const [cycleMode, setCycleMode] = useState(false);
@@ -100,11 +100,26 @@ export function MatchScreen({ setup, settings, onExit, onFinish, label, tutorial
   const arrivals = useArrivals(state.players[0].hand.map((c) => c.uid), introSeen);
   const phone = useMediaQuery(PHONE_LANDSCAPE);
   const portrait = useMediaQuery(PHONE_PORTRAIT);
-  const [portraitOk, setPortraitOk] = useState(false);
-  const rotating = portrait && !portraitOk;
+  // Upright on a phone: the board works, so a dismissible tip suggests landscape instead of a wall.
+  const [rotateTip, setRotateTip] = useState(() => {
+    try {
+      return localStorage.getItem('specimen.rotateTipOff') !== '1';
+    } catch {
+      return true;
+    }
+  });
+  const hideRotateTip = () => {
+    setRotateTip(false);
+    try {
+      localStorage.setItem('specimen.rotateTipOff', '1');
+    } catch {
+      /* not remembered */
+    }
+  };
 
   const over = state.phase === 'over';
-  pausedRef.current = !introSeen || !!detail || !!playSheet || showHistory || showHelp || confirmExit || rotating || evoSheet || evoPick || !!viewCard;
+  const decisionRef = useRef<HTMLDivElement | null>(null);
+  pausedRef.current = !introSeen || !!detail || !!playSheet || showHistory || showHelp || confirmExit || evoSheet || evoPick || !!viewCard;
 
   // You are always Player 1; the bot is Player 2.
   const me: PlayerId = 0;
@@ -325,6 +340,14 @@ export function MatchScreen({ setup, settings, onExit, onFinish, label, tutorial
   const lastStanceLine = [...state.log].reverse().find((l) => l.kind === 'stance' && l.round === state.round)?.text;
   // The Clash as things stand, and what the selected card would change.
   useHitStop(state);
+  // Upright, the hand and prompts sit below the Specimens: bring them into view when it's your decision.
+  useEffect(() => {
+    if (!portrait || !introSeen || !myDecision) return;
+    const el = decisionRef.current?.nextElementSibling as HTMLElement | null;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    if (r.top > window.innerHeight - 140) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [portrait, introSeen, myDecision, state.phase, state.round]);
   const clashNow = useMemo(() => clashPreview(state, me), [state, me]);
   // The music follows the match: Strain near the line, Meltdown, and low HP on either side raise the tension;
   // the result releases it.
@@ -758,7 +781,6 @@ export function MatchScreen({ setup, settings, onExit, onFinish, label, tutorial
         onExit={onExit}
       />
     );
-  if (rotating) return <RotatePrompt onAnyway={() => setPortraitOk(true)} onExit={onExit} />;
   if (phone) return phoneBoard();
 
   return (
@@ -886,6 +908,7 @@ export function MatchScreen({ setup, settings, onExit, onFinish, label, tutorial
         </div>
 
         {/* Prompt / hand */}
+        {portrait && rotateTip && <RotateTip onDismiss={hideRotateTip} />}
         {evoOffer && (
           <div className="pop flex items-center gap-2 rounded-xl border-2 border-violet-400/70 bg-violet-950/40 px-3 py-2 text-sm" role="status">
             <span className="font-display font-bold text-violet-200">✦ Evolution ready</span>
@@ -895,6 +918,7 @@ export function MatchScreen({ setup, settings, onExit, onFinish, label, tutorial
             </button>
           </div>
         )}
+        <div ref={decisionRef} className="contents" />
         {over ? (
           overBox(false)
         ) : !myDecision ? (
@@ -990,24 +1014,17 @@ export function MatchScreen({ setup, settings, onExit, onFinish, label, tutorial
 }
 
 /** Phone held upright during a match: ask to rotate (the board is designed for landscape). */
-function RotatePrompt({ onAnyway, onExit }: { onAnyway: () => void; onExit: () => void }) {
+/** Upright on a phone: a tip, not a wall. The board works this way; sideways just fits it on one screen. */
+function RotateTip({ onDismiss }: { onDismiss: () => void }) {
   return (
-    <div className="fixed inset-0 grid place-items-center p-6 text-center">
-      <div className="flex max-w-xs flex-col items-center gap-4">
-        <div className="rotate-hint grid h-24 w-14 place-items-center rounded-xl border-2 border-accent">
-          <span className="h-1 w-5 rounded-full bg-accent/60" />
-        </div>
-        <div className="font-display text-xl font-bold">Turn your phone sideways</div>
-        <p className="text-sm text-ink2">The match board is built for landscape: both Specimens, your hand and every control fit on one screen with no scrolling.</p>
-        <div className="flex w-full flex-col gap-2">
-          <button onClick={onAnyway} className="rounded-lg bg-panel2 px-4 py-2 text-sm font-semibold">
-            Play upright anyway
-          </button>
-          <button onClick={onExit} className="text-xs text-mute underline">
-            Leave match
-          </button>
-        </div>
-      </div>
+    <div className="flex items-center gap-3 rounded-xl border border-accent/40 bg-accent/10 px-3 py-2 text-xs text-ink2" role="note">
+      <span className="rotate-hint grid h-7 w-4 shrink-0 place-items-center rounded border-2 border-accent" aria-hidden>
+        <span className="h-0.5 w-2 rounded-full bg-accent/60" />
+      </span>
+      <span className="min-w-0 flex-1">Tip: turn your phone sideways to see the whole board at once.</span>
+      <button onClick={onDismiss} className="shrink-0 px-1 text-mute" aria-label="Hide this tip">
+        ✕
+      </button>
     </div>
   );
 }
@@ -1260,8 +1277,7 @@ function DetailSheet({ detail, state, me, myTurn, onClose, onReveal }: { detail:
 function Intro({ state, encounter, objective, onGo, onExit }: { state: GameState; encounter: EncounterLines | null; objective: Objective | null; onGo: () => void; onExit: () => void }) {
   // After a few matches the full briefing is a wall to click through: show who you face, what's special and
   // your goal, with the loadouts one tap away.
-  const [full, setFull] = useState(() => introsSeen() < 3);
-  useEffect(() => bumpIntros(), []);
+  const [full, setFull] = useState(false);
   if (!full)
     return (
       <div className="mx-auto flex min-h-dvh max-w-xl flex-col justify-center gap-3 p-4 phone:h-dvh phone:min-h-0 phone:gap-2 phone:p-2">
@@ -1366,23 +1382,6 @@ function Intro({ state, encounter, objective, onGo, onExit }: { state: GameState
       </div>
     </div>
   );
-}
-
-/** How many pre-match briefings this device has seen (the full one shows for the first few). */
-const INTROS_KEY = 'specimen.introsSeen';
-function introsSeen(): number {
-  try {
-    return Number(localStorage.getItem(INTROS_KEY)) || 0;
-  } catch {
-    return 0;
-  }
-}
-function bumpIntros(): void {
-  try {
-    localStorage.setItem(INTROS_KEY, String(introsSeen() + 1));
-  } catch {
-    /* not remembered this time */
-  }
 }
 
 /** This match's side goal in the header: live progress, green when done, struck through once out of reach. */

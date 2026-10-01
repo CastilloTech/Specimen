@@ -22,6 +22,7 @@ import { activeSave } from './ui/storage';
 import { applyDaily } from './ui/daily';
 import { clearIncoming, readIncoming, replayFromCode } from './ui/share';
 import type { DailyOutcome } from './ui/daily';
+import { syncReminderState } from './ui/reminders';
 
 type Screen =
   | { name: 'menu' }
@@ -91,6 +92,7 @@ const SCREEN_DEPTH: Record<Screen['name'], number> = { menu: 0, setup: 1, modes:
 function Screens() {
   useEffect(() => {
     // The match first (Quick match), then the screens most often opened from the menu, so none flashes a spinner.
+    void syncReminderState(loadProgress());
     const warm = () => {
       void import('./ui/screens/Match');
       for (const load of [() => import('./ui/screens/GameModes'), () => import('./ui/screens/DeckBuilder'), () => import('./ui/screens/TowerScreen'), () => import('./ui/screens/ArchiveScreen'), () => import('./ui/screens/PostMatch'), () => import('./ui/screens/DailyScreen')]) void load();
@@ -173,6 +175,7 @@ function Screens() {
       if (!p) return { after: { name: 'modes' } };
       const r = applyDaily(p, sc.daily, state);
       saveProgress(r.progress);
+      void syncReminderState(r.progress); // a win today means no reminder today
       return { after: { name: 'daily', last: r.outcome } };
     }
     if (sc.breach) {
