@@ -210,10 +210,15 @@ export const INVITE_MS = 120_000;
 export const FRIEND_PUSH_GAP_MS = 6 * 60 * 60 * 1000;
 /** A best of 1 or a best of 3 (the default). */
 export const seriesLength = (x: unknown) => (x === 1 ? 1 : 3);
-/** The next midnight UTC: when the free plan's daily allowance resets. */
+/**
+ * When the free plan's daily allowance should be back: the next midnight UTC. Cloudflare's reset can land a little
+ * after midnight, so in the first hours after it, a block that's still on means "any minute now", not "tomorrow".
+ */
 export const nextReset = (now: number) => {
   const d = new Date(now);
-  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1);
+  const midnight = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+  if (now - midnight < 3 * 3600_000) return now + 5 * 60_000;
+  return midnight + 24 * 3600_000;
 };
 /** A ban still in force for this kind of thing. */
 export const banned = (b: Ban | null | undefined, what: 'chat' | 'play', now: number) => !!b && b.until > now && (what === 'chat' || b.scope === 'all');

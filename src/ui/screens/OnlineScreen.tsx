@@ -1060,9 +1060,13 @@ function Resting({ until }: { until: number }) {
   return (
     <section className="lab-panel mx-auto flex w-full max-w-md flex-col gap-2 rounded-xl border-2 border-amber-400/60 p-4 text-center" role="status">
       <div className="font-display text-lg font-bold text-amber-200">Online play is resting</div>
-      <p className="text-sm text-ink2">
-        The free server used up today's allowance. It's back at <b>{new Date(until).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}</b> your time ({mins >= 60 ? `${Math.floor(mins / 60)} h ${mins % 60} min` : `${mins} min`}).
-      </p>
+      {mins <= 10 ? (
+        <p className="text-sm text-ink2">The free server's daily allowance is resetting: it should be back within a few minutes. This page checks every minute and lets you in as soon as it is.</p>
+      ) : (
+        <p className="text-sm text-ink2">
+          The free server used up today's allowance. It's back at <b>{new Date(until).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}</b> your time ({mins >= 60 ? `${Math.floor(mins / 60)} h ${mins % 60} min` : `${mins} min`}). This page lets you in as soon as it is.
+        </p>
+      )}
       <p className="text-xs text-mute">Quick match, Custom match, the Tower, Lineage, Breach and the Daily all still work.</p>
     </section>
   );

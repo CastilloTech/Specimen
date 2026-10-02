@@ -162,5 +162,7 @@ describe('Series length, bans and the daily reset', () => {
   it('the free allowance comes back at the next midnight UTC', () => {
     expect(new Date(nextReset(Date.UTC(2026, 9, 1, 20, 30))).toISOString()).toBe('2026-10-02T00:00:00.000Z');
     expect(new Date(nextReset(Date.UTC(2026, 11, 31, 23, 59))).toISOString()).toBe('2027-01-01T00:00:00.000Z');
+    // Still blocked just after midnight: the reset is running late, back in minutes (not tomorrow).
+    expect(nextReset(Date.UTC(2026, 9, 2, 0, 6)) - Date.UTC(2026, 9, 2, 0, 6)).toBe(5 * 60_000);
   });
 });
