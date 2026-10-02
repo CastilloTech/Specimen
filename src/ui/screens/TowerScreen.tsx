@@ -89,12 +89,12 @@ export function TowerScreen({ onBack, onCollection, onFight, last }: { onBack: (
             {last.won ? (
               <>
                 +<BiomassIcon /> {last.reward} biomass
-                {last.cleared ? '. A new run starts from floor 1.' : last.checkpoint ? '. Checkpoint reached: a loss now only sends you back here.' : ''}
+                {last.cleared ? '. A new run starts from floor 1.' : last.checkpoint ? '. Checkpoint reached: a loss can never send you below this floor.' : ''}
               </>
             ) : last.replay ? (
               'Losing a replay costs nothing. Your climb is unchanged.'
             ) : (
-              `Back to floor ${t.floor}.`
+              t.floor === last.floor ? `The checkpoint holds: you stay on floor ${t.floor}.` : `Down one floor, to floor ${t.floor}.`
             )}
           </div>
         </section>
@@ -115,7 +115,7 @@ export function TowerScreen({ onBack, onCollection, onFight, last }: { onBack: (
         <div className="w-[88%] overflow-hidden rounded-sm shadow-[0_0_40px_-10px_rgba(123,224,176,0.25)]">
           {floors.map((f) => {
             const state = f < t.floor ? 'cleared' : f === t.floor ? 'current' : 'locked';
-            // Just back from a floor: stamp it, then light the next one (or shake it and light the checkpoint).
+            // Just back from a floor: stamp it, then light the next one (or shake it and light the floor below).
             const fx: StoreyFx | undefined = last && !last.replay ? (f === last.floor ? (last.won ? (last.checkpoint ? 'checkpoint' : 'cleared') : 'fall') : f === t.floor && !last.cleared ? 'arrive' : undefined) : undefined;
             return <Storey key={f} floor={f} state={state} selected={pick === f} onClick={state === 'locked' ? undefined : () => setPick(f)} fx={fx} boss={!!floorInfo(f).boss} />;
           })}

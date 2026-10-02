@@ -22,7 +22,7 @@ export interface ModeDeck {
 export interface TowerState {
   /** The next floor to fight (1..TOWER_FLOORS). */
   floor: number;
-  /** Where a loss sends you back to: the floor after the last checkpoint you cleared. */
+  /** The lowest floor a loss can send you to: the floor after the last checkpoint you cleared. */
   checkpoint: number;
   best: number;
   clears: number;
@@ -281,12 +281,12 @@ export function replayResult(p: Progress, floor: number, won: boolean): { progre
   return { progress: { ...p, biomass: p.biomass + reward, earned: p.earned + reward }, reward };
 }
 
-/** Apply a Tower match result: biomass on a win, the next floor (or back to the checkpoint on a loss). A floor
- * pays in full the first time it is cleared in this save; clearing it again (climbing back after a checkpoint,
- * or in a later run) pays the replay rate, so the Tower can't be farmed. */
+/** Apply a Tower match result: biomass on a win and the next floor; a loss drops you one floor, but never below
+ * your last checkpoint. A floor pays in full the first time it is cleared in this save; clearing it again
+ * (climbing back after a loss, or in a later run) pays the replay rate, so the Tower can't be farmed. */
 export function towerResult(p: Progress, floor: number, won: boolean): { progress: Progress; reward: number; cleared: boolean } {
   const t = p.tower;
-  if (!won) return { progress: { ...p, tower: { ...t, floor: t.checkpoint } }, reward: 0, cleared: false };
+  if (!won) return { progress: { ...p, tower: { ...t, floor: Math.max(t.checkpoint, floor - 1) } }, reward: 0, cleared: false };
   const info = floorInfo(floor);
   const reward = floor > t.best ? info.reward : replayReward(floor);
   const cleared = floor >= TOWER_FLOORS;

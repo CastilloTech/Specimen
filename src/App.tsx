@@ -217,7 +217,7 @@ function Screens() {
     const floor = sc.towerFloor;
     if (!floor && sc.label === 'Quick match') recordQuickResult(state.result?.winner === 0 ? 'win' : state.result?.winner == null ? 'draw' : 'loss');
     if (!floor) return { after: { name: 'post', setup, state, label: sc.label }, next: sc.label === 'Quick match' ? { name: 'match', setup: quickBotSetup(), run: Date.now(), label: 'Quick match' } : undefined };
-    // A Tower floor: pay out, advance (or fall back to the checkpoint), and show the result on the map.
+    // A Tower floor: pay out, advance (or drop a floor, never below the checkpoint), and show the result on the map.
     const p = loadProgress();
     if (!p) return { after: { name: 'modes' } };
     const won = state.result?.winner === 0;

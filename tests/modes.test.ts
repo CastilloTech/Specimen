@@ -83,7 +83,7 @@ describe('The Tower', () => {
     expect(s.phase).toBe('over');
   });
 
-  it('wins pay biomass and advance; checkpoints every 5th floor; losses send you back to the checkpoint', () => {
+  it('wins pay biomass and advance; checkpoints every 5th floor; a loss drops one floor, never below the checkpoint', () => {
     let p = fresh();
     for (let f = 1; f <= 6; f++) p = towerResult(p, f, true).progress;
     expect(p.tower.floor).toBe(7);
@@ -92,6 +92,20 @@ describe('The Tower', () => {
     const lost = towerResult(p, 7, false);
     expect(lost.reward).toBe(0);
     expect(lost.progress.tower.floor).toBe(6);
+    // Higher up: one floor down per loss, until the checkpoint holds.
+    let q = p;
+    for (let f = 7; f <= 9; f++) q = towerResult(q, f, true).progress; // on floor 10, checkpoint still 6
+    expect(q.tower.floor).toBe(10);
+    q = towerResult(q, 10, false).progress;
+    expect(q.tower.floor).toBe(9);
+    for (const f of [9, 8, 7, 6, 6]) {
+      expect(q.tower.floor).toBe(f);
+      q = towerResult(q, f, false).progress;
+    }
+    expect(q.tower.floor).toBe(6); // the checkpoint holds
+    // From the very start (no checkpoint yet), floor 1 is the floor.
+    expect(towerResult(fresh(), 1, false).progress.tower.floor).toBe(1);
+    expect(towerResult(towerResult(fresh(), 1, true).progress, 2, false).progress.tower.floor).toBe(1);
     const cleared = towerResult({ ...p, tower: { ...p.tower, floor: 50 } }, 50, true);
     expect(cleared.cleared).toBe(true);
     expect(cleared.progress.tower).toMatchObject({ floor: 1, checkpoint: 1, clears: 1 });
@@ -113,14 +127,14 @@ describe('The Tower', () => {
 });
 
 describe('Biomass economy', () => {
-  it('a Tower floor pays in full only the first time: climbing back after a checkpoint pays the replay rate', () => {
+  it('a Tower floor pays in full only the first time: climbing back after a loss pays the replay rate', () => {
     let p = fresh();
     for (let f = 1; f <= 7; f++) p = towerResult(p, f, true).progress; // best 7, checkpoint 6
-    p = towerResult(p, 8, false).progress; // back to floor 6
-    expect(p.tower.floor).toBe(6);
-    const again = towerResult(p, 6, true);
-    expect(again.reward).toBe(replayReward(6));
-    let q = towerResult(again.progress, 7, true).progress;
+    p = towerResult(p, 8, false).progress; // down one floor, to 7
+    expect(p.tower.floor).toBe(7);
+    const again = towerResult(p, 7, true);
+    expect(again.reward).toBe(replayReward(7));
+    let q = again.progress;
     const fresh8 = towerResult(q, 8, true);
     expect(fresh8.reward).toBe(floorInfo(8).reward); // a new floor pays in full
     q = fresh8.progress;
