@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import specimenArt from '../../assets/specimen.jpg';
 import { CARD_MAP, publicGraft, SLOT_LABEL, veteranRank } from '../../engine';
 import type { EngineId, GameState, PlayerId, PlayerState, SlotId } from '../../engine';
@@ -10,6 +10,12 @@ import { Flatline, TankLogFx, useLogFx } from './MatchFx';
 import { StrainTankFx, useStrainFx } from './StrainFx';
 import { StatusAura, StatusBadges, StatusCallouts, StatusIcon, useStatusEvents } from './StatusFx';
 import { EngineIcon } from './EngineIcon';
+import { use3dPref } from '../three/pref';
+import type { Anchors, GraftView, StageEvent, StageState } from '../three/actor';
+import { ArenaCtx, ArenaViewCtx } from './Arena';
+
+// The 3D Specimen (three.js) loads only where 3D is on; the painting shows meanwhile, and wherever it's off.
+const Creature3D = lazy(() => import('../three/Creature3D'));
 
 /** A short-lived graft event on one slot: Integrity lost, the graft destroyed or ejected, or the slot necrosed. */
 interface GraftFx {
@@ -177,13 +183,6 @@ const POS: Record<SlotId, { x: number; y: number }> = {
   organB: { x: 50, y: 86 },
 };
 
-const BUBBLES = [
-  { left: '12%', delay: '0s', size: 4 },
-  { left: '27%', delay: '1.8s', size: 3 },
-  { left: '71%', delay: '0.9s', size: 5 },
-  { left: '88%', delay: '3.1s', size: 3 },
-  { left: '56%', delay: '2.4s', size: 2 },
-];
 
 interface Props {
   state: GameState;
@@ -197,8 +196,8 @@ interface Props {
   fill?: boolean;
 }
 
-/** The bio-engineered creature in its tank, behind the graft sockets. */
-export function Creature({ flip, surge, className = '', strain = 0, tint }: { flip?: boolean; surge?: boolean; className?: string; strain?: number; tint?: string }) {
+/** The creature as a painting (2D): when 3D is off, and while the 3D model loads. */
+export function Creature2D({ flip, surge, className = '', strain = 0, tint }: { flip?: boolean; surge?: boolean; className?: string; strain?: number; tint?: string }) {
   // Strain shows on the body: it breathes faster as it climbs, and trembles near the rejection line.
   const breath = `${(4.5 - 2.6 * Math.min(1, Math.max(0, strain))).toFixed(2)}s`;
   return (
@@ -207,10 +206,44 @@ export function Creature({ flip, surge, className = '', strain = 0, tint }: { fl
         <img src={specimenArt} alt="" draggable={false} className="specimen-breathe h-full w-full select-none object-cover" style={{ animationDuration: breath }} />
       </div>
       {tint && <div className="evolved-tint pointer-events-none absolute inset-0" style={{ background: `radial-gradient(ellipse 60% 70% at 50% 50%, ${tint}, transparent 75%)` }} />}
-      {/* Blend the painting into the tank: a dark vignette and a little tank-glass sheen. */}
+      {/* No tank: the painting's edges fade into the page. */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_75%_70%_at_50%_45%,transparent_55%,rgba(4,8,7,0.85))]" />
     </div>
   );
+}
+
+const STILL: StageState = { grafts: [], necrosis: [], strain: 0, hp: 1, tint: null, dead: false, won: false, color: '#7be0b0' };
+
+/** The creature on its own (the menu, Lineage, the tutorial's end): 3D where it's on, else the painting. */
+export function Creature(props: { flip?: boolean; surge?: boolean; className?: string; strain?: number; tint?: string; zoom?: number }) {
+  const on3d = use3dPref();
+  const { surge, strain = 0, tint } = props;
+  const state = useMemo<StageState>(() => ({ ...STILL, strain, tint: tint ?? null }), [strain, tint]);
+  const events = useMemo(() => (surge ? [{ id: 1, ev: { kind: 'evolve' } as StageEvent }] : []), [surge]);
+  if (!on3d) return <Creature2D {...props} />;
+  return (
+    <Suspense fallback={<Creature2D {...props} />}>
+      <Creature3D state={state} events={events} zoom={props.zoom ?? 1} yaw={props.flip ? 0.35 : 0} className={props.className} />
+    </Suspense>
+  );
+}
+
+/** In 3D, the graft plates stand at the sides (left: head, limb A; right: nerve, organ, limb B), each with a line
+ * to its socket on the body, so the creature and its grafts stay in view. Plates in a column keep apart. */
+const SIDE: Record<SlotId, 'L' | 'R'> = { head: 'L', limbA: 'L', organB: 'L', nerve: 'R', organ: 'R', limbB: 'R' };
+const PLATE_X = { L: 15, R: 85 };
+function plateLayout(anchors: Anchors, slots: SlotId[]): Partial<Record<SlotId, { x: number; y: number }>> {
+  const out: Partial<Record<SlotId, { x: number; y: number }>> = {};
+  for (const side of ['L', 'R'] as const) {
+    const col = slots.filter((s) => SIDE[s] === side && anchors[s]).sort((a, b) => anchors[a]!.y - anchors[b]!.y);
+    let last = -Infinity;
+    for (const s of col) {
+      const y = Math.min(90, Math.max(last + 17, Math.max(10, anchors[s]!.y)));
+      out[s] = { x: PLATE_X[side], y };
+      last = y;
+    }
+  }
+  return out;
 }
 
 export function Specimen({ state, player, viewer, flip, highlight, onSlot, color, fill }: Props) {
@@ -228,27 +261,113 @@ export function Specimen({ state, player, viewer, flip, highlight, onSlot, color
   const res = state.phase === 'over' ? state.result : null;
   const lost = !!res && res.winner !== null && res.winner !== player;
   const won = !!res && res.winner === player;
+  // ---- 3D: what's on the body, what just happened, and where the sockets are on screen ----
+  const on3d = use3dPref();
+  const [anchors, setAnchors] = useState<Anchors | null>(null);
+  const threshold = state.config.strain.threshold;
+  const stageState = useMemo<StageState>(
+    () => ({
+      grafts: p.grafts.map((g): GraftView => {
+        const pg = publicGraft(g, viewer === player);
+        const def = pg.cardId ? CARD_MAP[pg.cardId] : null;
+        return {
+          slot: g.slot,
+          uid: g.uid,
+          cardId: pg.cardId ?? null,
+          faceDown: g.faceDown,
+          color: def ? accentFor(def.faction) : '#5a6b63',
+          poisoned: g.poisoned > 0,
+          disabled: g.disabled > 0,
+          rank: def ? veteranRank(state, p, { cardId: def.id, roundsSurvived: g.roundsSurvived }) : 0,
+        };
+      }),
+      necrosis: (Object.keys(p.necrosis) as SlotId[]).filter((s) => (p.necrosis[s] ?? 0) > 0),
+      strain: p.strain / threshold,
+      hp: p.hp,
+      tint: p.evolution ? color : null,
+      dead: lost,
+      won,
+      color,
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [p.grafts, p.necrosis, p.strain, p.hp, p.evolution, threshold, lost, won, color, viewer, player],
+  );
+  const [events, setEvents] = useState<{ id: number; ev: StageEvent }[]>([]);
+  const sent = useRef(new Set<number>());
+  useEffect(() => {
+    const fresh: StageEvent[] = [];
+    for (const [slot, f] of Object.entries(fx) as [SlotId, GraftFx | undefined][]) {
+      if (!f || sent.current.has(f.key) || f.kind === 'necrosis') continue;
+      sent.current.add(f.key);
+      fresh.push({ kind: f.kind, slot });
+    }
+    for (const [slot, e] of Object.entries(engineFx) as [SlotId, { key: number; engine: EngineId } | undefined][]) {
+      if (!e || sent.current.has(e.key)) continue;
+      sent.current.add(e.key);
+      fresh.push({ kind: 'engine', slot, color: engineColor(e.engine) });
+    }
+    if (evolving && !sent.current.has(-strainFx.length)) {
+      sent.current.add(-strainFx.length);
+      fresh.push({ kind: 'evolve' });
+    }
+    if (fresh.length) setEvents((list) => [...list, ...fresh.map((ev, i) => ({ id: (list.at(-1)?.id ?? 0) + i + 1, ev }))].slice(-24));
+  }, [fx, engineFx, evolving, strainFx.length]);
+  // In the match's 3D arena, the creature stands in the shared scene behind this box; the box keeps the plates.
+  const arena = useContext(ArenaCtx);
+  const arenaView = useContext(ArenaViewCtx);
+  const boxRef = useCallback((el: HTMLDivElement | null) => arena?.box(player, el), [arena, player]);
+  useEffect(() => {
+    arena?.publish(player, stageState, events);
+  }, [arena, player, stageState, events]);
+  const shownAnchors = arena ? (arenaView.anchors[player] ?? null) : anchors;
+  // A knocked-out Specimen has fallen away from its sockets' spots, so its lines go.
+  const showLines = arena ? arenaView.lines && !lost : true;
+  const plates = on3d && shownAnchors ? plateLayout(shownAnchors, p.slots) : null;
+  const plateAt = (slot: SlotId) => plates?.[slot] ?? at(slot);
   return (
     <div
-      className={`relative aspect-square overflow-visible rounded-[26px] border ${fill ? 'h-full' : 'mx-auto w-full max-w-[230px] lg:max-w-[300px]'} ${lostOne ? 'graft-lost-shake' : ''}`}
-      style={{ borderColor: `${color}66`, boxShadow: `0 0 22px -6px ${color}88, inset 0 0 0 1px rgba(255,255,255,0.05)` }}
+      ref={arena ? boxRef : undefined}
+      className={`relative aspect-square overflow-visible ${fill ? 'h-full' : 'mx-auto w-full max-w-[230px] lg:max-w-[300px]'} ${lostOne ? 'graft-lost-shake' : ''}`}
       aria-label={`${p.name}'s Specimen`}
     >
-      <Creature flip={flip} surge={evolving} strain={p.strain / state.config.strain.threshold} tint={p.evolution ? color : undefined} className={`rounded-[26px] ${lost ? 'specimen-dead' : ''}`} />
-      {won && <div className="evo-aura pointer-events-none absolute inset-0 rounded-[26px] mix-blend-screen" style={{ background: `radial-gradient(ellipse 60% 65% at 50% 50%, ${color}66, transparent 72%)` }} />}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-[26px]" style={{ background: `linear-gradient(180deg, ${color}14, transparent 30%, transparent 75%, ${color}1f)` }}>
-        {BUBBLES.map((b, i) => (
-          <span key={i} className="tank-bubble absolute bottom-1 rounded-full border border-white/30" style={{ left: b.left, width: b.size, height: b.size, animationDelay: b.delay }} />
-        ))}
-        <div className="absolute inset-x-3 top-1.5 h-4 rounded-full bg-white/[0.05] blur-[1px]" />
-      </div>
+      {/* A soft glow on the floor in the player's colour, under the creature's feet (the arena has its own pedestals). */}
+      {!arena && <div className="pointer-events-none absolute inset-x-[18%] bottom-[2%] h-[9%] rounded-[50%] blur-md" style={{ background: `radial-gradient(ellipse, ${color}55, transparent 70%)` }} />}
+      {arena ? (
+        // The creature is in the arena; the painting stands in until it's there.
+        !shownAnchors && <Creature2D flip={flip} strain={p.strain / threshold} className={`rounded-[26px] ${lost ? 'specimen-dead' : ''}`} />
+      ) : on3d ? (
+        <Suspense fallback={<Creature2D flip={flip} strain={p.strain / threshold} className={`rounded-[26px] ${lost ? 'specimen-dead' : ''}`} />}>
+          <Creature3D yaw={flip ? 0.35 : -0.35} state={stageState} events={events} onAnchors={setAnchors} />
+        </Suspense>
+      ) : (
+        <Creature2D flip={flip} surge={evolving} strain={p.strain / threshold} tint={p.evolution ? color : undefined} className={`rounded-[26px] ${lost ? 'specimen-dead' : ''}`} />
+      )}
+      {won && <div className="evo-aura pointer-events-none absolute inset-0 rounded-[26px] mix-blend-screen" style={{ background: `radial-gradient(ellipse 60% 65% at 50% 50%, ${color}33, transparent 72%)` }} />}
+      {/* 3D: a thin line from each plate to its socket on the body, ending in a small dot. */}
+      {plates && shownAnchors && (
+        <svg className={`pointer-events-none absolute inset-0 z-[1] h-full w-full overflow-visible transition-opacity duration-300 ${showLines ? 'opacity-100' : 'opacity-0'}`} viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden>
+          {p.slots.map((slot) => {
+            const a = shownAnchors[slot];
+            const pl = plates[slot];
+            if (!a || !pl) return null;
+            const edge = SIDE[slot] === 'L' ? pl.x + 15 : pl.x - 15;
+            const lit = highlight?.has(slot);
+            return (
+              <g key={slot} opacity={lit ? 1 : 0.55}>
+                <polyline points={`${edge},${pl.y} ${(edge + a.x) / 2},${pl.y} ${a.x},${a.y}`} fill="none" stroke={lit ? '#7be0b0' : color} strokeWidth={lit ? 0.7 : 0.45} vectorEffect="non-scaling-stroke" />
+                <circle cx={a.x} cy={a.y} r={lit ? 1.4 : 0.9} fill={lit ? '#7be0b0' : color} />
+              </g>
+            );
+          })}
+        </svg>
+      )}
       <StatusAura state={state} player={player} />
       <StrainTankFx state={state} player={player} events={strainFx} flip={flip} layer="under" />
       {lostOne && <div className="graft-lost-flash pointer-events-none absolute inset-0 z-20 rounded-[26px] bg-red-600/35" />}
       <StatusBadges state={state} player={player} side={flip ? 'left' : 'right'} />
       {p.slots.map((slot) => {
-        const pos = POS[slot];
-        const x = flip ? 100 - pos.x : pos.x;
+        const pos = plateAt(slot);
+        const x = plates ? pos.x : flip ? 100 - pos.x : pos.x;
         const g = p.grafts.find((gr) => gr.slot === slot);
         const pg = g ? publicGraft(g, viewer === player) : null;
         const def = pg?.cardId ? CARD_MAP[pg.cardId] : null;
@@ -278,11 +397,11 @@ export function Specimen({ state, player, viewer, flip, highlight, onSlot, color
             onClick={() => onSlot?.(slot)}
             className={`absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-stretch overflow-visible border text-center leading-[1.05] transition ${
               lit
-                ? 'target-glow z-10 w-[36%] rounded-lg lg:w-[31%] border-accent bg-black/70'
+                ? `target-glow z-10 rounded-lg border-accent bg-black/70 ${plates ? 'w-[30%]' : 'w-[36%] lg:w-[31%]'}`
                 : pg
-                  ? 'w-[36%] rounded-lg lg:w-[31%] bg-panel/90 shadow-lg shadow-black/70 backdrop-blur-sm hover:brightness-125'
+                  ? `rounded-lg bg-panel/90 shadow-lg shadow-black/70 backdrop-blur-sm hover:brightness-125 ${plates ? 'w-[30%]' : 'w-[36%] lg:w-[31%]'}`
                   : necrotic > 0
-                    ? 'w-[36%] rounded-lg lg:w-[31%] border-fuchsia-700 bg-fuchsia-950/75'
+                    ? `rounded-lg border-fuchsia-700 bg-fuchsia-950/75 ${plates ? 'w-[30%]' : 'w-[36%] lg:w-[31%]'}`
                     : 'rounded-full border-dashed border-cyan-200/35 bg-black/55 px-1.5 hover:border-cyan-200/70'
             } ${f?.kind === 'reveal' ? 'graft-reveal' : ''} ${elite ? 'elite-ring ring-2 ring-fuchsia-300' : veteran ? 'veteran-ring ring-2 ring-amber-300' : ''} ${pg?.poisoned ? 'graft-poisoned ring-2 ring-fuchsia-500' : ''} ${pg?.disabled ? 'grayscale' : ''} ${wear ? 'wear-flash' : ''}`}
             style={{ left: `${x}%`, top: `${pos.y}%`, borderColor: pg && !lit ? `${accent}aa` : undefined }}
@@ -378,7 +497,7 @@ export function Specimen({ state, player, viewer, flip, highlight, onSlot, color
       {(state.config.slots as SlotId[])
         .filter((sl) => !p.slots.includes(sl))
         .map((sl) => {
-          const pos = at(sl);
+          const pos = plateAt(sl);
           return (
             <span key={`scar-${sl}`} className="pointer-events-none absolute z-[5] -translate-x-1/2 -translate-y-1/2 rounded-full border border-red-500/60 bg-red-950/80 px-1.5 py-0.5 font-display text-[8px] font-semibold uppercase tracking-wider text-red-300 line-through" style={{ left: `${pos.x}%`, top: `${pos.y}%` }} title={`${SLOT_LABEL[sl]}: lost for good (a Lineage scar)`}>
               {SLOT_LABEL[sl]}
@@ -394,14 +513,14 @@ export function Specimen({ state, player, viewer, flip, highlight, onSlot, color
         .filter((e) => e.caster === player)
         .map((e) => {
           // The left tank is the flipped one, so the other Specimen lies to the right of it.
-          const to = e.negated ? { x: 50, y: 45 } : e.target.player !== player ? { x: flip ? 150 : -50, y: 45 } : e.target.slot ? at(e.target.slot) : { x: 50, y: 45 };
+          const to = e.negated ? { x: 50, y: 45 } : e.target.player !== player ? { x: flip ? 150 : -50, y: 45 } : e.target.slot ? plateAt(e.target.slot) : { x: 50, y: 45 };
           return <CastCard key={`cast${e.key}`} ev={e} to={to} />;
         })}
       {/* ...and a faction-themed impact fires there. */}
       {plays
         .filter((e) => !e.negated && e.target.player === player)
         .map((e) => {
-          const pos = e.target.slot ? at(e.target.slot) : { x: 50, y: 45 };
+          const pos = e.target.slot ? plateAt(e.target.slot) : { x: 50, y: 45 };
           return (
             <div key={`impact${e.key}`} data-fx={e.theme} className="pointer-events-none absolute z-40 aspect-square w-[46%] -translate-x-1/2 -translate-y-1/2" style={{ left: `${pos.x}%`, top: `${pos.y}%` }}>
               <ImpactBurst theme={e.theme} color={e.color} />

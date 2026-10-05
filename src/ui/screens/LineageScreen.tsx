@@ -37,7 +37,7 @@ function SpecimenSheet({ p }: { p: Progress }) {
     <section className="lab-panel space-y-3 rounded-xl border border-line p-3" aria-label="Your Specimen">
       <div className="flex items-center gap-3">
         <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-2xl border border-accent/30">
-          <Creature />
+          <Creature zoom={1.7} />
           {l.lostSlots.length > 0 && <div className="absolute inset-0 bg-red-900/25" />}
         </div>
         <div className="min-w-0 flex-1">

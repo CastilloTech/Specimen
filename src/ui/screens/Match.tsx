@@ -50,6 +50,7 @@ import { claimOnlineDaily, ONLINE_DAILY_TEXT } from '../onlineDaily';
 import type { TimerView } from '../useMatch';
 import { Flavor } from '../components/Flavor';
 import { IconText } from '../components/EngineIcon';
+import { Arena, CamButton } from '../components/Arena';
 
 interface Props {
   setup: MatchSetup;
@@ -912,6 +913,7 @@ function MatchView({ setup, settings, onExit, onFinish, label, tutorial, next, g
             {online && !online.spectator && <EmoteBar me={me} latest={online.emote} onSend={online.onEmote} names={[state.players[0].name, state.players[1].name]} place="inline" />}
             {online && <WatchChip online={online} name={mine.name} />}
             {timer && <TimerBadge timer={timer} who={actor!} />}
+            <CamButton compact className="h-5" />
             <button onClick={() => setShowHistory(true)} className="rounded border border-line px-1.5 text-[11px] text-ink2">
               Plays
             </button>
@@ -945,14 +947,16 @@ function MatchView({ setup, settings, onExit, onFinish, label, tutorial, next, g
           <div className="min-h-0 min-w-0 rounded-lg" data-coach-id="me">
             <PlayerPanelCompact state={state} player={me} viewer={me} color={PLAYER_COLORS[me]} active={myDecision} onSheet={setEvoSheet} />
           </div>
-          <section className="relative flex h-full min-h-0 items-center gap-1" aria-label="Arena">
-            <PlayToast state={state} viewer={me} recs={toastRecs} onDismiss={() => setSeenPlays(playCount)} onOpen={setPlaySheet} />
-            {tank(me, 'left')}
-            <div className="relative flex h-full w-3 flex-col items-center justify-center">
-              <span className="font-display text-[9px] font-bold text-mute [writing-mode:vertical-rl]">VS</span>
-              <ClashBurst ev={clash} />
-            </div>
-            {tank(opp, 'right')}
+          <section className="relative isolate flex h-full min-h-0 items-center gap-1 rounded-lg" aria-label="Arena">
+            <Arena left={me} right={opp} clash={clash}>
+              <PlayToast state={state} viewer={me} recs={toastRecs} onDismiss={() => setSeenPlays(playCount)} onOpen={setPlaySheet} />
+              {tank(me, 'left')}
+              <div className="relative flex h-full w-3 flex-col items-center justify-center">
+                <span className="font-display text-[9px] font-bold text-mute [writing-mode:vertical-rl]">VS</span>
+                <ClashBurst ev={clash} />
+              </div>
+              {tank(opp, 'right')}
+            </Arena>
           </section>
           <PlayerPanelCompact state={state} player={opp} color={PLAYER_COLORS[opp]} active={state.phase === 'actions' && (state.window ? state.window.reactor : state.turn) === opp} onSheet={setEvoSheet} viewer={me} />
         </div>
@@ -1074,49 +1078,53 @@ function MatchView({ setup, settings, onExit, onFinish, label, tutorial, next, g
           </div>
 
           {/* Arena: the two Specimens face each other */}
-          <section className="relative rounded-xl border border-line bg-[radial-gradient(ellipse_at_50%_40%,rgba(123,224,176,0.06),transparent_65%)] px-1.5 py-2 lg:order-2 lg:flex lg:flex-col lg:justify-center lg:self-stretch" aria-label="Arena">
+          <section className="relative isolate rounded-xl border border-line bg-[radial-gradient(ellipse_at_50%_40%,rgba(123,224,176,0.06),transparent_65%)] px-1.5 py-2 lg:order-2 lg:flex lg:flex-col lg:justify-center lg:self-stretch" aria-label="Arena">
             <div className="mb-1 grid grid-cols-[1fr_auto_1fr] items-center gap-1 text-center">
               <span className="lab-label truncate" style={{ color: PLAYER_COLORS[me] }}>
                 {mine.name}
                 {online?.spectator ? '' : ' · you'}
               </span>
-              <span className="w-8" />
+              <span className="flex min-w-8 justify-center">
+                <CamButton />
+              </span>
               <span className="lab-label truncate" style={{ color: PLAYER_COLORS[opp] }}>
                 {theirs.name}
               </span>
             </div>
-            <PlayToast state={state} viewer={me} recs={toastRecs} onDismiss={() => setSeenPlays(playCount)} onOpen={setPlaySheet} />
-            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-1">
-              <div className={clashClasses(clash, me, 'left')} style={clashStyle(clash, me)}>
-                {/* The artwork's creature looks to its left, so the left-hand (your) tank is mirrored: both face the middle. */}
-                <div className="relative">
-                  <Specimen state={state} player={me} viewer={me} flip color={PLAYER_COLORS[me]} highlight={mineHi} onSlot={onMySlot} />
-                  <ClashDamage ev={clash} player={me} />
+            <Arena left={me} right={opp} clash={clash}>
+              <PlayToast state={state} viewer={me} recs={toastRecs} onDismiss={() => setSeenPlays(playCount)} onOpen={setPlaySheet} />
+              <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-1">
+                <div className={clashClasses(clash, me, 'left')} style={clashStyle(clash, me)}>
+                  {/* The artwork's creature looks to its left, so the left-hand (your) tank is mirrored: both face the middle. */}
+                  <div className="relative">
+                    <Specimen state={state} player={me} viewer={me} flip color={PLAYER_COLORS[me]} highlight={mineHi} onSlot={onMySlot} />
+                    <ClashDamage ev={clash} player={me} />
+                  </div>
+                  <StanceBadge state={state} player={me} show={stancesRevealed} />
                 </div>
-                <StanceBadge state={state} player={me} show={stancesRevealed} />
-              </div>
-              <div className="relative flex flex-col items-center gap-1 px-0.5">
-                <span className="h-10 w-px bg-linear-to-b from-transparent to-line" />
-                <span className="font-display text-[11px] font-bold tracking-widest text-mute">VS</span>
-                <span className="h-10 w-px bg-linear-to-t from-transparent to-line" />
-                <ClashBurst ev={clash} />
-              </div>
-              <div className={clashClasses(clash, opp, 'right')} style={clashStyle(clash, opp)}>
-                <div className="relative">
-                  <Specimen state={state} player={opp} viewer={me} color={PLAYER_COLORS[opp]} highlight={oppHi} onSlot={onOppSlot} />
-                  <ClashDamage ev={clash} player={opp} />
+                <div className="relative flex flex-col items-center gap-1 px-0.5">
+                  <span className="h-10 w-px bg-linear-to-b from-transparent to-line" />
+                  <span className="font-display text-[11px] font-bold tracking-widest text-mute">VS</span>
+                  <span className="h-10 w-px bg-linear-to-t from-transparent to-line" />
+                  <ClashBurst ev={clash} />
                 </div>
-                <StanceBadge state={state} player={opp} show={stancesRevealed} />
+                <div className={clashClasses(clash, opp, 'right')} style={clashStyle(clash, opp)}>
+                  <div className="relative">
+                    <Specimen state={state} player={opp} viewer={me} color={PLAYER_COLORS[opp]} highlight={oppHi} onSlot={onOppSlot} />
+                    <ClashDamage ev={clash} player={opp} />
+                  </div>
+                  <StanceBadge state={state} player={opp} show={stancesRevealed} />
+                </div>
               </div>
-            </div>
-            {lastStanceLine && state.phase !== 'stance' && <div className="mx-1 mt-1 rounded-lg bg-sky-950/40 px-3 py-1 text-center text-xs text-sky-200">{lastStanceLine}</div>}
-            {clashNow && !over && (
-              <div className="mx-1 mt-1 flex justify-center">
-                <ClashChip p={clashNow} />
-              </div>
-            )}
-            {recap && <div className="mx-1 mt-1 rounded-lg bg-black/30 px-3 py-1 text-center text-xs text-ink2">{recap}</div>}
-            <PlaysStrip state={state} viewer={me} onOpen={setPlaySheet} />
+              {lastStanceLine && state.phase !== 'stance' && <div className="mx-1 mt-1 rounded-lg bg-sky-950/40 px-3 py-1 text-center text-xs text-sky-200">{lastStanceLine}</div>}
+              {clashNow && !over && (
+                <div className="mx-1 mt-1 flex justify-center">
+                  <ClashChip p={clashNow} />
+                </div>
+              )}
+              {recap && <div className="mx-1 mt-1 rounded-lg bg-black/30 px-3 py-1 text-center text-xs text-ink2">{recap}</div>}
+              <PlaysStrip state={state} viewer={me} onOpen={setPlaySheet} />
+            </Arena>
           </section>
 
           <div className="rounded-xl lg:order-1" data-coach-id="me">

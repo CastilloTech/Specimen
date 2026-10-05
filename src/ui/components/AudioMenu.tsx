@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { canVibrate, play, setSoundPref, useSoundPref } from '../sfx';
+import { set3d, setCinematic, use3dPref, useCamPrefs } from '../three/pref';
 
 const SIZE = { xs: 'h-5 w-6 rounded text-[11px]', sm: 'h-7 w-8 rounded-md text-xs', md: 'h-9 w-9 rounded-lg text-base' };
 
@@ -60,8 +61,21 @@ export function SoundToggle({ size = 'md' }: { size?: 'xs' | 'sm' | 'md' }) {
           />
           <Row label="Music" on={p.music && p.musicVolume > 0} onToggle={() => setSoundPref({ music: !(p.music && p.musicVolume > 0), musicVolume: p.musicVolume > 0 ? p.musicVolume : 0.35 })} volume={p.musicVolume} onVolume={(musicVolume) => setSoundPref({ musicVolume, music: true })} />
           {canVibrate() && <Row label="Vibration" on={p.haptics} onToggle={() => setSoundPref({ haptics: !p.haptics })} />}
+          <ThreeDRow />
         </div>
       )}
     </div>
+  );
+}
+
+/** 3D Specimens on or off (automatic until changed: off on devices short of memory or without 3D). */
+function ThreeDRow() {
+  const on = use3dPref();
+  const cam = useCamPrefs();
+  return (
+    <>
+      <Row label="3D Specimens" on={on} onToggle={() => set3d(!on)} />
+      {on && <Row label="Cinematic camera" on={cam.cinematic} onToggle={() => setCinematic(!cam.cinematic)} />}
+    </>
   );
 }
