@@ -24,9 +24,9 @@ export interface Socket {
 }
 
 /** The animations a rigged model may have (clip names in the GLB). Any it lacks are simply not played.
- * idle: the plain idle, also the Aggress stance's. adapt/fortify: the idle in that stance. strained: the idle in the
+ * idle: the default idle (no stance). aggress/adapt/fortify: the idle in that stance. strained: the idle in the
  * rejection zone, whatever the stance. block: a clash where it holds instead of attacking. */
-export type Clip = 'idle' | 'attack' | 'hit' | 'die' | 'victory' | 'evolve' | 'adapt' | 'fortify' | 'strained' | 'block';
+export type Clip = 'idle' | 'attack' | 'hit' | 'die' | 'victory' | 'evolve' | 'aggress' | 'adapt' | 'fortify' | 'strained' | 'block';
 
 export interface SpecimenModel {
   url: string;

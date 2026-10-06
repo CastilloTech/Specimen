@@ -203,16 +203,16 @@ export class SpecimenActor {
     return !!this.mixer;
   }
 
-  /** The idle for now: the rejection stagger, else its stance's (Adapt, Fortify; Aggress is the plain idle). */
+  /** The idle for now: the rejection stagger, else its stance's (when the model has that clip), else the default. */
   private idleClip(): Clip {
     if (this.state?.rejecting && this.acts.strained) return 'strained';
     const st = this.state?.stance;
-    return (st === 'adapt' || st === 'fortify') && this.acts[st] ? st : 'idle';
+    return st && this.acts[st] ? st : 'idle';
   }
 
   /** Whether it's idling (in any stance), not in the middle of a one-off. */
   private get idling() {
-    return (['idle', 'adapt', 'fortify', 'strained'] as Clip[]).some((c) => this.acts[c] && this.acts[c] === this.cur);
+    return (['idle', 'aggress', 'adapt', 'fortify', 'strained'] as Clip[]).some((c) => this.acts[c] && this.acts[c] === this.cur);
   }
 
   /** The middle of the chest in world space, wherever a clash has carried it (where cameras look). */

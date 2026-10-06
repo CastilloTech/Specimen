@@ -15,12 +15,13 @@ How the game's 3D art was made, so it can be remade or extended.
 
    | Clip in the game | Mixamo animation | Plays when |
    |---|---|---|
-   | `idle` | Breathing Idle | the plain idle, and the Aggress stance (quicker as Strain climbs) |
+   | `idle` | Breathing Idle | the default idle, before a stance is picked (quicker as Strain climbs) |
    | `attack` | Mutant Swiping | a clash (both Specimens swing) |
    | `hit` | Hit Reaction | it loses HP |
    | `die` | Dying Backwards | the knockout |
    | `victory` | Mutant Roaring | it wins |
    | `evolve` | Sword And Shield Power Up | it evolves |
+   | `aggress` | Idle | its idle in the Aggress stance |
    | `adapt` | Ninja Idle | its idle in the Adapt stance |
    | `fortify` | Sword And Shield Block Idle | its idle in the Fortify stance |
    | `strained` | Drunk Idle Variation | its idle once Strain reaches the rejection zone (11+), whatever the stance |
