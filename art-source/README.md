@@ -47,6 +47,22 @@ and rebuild the GLB with the same steps. The game plays whichever of these clip 
 `graft-prompts.md` has an image prompt for each graft card. Each image goes through TRELLIS.2, and the model is
 saved under the card's id. Until a card has one, it gets a placeholder part made in code (`src/ui/three/grafts.ts`).
 
+Each TRELLIS model (about 100k triangles, 6 MB) is prepared for the game before it goes in:
+- simplified to about 6,000 triangles;
+- its texture's colours baked into the mesh's points, with no texture file;
+- given a semi-metallic finish;
+- compressed with meshopt.
+
+That's about 25 KB per graft, so a board full of them stays light. Grafts are seen small, so the lost fine detail
+doesn't show.
+
+Placement is automatic:
+- a limb graft wraps its forearm like a bracer, along the arm and thick enough to clear the creature's own blades;
+- card models are drawn 25% larger than that (`CARD_PART_SCALE`), so they read at board size;
+- other grafts stand on their socket.
+
+Done so far: `pred_bone_spur`.
+
 ## The arena
 
 Made from the prompts in `arena-prompts.md`. Both files are in `src/assets/models/`; without them the game

@@ -10,9 +10,11 @@ import specimenUrl from '../../assets/models/specimen.glb?url';
 //
 // Its animations are named clips (see Clip). The model was built from the Mixamo files in art-source/README.md.
 //
-// Per-card graft models go in src/assets/models/grafts/<card id>.glb, built to one convention: the point that
-// touches the body at the origin, pointing out along +Y, about 0.08 units across. A card without one gets a
-// placeholder part made in code for its slot (see grafts.ts).
+// Per-card graft models go in src/assets/models/grafts/<card id>.glb, sized and placed by the game:
+// - a limb graft wraps the forearm like a bracer: its longest side (x or z) runs along the forearm, its top (+Y)
+//   faces out of the arm;
+// - any other sits on its socket: its bottom touches the body, its top (+Y) points out, about 0.08 units across.
+// A card without one gets a placeholder part made in code for its slot (see grafts.ts).
 
 export interface Socket {
   /** Where on the body (model units). */

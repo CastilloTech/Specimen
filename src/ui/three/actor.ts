@@ -60,6 +60,12 @@ const PART_SCALE: Record<SlotId, number> = { head: 1.9, nerve: 1.9, organ: 1.2, 
  * arena's impact shake and the board's hit-stop land then too). The one struck reacts at the same moment. */
 const ATTACK_SPEED = 1.4;
 const STRIKE_MS = 300;
+/** A limb graft's model covers this much of the forearm's length, and is this much thicker around than its length
+ * alone would make it (the forearm carries blades a bracer has to clear). */
+const WRAP_LENGTH = 0.9;
+const WRAP_GIRTH = 2;
+/** Card graft models are drawn this much larger than the sizes above, so they read at board size. */
+const CARD_PART_SCALE = 1.25;
 
 interface Mounted {
   uid: string;
@@ -311,12 +317,15 @@ export class SpecimenActor {
             if (this.disposed || !cur || cur.uid !== g.uid || cur.leaving) return;
             const obj = cloneSkinned(gl.scene);
             obj.userData.shared = true;
-            // Sit it on the socket: its base at the origin, about 0.08 units across.
             const box = new THREE.Box3().setFromObject(obj);
-            const size = box.getSize(new THREE.Vector3());
-            const k = 0.08 / Math.max(size.x, size.y, size.z, 0.001);
-            obj.scale.setScalar(k);
-            obj.position.set(-((box.min.x + box.max.x) / 2) * k, -box.min.y * k, -((box.min.z + box.max.z) / 2) * k);
+            // A limb's model wraps the forearm; any other sits on its socket: base at the origin, about 0.08 across.
+            const limb = g.slot === 'limbA' || g.slot === 'limbB';
+            if (!limb || !this.wrapForearm(g.slot, cur.holder, obj, box)) {
+              const size = box.getSize(new THREE.Vector3());
+              const k = (CARD_PART_SCALE * 0.08) / Math.max(size.x, size.y, size.z, 0.001);
+              obj.scale.setScalar(k);
+              obj.position.set(-((box.min.x + box.max.x) / 2) * k, -box.min.y * k, -((box.min.z + box.max.z) / 2) * k);
+            }
             const glow: THREE.MeshStandardMaterial[] = [];
             obj.traverse((o) => {
               const mesh = o as THREE.Mesh;
@@ -336,6 +345,43 @@ export class SpecimenActor {
           })
           .catch(() => undefined);
     }
+  }
+
+  /**
+   * A limb graft's model goes round the forearm like a bracer: its longest side (x or z) along the forearm, centred
+   * on it, WRAP_LENGTH of its length and WRAP_GIRTH thicker, its top (+y) facing out where the socket faces. Set in the
+   * forearm bone's own space, so it rides the arm through every animation. False if the socket has no forearm.
+   */
+  private wrapForearm(slot: SlotId, holder: THREE.Object3D, obj: THREE.Object3D, box: THREE.Box3): boolean {
+    const mark = this.marks.get(slot);
+    const bone = mark?.parent as THREE.Bone | null | undefined;
+    const hand = bone?.isBone ? (bone.children.find((c) => (c as THREE.Bone).isBone) as THREE.Bone | undefined) : undefined;
+    if (!mark || !bone?.isBone || !hand) return false;
+    const size = box.getSize(new THREE.Vector3());
+    const centre = box.getCenter(new THREE.Vector3());
+    // The model's frame: its long side, and up.
+    const long = size.x >= size.z ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 0, 1);
+    const length = Math.max(size.x, size.z, 0.001);
+    const modelBasis = new THREE.Matrix4().makeBasis(long, UP, long.clone().cross(UP));
+    // The forearm's frame (in the bone's space): along it to the hand, and out where the socket faces.
+    const along = hand.position.clone().normalize();
+    const out = UP.clone().applyQuaternion(mark.quaternion);
+    out.addScaledVector(along, -out.dot(along)).normalize();
+    const armBasis = new THREE.Matrix4().makeBasis(along, out, along.clone().cross(out));
+    // Its length to the forearm's; around, wide enough to clear the creature's own forearm blades.
+    const k = (CARD_PART_SCALE * WRAP_LENGTH * hand.position.length()) / length;
+    const girth = k * WRAP_GIRTH;
+    const scale = long.x ? new THREE.Matrix4().makeScale(k, girth, girth) : new THREE.Matrix4().makeScale(girth, girth, k);
+    const wrap = new THREE.Matrix4()
+      .makeTranslation(hand.position.clone().multiplyScalar(0.5))
+      .multiply(armBasis.multiply(modelBasis.transpose()))
+      .multiply(scale)
+      .multiply(new THREE.Matrix4().makeTranslation(-centre.x, -centre.y, -centre.z));
+    // Expressed in the holder's space (the holder sits on the socket, which rides the same bone).
+    mark.updateMatrix();
+    holder.updateMatrix();
+    mark.matrix.clone().multiply(holder.matrix).invert().multiply(wrap).decompose(obj.position, obj.quaternion, obj.scale);
+    return true;
   }
 
   /** Same graft, new look (a face-down graft revealed). */
