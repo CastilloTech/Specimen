@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import specimenArt from '../../assets/specimen.jpg';
-import { CARD_MAP, publicGraft, SLOT_LABEL, veteranRank } from '../../engine';
+import { CARD_MAP, publicGraft, SLOT_LABEL, veteranRank, zoneOf } from '../../engine';
 import type { EngineId, GameState, PlayerId, PlayerState, SlotId } from '../../engine';
 import { ENGINE_META, engineColor } from '../meta';
 import { CardArt } from './CardArt';
@@ -212,7 +212,7 @@ export function Creature2D({ flip, surge, className = '', strain = 0, tint }: { 
   );
 }
 
-const STILL: StageState = { grafts: [], necrosis: [], strain: 0, hp: 1, tint: null, dead: false, won: false, color: '#7be0b0' };
+const STILL: StageState = { grafts: [], necrosis: [], strain: 0, hp: 1, tint: null, dead: false, won: false, color: '#7be0b0', stance: null, rejecting: false };
 
 /** The creature on its own (the menu, Lineage, the tutorial's end): 3D where it's on, else the painting. */
 export function Creature(props: { flip?: boolean; surge?: boolean; className?: string; strain?: number; tint?: string; zoom?: number }) {
@@ -265,6 +265,10 @@ export function Specimen({ state, player, viewer, flip, highlight, onSlot, color
   const on3d = use3dPref();
   const [anchors, setAnchors] = useState<Anchors | null>(null);
   const threshold = state.config.strain.threshold;
+  // A stance shapes the idle: your own as soon as you pick it, the opponent's once stances are revealed.
+  const revealed = state.phase === 'actions' || state.phase === 'feint' || state.phase === 'evolve' || state.phase === 'over';
+  const stance = p.stance && (revealed || player === viewer) ? p.stance : null;
+  const rejecting = zoneOf(state, p) === 'rejection';
   const stageState = useMemo<StageState>(
     () => ({
       grafts: p.grafts.map((g): GraftView => {
@@ -288,9 +292,11 @@ export function Specimen({ state, player, viewer, flip, highlight, onSlot, color
       dead: lost,
       won,
       color,
+      stance,
+      rejecting,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [p.grafts, p.necrosis, p.strain, p.hp, p.evolution, threshold, lost, won, color, viewer, player],
+    [p.grafts, p.necrosis, p.strain, p.hp, p.evolution, threshold, lost, won, color, viewer, player, stance, rejecting],
   );
   const [events, setEvents] = useState<{ id: number; ev: StageEvent }[]>([]);
   const sent = useRef(new Set<number>());

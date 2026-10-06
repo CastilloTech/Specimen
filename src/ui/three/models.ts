@@ -23,14 +23,18 @@ export interface Socket {
   bone?: string;
 }
 
-/** The animations a rigged model may have (clip names in the GLB). Any it lacks are simply not played. */
-export type Clip = 'idle' | 'attack' | 'hit' | 'die' | 'victory' | 'evolve';
+/** The animations a rigged model may have (clip names in the GLB). Any it lacks are simply not played.
+ * idle: the plain idle, also the Aggress stance's. adapt/fortify: the idle in that stance. strained: the idle in the
+ * rejection zone, whatever the stance. block: a clash where it holds instead of attacking. */
+export type Clip = 'idle' | 'attack' | 'hit' | 'die' | 'victory' | 'evolve' | 'adapt' | 'fortify' | 'strained' | 'block';
 
 export interface SpecimenModel {
   url: string;
   sockets: Record<SlotId, Socket>;
   /** Seconds into the attack clip where the blow lands (it's played so the blow meets the clash's impact). */
   attackStrike?: number;
+  /** Seconds into the block clip where the guard is up (likewise). */
+  blockUp?: number;
 }
 
 export const SPECIMEN: SpecimenModel = {
@@ -47,6 +51,7 @@ export const SPECIMEN: SpecimenModel = {
     organB: { at: [0, 0.06, 0.07], out: [0, 0, 1], bone: 'mixamorigSpine' },
   },
   attackStrike: 1.3,
+  blockUp: 0.95,
 };
 
 /** Card graft models that exist (src/assets/models/grafts/<card id>.glb), loaded only when that card is on a body. */

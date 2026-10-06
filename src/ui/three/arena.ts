@@ -13,8 +13,8 @@ import type { CamView } from './pref';
 // leader lines hide until the camera is back.
 //
 // Optional art, dropped into src/assets/models/ (no code needed):
-//   arena.glb                 the arena set (floor, walls...), replacing the built-in lab. Its floor is its lowest
-//                             point; it's centred and scaled to about 4.6 units across.
+//   arena.glb                 the arena set (floor, walls...), replacing the built-in lab. It's centred, scaled to
+//                             ARENA_SIZE across and darkened; its floor is the surface at its open middle.
 //   arena-sky.jpg/.webp/.png  a 360° panorama (2:1, equirectangular) behind everything.
 
 export type Side = 'left' | 'right';
@@ -36,17 +36,28 @@ const TAN = Math.tan(THREE.MathUtils.degToRad(FOV / 2));
 /** How much of its box a Specimen fills (height), in the Broadcast view. */
 const FILL = 0.9;
 const FLOOR = -0.5;
+/** The Broadcast camera stays this close (inside the arena's rim); past it, it zooms with the lens instead. */
+const MAX_DIST = 2.9;
+/** An arena.glb's width (world units; a Specimen is 1 tall), and how much its colours are darkened. */
+const ARENA_SIZE = 7;
+/** The backdrop goes round the arena this many times (its tanks look this many times smaller), turned so a tank
+ * stands behind the arena in Broadcast. */
+const SKY_WRAP = 3;
+const SKY_TURN = (0.25 + 0.75 * SKY_WRAP) % 1; // the image's tank (a quarter in) at the dome's -Z (three quarters round)
+const ARENA_SHADE = 0.34;
 const ACCENT = 0x7be0b0;
 const BG = 0x040908;
 /** Which way each Specimen faces: three-quarters to the audience in Broadcast, squarer to each other otherwise,
  * and square on while they fight. */
-const YAW = { show: 0.45, duel: 0.95, fight: 1.35 };
+const YAW = { show: 0.45, duel: 0.95, fight: 1.35, stance: 1.2 };
 /** In a clash they meet this far apart (centre to centre): close enough for the claws to land. */
 const CONTACT = 0.34;
 
 interface Shot {
   pos: THREE.Vector3;
   target: THREE.Vector3;
+  /** Field of view (degrees); FOV if not given. */
+  fov?: number;
 }
 interface Cue {
   kind: 'clash' | 'evolve' | 'finale';
@@ -56,6 +67,23 @@ interface Cue {
 }
 
 const v3 = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
+
+/** The height of a model's floor: its highest point within `r` of its centre (world units). Null if nothing's there. */
+function centreFloor(obj: THREE.Object3D, r: number): number | null {
+  const centre = new THREE.Box3().setFromObject(obj).getCenter(v3());
+  const v = v3();
+  let top = -Infinity;
+  obj.traverse((o) => {
+    const m = o as THREE.Mesh;
+    if (!m.isMesh) return;
+    const pos = m.geometry.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      v.fromBufferAttribute(pos, i).applyMatrix4(m.matrixWorld);
+      if (Math.hypot(v.x - centre.x, v.z - centre.z) < r && v.y > top) top = v.y;
+    }
+  });
+  return top > -Infinity ? top : null;
+}
 
 // ---------- The built-in lab ----------
 
@@ -289,6 +317,8 @@ export class ArenaStage {
   private lx = -0.6;
   private rx = 0.6;
   private dist = 3;
+  /** The Broadcast camera's field of view (degrees): narrower when the layout wants it further back than MAX_DIST. */
+  private lens = FOV;
   private camY = 0;
   private view: CamView = 'broadcast';
   private cinematic = true;
@@ -297,7 +327,10 @@ export class ArenaStage {
   private camPos = v3();
   private camTarget = v3();
   private placed = false;
-  private yaw = YAW.show;
+  /** How far each Specimen is turned toward the other (radians; the right one mirrors it). */
+  private yaw: Record<Side, number> = { left: YAW.show, right: YAW.show };
+  /** The turn each one rests at in Broadcast (the plates are laid out for it): squared up in a stance. */
+  private restYaw: Record<Side, number> = { left: YAW.show, right: YAW.show };
   /** Until when (scene ms) a clash is being fought: they square up to each other. */
   private fightUntil = -1;
   private linesShown: boolean | null = null;
@@ -353,9 +386,19 @@ export class ArenaStage {
         obj.userData.shared = true;
         const box = new THREE.Box3().setFromObject(obj);
         const size = box.getSize(v3());
-        const k = 4.6 / Math.max(size.x, size.z, 0.001);
+        const k = ARENA_SIZE / Math.max(size.x, size.z, 0.001);
         obj.scale.setScalar(k);
-        obj.position.set(-((box.min.x + box.max.x) / 2) * k, FLOOR - box.min.y * k, -((box.min.z + box.max.z) / 2) * k);
+        obj.position.set(-((box.min.x + box.max.x) / 2) * k, 0, -((box.min.z + box.max.z) / 2) * k);
+        obj.updateMatrixWorld(true);
+        // The Specimens stand on its floor: the surface at its open middle (its base and rim may sit lower).
+        obj.position.y = FLOOR - (centreFloor(obj, 0.12 * Math.max(size.x, size.z) * k) ?? box.min.y * k);
+        // Toned down to the lab's darkness: bright chrome would glare and swallow the dark Specimens.
+        obj.traverse((o) => {
+          const m = (o as THREE.Mesh).material as THREE.MeshStandardMaterial | undefined;
+          if (!m || !('envMapIntensity' in m)) return;
+          m.envMapIntensity = 0.35;
+          m.color.multiplyScalar(ARENA_SHADE);
+        });
         this.scene.remove(this.lab.set);
         this.scene.add(obj);
         this.wake();
@@ -367,10 +410,21 @@ export class ArenaStage {
     if (sky) {
       try {
         const tex = await new THREE.TextureLoader().loadAsync(await sky());
-        tex.mapping = THREE.EquirectangularReflectionMapping;
         tex.colorSpace = THREE.SRGBColorSpace;
-        this.scene.background = tex;
-        this.scene.backgroundIntensity = 0.7;
+        // Wrapped SKY_WRAP times around the arena and squeezed into the middle band of the sky to match, so what's in
+        // it looks SKY_WRAP times smaller (further off). The image's edges meet seamlessly, so it can repeat.
+        tex.wrapS = THREE.RepeatWrapping;
+        tex.repeat.set(-SKY_WRAP, SKY_WRAP); // negative: seen from inside the dome, it would be mirrored
+        tex.offset.set(SKY_TURN, (1 - SKY_WRAP) / 2);
+        const dome = new THREE.Mesh(
+          new THREE.SphereGeometry(30, 64, 32),
+          new THREE.MeshBasicMaterial({ map: tex, side: THREE.BackSide, fog: false, depthWrite: false, color: new THREE.Color(0.7, 0.7, 0.7) }),
+        );
+        dome.renderOrder = -1;
+        this.scene.add(dome);
+        this.scene.background = new THREE.Color(0x000000);
+        // Lighter haze: the backdrop now gives the depth, and thick fog would ring the arena in black against it.
+        this.scene.fog = new THREE.FogExp2(BG, 0.06);
         this.wake();
       } catch {
         /* keep the plain dark */
@@ -419,6 +473,12 @@ export class ArenaStage {
       this.dist = this.fit(1.25, 0.6);
       this.camY = 0;
     }
+    // Too far back would put the camera outside the arena, behind its rim: come in, and zoom to match.
+    const reach = this.dist * TAN;
+    this.dist = Math.min(this.dist, MAX_DIST);
+    this.lens = THREE.MathUtils.radToDeg(2 * Math.atan(reach / this.dist));
+    this.layoutCam.fov = this.lens;
+    this.layoutCam.updateProjectionMatrix();
     this.layoutCam.position.set(0, this.camY, this.dist);
     this.layoutCam.lookAt(0, this.camY, 0);
     this.layoutCam.updateMatrixWorld();
@@ -432,8 +492,8 @@ export class ArenaStage {
     this.actors.right.root.position.set(this.rx, 0, 0);
     this.pedestals.left.group.position.x = this.lx;
     this.pedestals.right.group.position.x = this.rx;
-    this.actors.left.root.rotation.y = this.yaw;
-    this.actors.right.root.rotation.y = -this.yaw;
+    this.actors.left.root.rotation.y = this.yaw.left;
+    this.actors.right.root.rotation.y = -this.yaw.right;
   }
 
   /** Each socket's spot on the canvas (pixels) in the Broadcast view, for the plates. */
@@ -443,7 +503,7 @@ export class ArenaStage {
     if (!a.ready) return out;
     // Measured with the Specimens turned as they are in Broadcast, whatever the camera is doing now.
     const was = a.root.rotation.y;
-    a.root.rotation.y = side === 'left' ? YAW.show : -YAW.show;
+    a.root.rotation.y = side === 'left' ? this.restYaw.left : -this.restYaw.right;
     a.root.updateMatrixWorld(true);
     const v = v3();
     for (const slot of Object.keys(a.model.sockets) as SlotId[]) {
@@ -461,6 +521,12 @@ export class ArenaStage {
     const a = this.actors[side];
     const wasWon = a.state?.won;
     a.setState(s);
+    // In a stance (and not staggering under rejection Strain) it squares up to its opponent; the plates follow.
+    const rest = s.stance && !s.rejecting ? YAW.stance : YAW.show;
+    if (rest !== this.restYaw[side]) {
+      this.restYaw[side] = rest;
+      this.onLayout();
+    }
     this.pedestals[side].ring.emissive.set(s.color);
     this.pedestals[side].pool.color.set(s.color);
     if (s.won && wasWon === false) this.cue('finale', side);
@@ -586,7 +652,7 @@ export class ArenaStage {
         return { shot: { target: v3(mid, 0, 0), pos: v3(mid + Math.sin(a) * d, 0.18 + 0.12 * Math.sin(t * 0.07), Math.cos(a) * d) }, cue: false };
       }
       default:
-        return { shot: { target: v3(0, this.camY, 0), pos: v3(0, this.camY, this.dist) }, cue: false };
+        return { shot: { target: v3(0, this.camY, 0), pos: v3(0, this.camY, this.dist), fov: this.lens }, cue: false };
     }
   }
 
@@ -595,18 +661,25 @@ export class ArenaStage {
     const { shot, cue } = this.shot();
     // The Specimens square up to each other away from Broadcast.
     const fighting = this.time < this.fightUntil;
-    const wantYaw = fighting ? YAW.fight : !cue && (this.view === 'broadcast' || this.view === 'overhead') ? YAW.show : YAW.duel;
-    this.yaw += (wantYaw - this.yaw) * (1 - Math.exp(-dt * (fighting ? 12 : 3)));
+    const calm = !cue && (this.view === 'broadcast' || this.view === 'overhead');
+    for (const side of ['left', 'right'] as const) {
+      const want = fighting ? YAW.fight : calm ? this.restYaw[side] : Math.max(YAW.duel, this.restYaw[side]);
+      this.yaw[side] += (want - this.yaw[side]) * (1 - Math.exp(-dt * (fighting ? 12 : 3)));
+    }
     this.place();
+    const fov = shot.fov ?? FOV;
     if (!this.placed) {
       this.camPos.copy(shot.pos);
       this.camTarget.copy(shot.target);
+      this.camera.fov = fov;
       this.placed = true;
     } else {
       const k = 1 - Math.exp(-dt * (cue ? 6 : 3.2));
       this.camPos.lerp(shot.pos, k);
       this.camTarget.lerp(shot.target, k);
+      this.camera.fov += (fov - this.camera.fov) * k;
     }
+    this.camera.updateProjectionMatrix();
     this.camera.position.copy(this.camPos);
     this.shake = Math.max(0, this.shake - dt * 2.2);
     if (this.shake > 0 && !this.reduced) {
@@ -615,7 +688,7 @@ export class ArenaStage {
     }
     this.camera.lookAt(this.camTarget);
     // The plates' lines show only when Broadcast is at rest (the plates were laid out for it).
-    const rest = !cue && !fighting && this.view === 'broadcast' && this.camPos.distanceTo(shot.pos) < 0.02 && Math.abs(this.yaw - YAW.show) < 0.01;
+    const rest = !cue && !fighting && this.view === 'broadcast' && this.camPos.distanceTo(shot.pos) < 0.02 && Math.abs(this.camera.fov - fov) < 0.05 && Math.abs(this.yaw.left - this.restYaw.left) < 0.01 && Math.abs(this.yaw.right - this.restYaw.right) < 0.01;
     if (rest !== this.linesShown) {
       this.linesShown = rest;
       this.onLines(rest);

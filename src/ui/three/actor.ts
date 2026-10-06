@@ -42,6 +42,10 @@ export interface StageState {
   won: boolean;
   /** The player's colour (rim light). */
   color: string;
+  /** Its stance this round, once the viewer may know it (it shapes the idle). */
+  stance: 'aggress' | 'fortify' | 'adapt' | null;
+  /** In the rejection zone (Strain past the threshold): it staggers, whatever its stance. */
+  rejecting: boolean;
 }
 
 export type StageEvent = { kind: 'wear' | 'destroyed' | 'ejected' | 'reveal'; slot: SlotId } | { kind: 'engine'; slot: SlotId; color: string } | { kind: 'evolve' };
@@ -160,9 +164,9 @@ export class SpecimenActor {
       for (const clip of g.animations) this.acts[clip.name as Clip] = this.mixer.clipAction(clip);
       // A one-off (attack, hit, roar, evolve) returns to the idle; dying holds its last frame.
       this.mixer.addEventListener('finished', (e) => {
-        if (e.action === this.cur && e.action !== this.acts.die) this.play('idle', { fade: 0.35 });
+        if (e.action === this.cur && e.action !== this.acts.die) this.play(this.idleClip(), { fade: 0.35 });
       });
-      this.play(this.state?.dead ? 'die' : 'idle', { start: this.state?.dead ? 99 : Math.random() * 4 });
+      this.play(this.state?.dead ? 'die' : this.idleClip(), { start: this.state?.dead ? 99 : Math.random() * 4 });
     }
     this.ready = true;
     if (this.state) this.apply(this.state);
@@ -199,6 +203,18 @@ export class SpecimenActor {
     return !!this.mixer;
   }
 
+  /** The idle for now: the rejection stagger, else its stance's (Adapt, Fortify; Aggress is the plain idle). */
+  private idleClip(): Clip {
+    if (this.state?.rejecting && this.acts.strained) return 'strained';
+    const st = this.state?.stance;
+    return (st === 'adapt' || st === 'fortify') && this.acts[st] ? st : 'idle';
+  }
+
+  /** Whether it's idling (in any stance), not in the middle of a one-off. */
+  private get idling() {
+    return (['idle', 'adapt', 'fortify', 'strained'] as Clip[]).some((c) => this.acts[c] && this.acts[c] === this.cur);
+  }
+
   /** The middle of the chest in world space, wherever a clash has carried it (where cameras look). */
   centerWorld(out = new THREE.Vector3()) {
     out.set(0, 0.12, 0);
@@ -220,8 +236,8 @@ export class SpecimenActor {
       this.scheduleReaction();
     } else if (!s.dead && prev?.dead) {
       this.moveX = 0;
-      this.play('idle', { fade: 0.4 });
-    }
+      this.play(this.idleClip(), { fade: 0.4 });
+    } else if ((s.stance !== prev?.stance || s.rejecting !== prev?.rejecting) && this.idling && !s.dead) this.play(this.idleClip(), { fade: 0.45 });
     if (s.won && prev && !prev.won) this.roarAt = this.now + 90;
     if (this.ready) this.apply(s);
     this.onWake();
@@ -427,11 +443,13 @@ export class SpecimenActor {
    */
   clash(o: { dir: number; reach: number; swing: boolean; knock: number }) {
     const down = this.cur === this.acts.die;
-    if (this.rigged && o.swing && !down) {
-      // The swing, started so its blow lands STRIKE_MS from now.
+    if (this.rigged && !down) {
+      // The swing (or, holding, the guard), started so the blow lands (or the guard is up) STRIKE_MS from now.
       this.attackAt = this.now;
-      const strike = this.model.attackStrike ?? 0;
-      this.play('attack', { once: true, speed: ATTACK_SPEED, start: Math.max(0, strike - (STRIKE_MS / 1000) * ATTACK_SPEED), fade: 0.1 });
+      if (o.swing) {
+        const strike = this.model.attackStrike ?? 0;
+        this.play('attack', { once: true, speed: ATTACK_SPEED, start: Math.max(0, strike - (STRIKE_MS / 1000) * ATTACK_SPEED), fade: 0.1 });
+      } else this.play('block', { once: true, start: Math.max(0, (this.model.blockUp ?? 0) - STRIKE_MS / 1000), fade: 0.1 });
     }
     // A reaction already waiting (the damage arrived a frame before the clash) waits for the blow instead.
     if (this.reactAt >= 0) this.reactAt = this.now + STRIKE_MS;
