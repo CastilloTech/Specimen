@@ -2,7 +2,14 @@
 
 One image prompt per graft card (97), for the image generator. Each describes the part shown in that card's artwork as a single object, ready to turn into 3D.
 
-## How to use
+## Better: make it on the Specimen
+
+Grafts fit best when they're made on the body. Instead of a standalone image, image-edit the Specimen art
+(`art-source/specimen-cutout.png`) to add the part, for example: "add [the description below] to its [slot]",
+keeping the creature and its pose unchanged. Run that through TRELLIS.2 and send me the model; I cut the graft
+out and fit it to the Specimen. The descriptions below still say what each graft looks like.
+
+## How to use (standalone)
 
 1. Paste a prompt into the image generator (FLUX.1 schnell, for example) and pick the cleanest result.
 2. Cut it out (remove the background) if the white isn't clean.

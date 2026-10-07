@@ -44,27 +44,23 @@ and rebuild the GLB with the same steps. The game plays whichever of these clip 
 
 ## Graft parts (`src/assets/models/grafts/<card id>.glb`)
 
-`graft-prompts.md` has an image prompt for each graft card. Each image goes through TRELLIS.2, and the model is
-saved under the card's id. Until a card has one, it gets a placeholder part made in code (`src/ui/three/grafts.ts`).
+Grafts are made **on the Specimen**, so each one is shaped to this body.
+1. **Generate:** an image of the Specimen wearing the graft (an image edit of the creature art), then through
+   TRELLIS.2.
+2. **Cut out:** the graft is cut from the dressed Specimen by colour (bone, red, orange and other bright or warm
+   colours against the dark body), keeping its big pieces.
+3. **Align:** the dressed body under each piece (the neck, or each forearm) is matched to the same part of the
+   game's Specimen at rest, and the piece moves with it. For a Limb card there's one bracer per arm, each shaped to
+   its own arm.
+4. **Fit:** points that still clip are pushed just outside the skin, and each point takes the bone weights of the
+   body under it. The graft is then skinned to the Specimen's own skeleton and bends with it in every animation.
+5. **Compress:** about 6,000 triangles per piece, colours baked into the points, meshopt (about 90–110 KB).
 
-Each TRELLIS model (about 100k triangles, 6 MB) is prepared for the game before it goes in:
-- simplified to about 6,000 triangles (more for large, detailed parts: Twitch Nerve keeps 14,000);
-- its texture's colours baked into the mesh's points, with no texture file;
-- given a semi-metallic finish;
-- compressed with meshopt.
+The tools for steps 2–4 are kept outside the repository. A model without fitting data (an ordinary standalone
+model) still works: it's placed rigidly on its socket. Until a card has a model, it gets a placeholder part made
+in code (`src/ui/three/grafts.ts`).
 
-That's about 25–55 KB per graft, so a board full of them stays light. Grafts are seen small, so the lost fine detail
-doesn't show.
-
-Placement is automatic:
-- a limb graft wraps its forearm like a bracer, along the arm and thick enough to clear the creature's own blades;
-- card models are drawn 25% larger than that (`CARD_PART_SCALE`), so they read at board size;
-- a nerve graft is worn like a collar: its neck hole round the base of the neck, tipped back to follow the hunched
-  shoulders, its front over the upper chest and its back plate on the upper back
-  (`WEAR` in `src/ui/three/actor.ts`);
-- other grafts stand on their socket.
-
-Done so far: `pred_bone_spur`, `pred_twitch_nerve`.
+Done so far (fitted): `pred_bone_spur`, `pred_twitch_nerve`.
 
 ## The arena
 

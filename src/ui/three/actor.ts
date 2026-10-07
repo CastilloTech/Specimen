@@ -71,6 +71,40 @@ const WEAR: Partial<Record<SlotId, { width: number; top: number; back: number; t
   // A collar: its neck hole round the base of the neck, tipped back to follow the hunched shoulders.
   nerve: { width: 0.3, top: 0.085, back: 0.03, tilt: 0.3 },
 };
+/** A fitted graft's points in the body's bind space. Compressed models store points as small integers plus a
+ * transform on their node that a skinned mesh would ignore, so the transform is baked in (once per model). */
+const fittedGeometries = new WeakMap<THREE.BufferGeometry, Map<number, THREE.BufferGeometry>>();
+/** side: -1 keeps only the creature's right half (limbA), +1 its left (limbB), 0 all (a limb card's model holds a
+ * bracer for each arm, each shaped to its own arm). */
+function fittedGeometry(mesh: THREE.Mesh, side: number): THREE.BufferGeometry {
+  let bySide = fittedGeometries.get(mesh.geometry);
+  if (!bySide) fittedGeometries.set(mesh.geometry, (bySide = new Map()));
+  let g = bySide.get(side);
+  if (!g) {
+    g = mesh.geometry.clone();
+    for (const name of ['position', 'normal'] as const) {
+      const a = g.attributes[name];
+      if (!a) continue;
+      const f = new Float32Array(a.count * 3);
+      for (let i = 0; i < a.count; i++) f.set([a.getX(i), a.getY(i), a.getZ(i)], i * 3);
+      g.setAttribute(name, new THREE.BufferAttribute(f, 3));
+    }
+    mesh.updateMatrix();
+    g.applyMatrix4(mesh.matrix);
+    if (side && g.index) {
+      const pos = g.attributes.position;
+      const idx = g.index.array;
+      const keep: number[] = [];
+      for (let t = 0; t < idx.length; t += 3) {
+        const x = pos.getX(idx[t]) + pos.getX(idx[t + 1]) + pos.getX(idx[t + 2]);
+        if (Math.sign(x) === side) keep.push(idx[t], idx[t + 1], idx[t + 2]);
+      }
+      g.setIndex(keep);
+    }
+    bySide.set(side, g);
+  }
+  return g;
+}
 /** Card graft models are drawn this much larger than the sizes above, so they read at board size. */
 const CARD_PART_SCALE = 1.25;
 
@@ -90,6 +124,8 @@ export class SpecimenActor {
   private rig = new THREE.Group();
   private body = new THREE.Group();
   private bodyMats: THREE.MeshStandardMaterial[] = [];
+  /** The creature's skinned mesh: fitted grafts share its skeleton. */
+  private bodyMesh: THREE.SkinnedMesh | null = null;
   private rim: THREE.PointLight;
   readonly model: SpecimenModel;
   ready = false;
@@ -159,6 +195,9 @@ export class SpecimenActor {
       }
     });
     this.body.add(obj);
+    obj.traverse((o) => {
+      if ((o as THREE.SkinnedMesh).isSkinnedMesh && !this.bodyMesh) this.bodyMesh = o as THREE.SkinnedMesh;
+    });
     // Sockets: placed at rest, then handed to their bone, which carries them (and the grafts) from then on.
     this.root.updateMatrixWorld(true);
     for (const slot of Object.keys(this.model.sockets) as SlotId[]) {
@@ -322,6 +361,21 @@ export class SpecimenActor {
           .then((gl) => {
             const cur = this.grafts.get(g.slot);
             if (this.disposed || !cur || cur.uid !== g.uid || cur.leaving) return;
+            const fitted = this.fitted(gl, g.slot);
+            if (fitted) {
+              cur.holder.remove(cur.part.group);
+              disposeTree(cur.part.group);
+              const group = new THREE.Group();
+              group.add(fitted);
+              cur.holder.add(group);
+              const mat = fitted.material as THREE.MeshStandardMaterial;
+              cur.part = { group, glow: [mat], fitted: true };
+              cur.base = [mat.emissiveIntensity || 0.6];
+              this.dress(cur, g);
+              this.fade(mat, 0, 1, 350);
+              this.onWake();
+              return;
+            }
             const obj = cloneSkinned(gl.scene);
             obj.userData.shared = true;
             const box = new THREE.Box3().setFromObject(obj);
@@ -421,6 +475,48 @@ export class SpecimenActor {
     return true;
   }
 
+  /**
+   * A fitted graft model (made by the fitting step, see art-source/README.md): already shaped to the body in its rest
+   * pose and weighted to its bones, so it's skinned to this Specimen's own skeleton and bends with it. Its points are
+   * in the body mesh's space and its bone weights name the body's bones. Null for an ordinary (rigid) model.
+   */
+  private fitted(gl: GLTF, slot: SlotId): THREE.SkinnedMesh | null {
+    const body = this.bodyMesh;
+    let src: THREE.Mesh | null = null;
+    gl.scene.traverse((o) => {
+      if ((o as THREE.Mesh).isMesh && (o.userData.fitted || o.parent?.userData.fitted) && !src) src = o as THREE.Mesh;
+    });
+    const mesh = src as THREE.Mesh | null;
+    if (!body || !mesh || !mesh.geometry.attributes.skinIndex) return null;
+    const names: string[] = mesh.userData.bones ?? mesh.parent?.userData.bones ?? [];
+    const bones: THREE.Bone[] = [];
+    const inverses: THREE.Matrix4[] = [];
+    for (const n of names) {
+      const i = body.skeleton.bones.findIndex((b) => b.name === n);
+      if (i < 0) return null;
+      bones.push(body.skeleton.bones[i]);
+      inverses.push(body.skeleton.boneInverses[i]);
+    }
+    const mat = (mesh.material as THREE.MeshStandardMaterial).clone();
+    mat.emissive = mat.emissive ?? new THREE.Color(0, 0, 0);
+    const sk = new THREE.SkinnedMesh(fittedGeometry(mesh, slot === 'limbA' ? -1 : slot === 'limbB' ? 1 : 0), mat);
+    sk.userData.shared = true; // the geometry is cached for the page
+    sk.frustumCulled = false; // its bounds move with the bones
+    sk.bind(new THREE.Skeleton(bones, inverses), body.bindMatrix);
+    return sk;
+  }
+
+  /** Fades a material's opacity (fitted grafts, which can't grow or fly off). */
+  private fade(mat: THREE.Material, from: number, to: number, ms: number, done?: () => void) {
+    if (this.reduced) return done?.();
+    mat.transparent = true;
+    mat.opacity = from;
+    this.tween(ms, (k) => (mat.opacity = from + (to - from) * k), () => {
+      mat.transparent = to < 1;
+      done?.();
+    });
+  }
+
   /** Same graft, new look (a face-down graft revealed). */
   private swap(g: GraftView, key: string) {
     const m = this.grafts.get(g.slot)!;
@@ -470,6 +566,7 @@ export class SpecimenActor {
     const out = UP.clone();
     const down = new THREE.Vector3(0, -1, 0).applyQuaternion(holder.parent!.getWorldQuaternion(new THREE.Quaternion()).invert());
     if (this.reduced) return gone();
+    if (m.part.fitted) return this.fade(m.part.glow[0], 1, 0, how === 'ejected' ? 500 : 650, gone);
     if (how === 'ejected') {
       this.tween(800, (k) => {
         holder.position.copy(start).addScaledVector(out, ease(k) * 0.35).addScaledVector(down, 0.25 * k * k);

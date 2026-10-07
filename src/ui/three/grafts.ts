@@ -9,6 +9,8 @@ export interface Part {
   group: THREE.Group;
   /** Materials that glow: an ability firing, poison or damage light these up. */
   glow: THREE.MeshStandardMaterial[];
+  /** A fitted graft (skinned to the body's skeleton): moving its group does nothing, so it fades in and out. */
+  fitted?: boolean;
 }
 
 const hash = (s: string) => {
