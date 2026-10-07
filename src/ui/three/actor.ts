@@ -65,9 +65,11 @@ const STRIKE_MS = 300;
 const WRAP_LENGTH = 0.9;
 const WRAP_GIRTH = 2;
 /** Grafts worn on the body like a collar, rather than standing on their socket: how wide (body units, before
- * CARD_PART_SCALE), how far its top rises above the socket, and how far its middle sits back into the body. */
-const WEAR: Partial<Record<SlotId, { width: number; top: number; back: number }>> = {
-  nerve: { width: 0.3, top: 0.035, back: -0.015 },
+ * CARD_PART_SCALE), how far its top rises above the socket, how far its middle sits back into the body, and how far
+ * it's tipped (radians; positive raises its front). */
+const WEAR: Partial<Record<SlotId, { width: number; top: number; back: number; tilt?: number }>> = {
+  // A collar: its neck hole round the base of the neck, tipped back to follow the hunched shoulders.
+  nerve: { width: 0.3, top: 0.085, back: 0.03, tilt: 0.3 },
 };
 /** Card graft models are drawn this much larger than the sizes above, so they read at board size. */
 const CARD_PART_SCALE = 1.25;
@@ -405,6 +407,7 @@ export class SpecimenActor {
     // Where it goes in the body's space, at rest.
     const want = new THREE.Matrix4()
       .makeTranslation(s.at[0], s.at[1] + w.top - (box.max.y - centre.y) * k, s.at[2] - w.back)
+      .multiply(new THREE.Matrix4().makeRotationX(w.tilt ?? 0))
       .multiply(new THREE.Matrix4().makeScale(k, k, k))
       .multiply(new THREE.Matrix4().makeTranslation(-centre.x, -centre.y, -centre.z));
     // The socket's rest place in the body, then the holder on it: the part's transform is what's left.

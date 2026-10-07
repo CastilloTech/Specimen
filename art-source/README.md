@@ -59,8 +59,9 @@ doesn't show.
 Placement is automatic:
 - a limb graft wraps its forearm like a bracer, along the arm and thick enough to clear the creature's own blades;
 - card models are drawn 25% larger than that (`CARD_PART_SCALE`), so they read at board size;
-- a nerve graft is worn like a collar on the chest, upright and facing forward, wide enough to sit on the chest
-  rather than inside it (`WEAR` in `src/ui/three/actor.ts`);
+- a nerve graft is worn like a collar: its neck hole round the base of the neck, tipped back to follow the hunched
+  shoulders, its front over the upper chest and its back plate on the upper back
+  (`WEAR` in `src/ui/three/actor.ts`);
 - other grafts stand on their socket.
 
 Done so far: `pred_bone_spur`, `pred_twitch_nerve`.
