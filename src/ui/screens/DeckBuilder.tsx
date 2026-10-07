@@ -7,6 +7,8 @@ import { ENERGY_BADGE } from '../components/EnergyIcon';
 import { CARD_MAP, CARDS, chipRows, chipsFor, defaultConfig, FACTIONS, starterDeck, validateDeck, validateLoadout, WORLD_FACTIONS } from '../../engine';
 import type { CardDef, EngineId, Faction, WorldFactionId } from '../../engine';
 import { CardDetail } from '../components/CardDetail';
+import { Fitting, tryOn } from '../components/Fitting';
+import type { Fit } from '../components/Fitting';
 import { accentFor, CardView } from '../components/CardView';
 import { ChipPicker } from '../components/ChipPicker';
 import { ChipArt, Emblem } from '../components/Emblem';
@@ -62,6 +64,43 @@ function DeckTab({ onTest }: { onTest?: (d: DeckTest) => void }) {
   const [sheet, setSheet] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
   const [viewing, setViewing] = useState<string | null>(null); // card id open in the full view
+  // The fitting room: grafts tried on the 3D Specimen (opening a graft card tries it on).
+  const [fit, setFit] = useSessionState<Fit>('decks.fit', {});
+  useEffect(() => {
+    const c = viewing ? CARD_MAP[viewing] : null;
+    if (c) setFit((f) => tryOn(f, c));
+  }, [viewing, setFit]);
+  /** Dress the Specimen in the deck's grafts: one per slot, the most copies first. */
+  const wearDeck = () => {
+    let f: Fit = {};
+    const grafts = Object.keys(counts)
+      .filter((id) => counts[id] > 0 && CARD_MAP[id]?.type === 'graft')
+      .sort((a, b) => counts[b] - counts[a]);
+    for (const id of grafts) {
+      const next = tryOn(f, CARD_MAP[id]);
+      const slots = Object.keys(next).filter((k) => !(k in f));
+      if (slots.length) f = next;
+    }
+    setFit(f);
+  };
+  const clearSlot = (slot: string) => setFit((f) => Object.fromEntries(Object.entries(f).filter(([k]) => k !== slot)) as Fit);
+  const fittingPanel = (
+    <div className="mb-3">
+      <div className="mb-1.5 flex items-center gap-2">
+        <span className="font-display text-sm font-bold">Fitting</span>
+        <span className="text-[10px] text-mute">open a graft to try it on</span>
+        <button onClick={wearDeck} className="ml-auto rounded-md border border-line px-2 py-0.5 text-[11px] text-ink2 hover:border-mute" title="Put the deck's grafts on the Specimen">
+          Wear deck
+        </button>
+        {Object.keys(fit).length > 0 && (
+          <button onClick={() => setFit({})} className="rounded-md border border-line px-2 py-0.5 text-[11px] text-ink2 hover:border-mute">
+            Clear
+          </button>
+        )}
+      </div>
+      <Fitting fit={fit} onClear={clearSlot} height={250} />
+    </div>
+  );
   const [engine, setEngine] = useSessionState<EngineId | null>('decks.engine', null); // pool filter: one engine's cards, from all three pools
   // Undo instead of "are you sure?": big changes happen at once, with a few seconds to take them back.
   const [undo, setUndo] = useState<{ label: string; snap: { faction: Faction; worldFaction: WorldFactionId; counts: Record<string, number>; clean: Record<string, number>; name: string; saved: SavedDeck[] } } | null>(null);
@@ -372,6 +411,7 @@ function DeckTab({ onTest }: { onTest?: (d: DeckTest) => void }) {
               Save
             </button>
           </div>
+          {fittingPanel}
           {deckPanel}
         </aside>
       )}
@@ -428,6 +468,12 @@ function DeckTab({ onTest }: { onTest?: (d: DeckTest) => void }) {
         const recs = loadMatches();
         return (
           <CardDetail def={c} onClose={() => setViewing(null)} onPrev={i > 0 ? () => setViewing(list[i - 1]) : undefined} onNext={i >= 0 && i < list.length - 1 ? () => setViewing(list[i + 1]) : undefined}>
+            {c.type === 'graft' && (
+              <div className="mb-1">
+                <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-mute">On the Specimen</div>
+                <Fitting fit={fit} focus={c.id} onClear={clearSlot} height={230} zoom={1.35} />
+              </div>
+            )}
             {c.mastery && (
               <div className={`mb-2 rounded-lg border p-2 text-[11px] ${lock ? 'border-line bg-black/30' : 'border-amber-400/50 bg-amber-950/25 text-amber-100'}`}>
                 <div className="mb-1 font-semibold">{lock ? `🔒 Mastery Signature: complete every ${factionName(c.faction)} achievement to unlock` : `★ Mastery Signature unlocked`}</div>

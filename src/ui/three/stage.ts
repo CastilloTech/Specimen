@@ -21,6 +21,10 @@ export class SpecimenStage {
   private raf = 0;
   private clock = new THREE.Clock();
   private time = 0;
+  /** Turntable: radians a second it turns by itself (0: still), and how far it's been turned. */
+  private spin = 0;
+  private turn = 0;
+  private baseYaw = 0;
 
   constructor(canvas: HTMLCanvasElement, opts: { yaw?: number; model?: SpecimenModel; zoom?: number } = {}) {
     this.canvas = canvas;
@@ -35,7 +39,8 @@ export class SpecimenStage {
     this.camera.position.set(0, focus + 0.04, 2.45 / zoom);
     this.camera.lookAt(0, focus, 0);
     this.actor = new SpecimenActor({ model: opts.model });
-    this.actor.root.rotation.y = opts.yaw ?? 0;
+    this.baseYaw = opts.yaw ?? 0;
+    this.actor.root.rotation.y = this.baseYaw;
     this.actor.onWake = () => this.wake();
     this.scene.add(this.actor.root);
   }
@@ -65,6 +70,18 @@ export class SpecimenStage {
     return out;
   }
 
+  /** Let it turn by itself (radians a second; 0 stops it). */
+  setSpin(speed: number) {
+    this.spin = speed;
+  }
+
+  /** Turn it by hand (a drag), by this many radians. */
+  turnBy(rad: number) {
+    this.turn += rad;
+    this.actor.root.rotation.y = this.baseYaw + this.turn;
+    this.wake();
+  }
+
   setState(s: StageState) {
     this.actor.setState(s);
   }
@@ -92,6 +109,10 @@ export class SpecimenStage {
     this.raf = requestAnimationFrame(this.loop);
     const dt = Math.min(0.05, this.clock.getDelta());
     this.time += dt * 1000;
+    if (this.spin) {
+      this.turn += this.spin * dt;
+      this.actor.root.rotation.y = this.baseYaw + this.turn;
+    }
     this.actor.update(this.time, dt);
     this.render();
   };
