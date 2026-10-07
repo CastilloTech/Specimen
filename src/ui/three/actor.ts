@@ -64,6 +64,11 @@ const STRIKE_MS = 300;
  * alone would make it (the forearm carries blades a bracer has to clear). */
 const WRAP_LENGTH = 0.9;
 const WRAP_GIRTH = 2;
+/** Grafts worn on the body like a collar, rather than standing on their socket: how wide (body units, before
+ * CARD_PART_SCALE), how far its top rises above the socket, and how far its middle sits back into the body. */
+const WEAR: Partial<Record<SlotId, { width: number; top: number; back: number }>> = {
+  nerve: { width: 0.3, top: 0.035, back: -0.015 },
+};
 /** Card graft models are drawn this much larger than the sizes above, so they read at board size. */
 const CARD_PART_SCALE = 1.25;
 
@@ -320,7 +325,8 @@ export class SpecimenActor {
             const box = new THREE.Box3().setFromObject(obj);
             // A limb's model wraps the forearm; any other sits on its socket: base at the origin, about 0.08 across.
             const limb = g.slot === 'limbA' || g.slot === 'limbB';
-            if (!limb || !this.wrapForearm(g.slot, cur.holder, obj, box)) {
+            const placed = limb ? this.wrapForearm(g.slot, cur.holder, obj, box) : this.wear(g.slot, cur.holder, obj, box);
+            if (!placed) {
               const size = box.getSize(new THREE.Vector3());
               const k = (CARD_PART_SCALE * 0.08) / Math.max(size.x, size.y, size.z, 0.001);
               obj.scale.setScalar(k);
@@ -381,6 +387,34 @@ export class SpecimenActor {
     mark.updateMatrix();
     holder.updateMatrix();
     mark.matrix.clone().multiply(holder.matrix).invert().multiply(wrap).decompose(obj.position, obj.quaternion, obj.scale);
+    return true;
+  }
+
+  /**
+   * A graft worn on the body (a collar): upright and facing forward like the body, WEAR[slot].width wide, centred on
+   * the socket with its top WEAR[slot].top above it and its middle WEAR[slot].back into the body. False if the slot
+   * isn't worn this way.
+   */
+  private wear(slot: SlotId, holder: THREE.Object3D, obj: THREE.Object3D, box: THREE.Box3): boolean {
+    const w = WEAR[slot];
+    if (!w) return false;
+    const s = this.model.sockets[slot];
+    const size = box.getSize(new THREE.Vector3());
+    const centre = box.getCenter(new THREE.Vector3());
+    const k = (CARD_PART_SCALE * w.width) / Math.max(size.x, 0.001);
+    // Where it goes in the body's space, at rest.
+    const want = new THREE.Matrix4()
+      .makeTranslation(s.at[0], s.at[1] + w.top - (box.max.y - centre.y) * k, s.at[2] - w.back)
+      .multiply(new THREE.Matrix4().makeScale(k, k, k))
+      .multiply(new THREE.Matrix4().makeTranslation(-centre.x, -centre.y, -centre.z));
+    // The socket's rest place in the body, then the holder on it: the part's transform is what's left.
+    const socketRest = new THREE.Matrix4().compose(
+      new THREE.Vector3(...s.at),
+      new THREE.Quaternion().setFromUnitVectors(UP, new THREE.Vector3(...s.out).normalize()),
+      new THREE.Vector3(1, 1, 1),
+    );
+    holder.updateMatrix();
+    socketRest.multiply(holder.matrix).invert().multiply(want).decompose(obj.position, obj.quaternion, obj.scale);
     return true;
   }
 

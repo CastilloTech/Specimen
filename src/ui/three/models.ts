@@ -13,6 +13,7 @@ import specimenUrl from '../../assets/models/specimen.glb?url';
 // Per-card graft models go in src/assets/models/grafts/<card id>.glb, sized and placed by the game:
 // - a limb graft wraps the forearm like a bracer: its longest side (x or z) runs along the forearm, its top (+Y)
 //   faces out of the arm;
+// - a nerve graft is worn like a collar: upright and facing forward (+Z) like the body, centred on the throat;
 // - any other sits on its socket: its bottom touches the body, its top (+Y) points out, about 0.08 units across.
 // A card without one gets a placeholder part made in code for its slot (see grafts.ts).
 
